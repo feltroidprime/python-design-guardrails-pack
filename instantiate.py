@@ -9,6 +9,31 @@ import sys
 PACKAGE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 PROJECT_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
+PROJECT_TOKEN = "__PROJECT_NAME__"
+PACKAGE_TOKEN = "__PACKAGE__"
+PLACEHOLDER_TOKENS = (PROJECT_TOKEN, PACKAGE_TOKEN)
+
+# Local artifacts that must never reach a generated repository, even if a
+# maintainer accidentally leaves them inside template/.
+IGNORED_ARTIFACT_PATTERNS = (
+    ".DS_Store",
+    ".basedpyright",
+    ".coverage",
+    ".idea",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    ".vscode",
+    "*.egg-info",
+    "*.py[cod]",
+    "__pycache__",
+    "coverage.xml",
+    "dist",
+    "htmlcov",
+    "uv.lock",
+)
+
 
 def replace_tokens(path: Path, replacements: dict[str, str]) -> None:
     if not path.is_file():
@@ -46,15 +71,20 @@ def main() -> int:
         return 2
 
     output.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(source, output, dirs_exist_ok=True)
+    shutil.copytree(
+        source,
+        output,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(*IGNORED_ARTIFACT_PATTERNS),
+    )
 
-    package_placeholder = output / "src" / "__PACKAGE__"
+    package_placeholder = output / "src" / PACKAGE_TOKEN
     package_destination = output / "src" / package_name
     package_placeholder.rename(package_destination)
 
     replacements = {
-        "__PROJECT_NAME__": project_name,
-        "__PACKAGE__": package_name,
+        PROJECT_TOKEN: project_name,
+        PACKAGE_TOKEN: package_name,
     }
     for path in output.rglob("*"):
         replace_tokens(path, replacements)

@@ -2,6 +2,11 @@
 
 A reusable Python 3.14 repository template that turns software-design principles into executable constraints for humans and coding agents.
 
+## Two ways to be here
+
+- **Using the pack**: run `instantiate.py` to create a new repository, then work inside that repository under its own `AGENTS.md`, justfile, and quality gate. See "Create a new repository" below.
+- **Maintaining the pack**: this repository is a meta-repository; `template/` is the canonical source copied into every generated repository and `instantiate.py` is the generator. Read the root `AGENTS.md` before changing anything — `template/AGENTS.md` is downstream content, not the contract for working here.
+
 This pack is inspired by the public curriculum of ArjanCodes' **Software Design Mastery** program, but it is an independent implementation. The course is still presented publicly as a 2026 waitlist; this repository therefore separates:
 
 - what the public curriculum states explicitly;
@@ -64,3 +69,14 @@ The generated project intentionally contains a tiny vertical slice that passes t
 - `scripts/quality_gate.py`: canonical one-command acceptance gate.
 
 See `DESIGN_MASTERY_MAPPING.md` for the detailed mapping from curriculum promises to repository mechanisms.
+
+## Maintaining the pack
+
+Prerequisites: `python3` (3.14), [`uv`](https://docs.astral.sh/uv/), and [`just`](https://github.com/casey/just). The root intentionally has no `pyproject.toml` or virtualenv; pytest is supplied ephemerally by `uv run --with`.
+
+```bash
+just test       # generator unit tests (fast inner loop)
+just validate   # canonical validation — required before claiming any template change done
+```
+
+`just validate` runs the generator tests, then instantiates a throwaway repository in a temporary directory, verifies that `template/` carries no local runtime artifacts, that no placeholder token survives generation, resolves the pinned dependencies, and runs the generated repository's own full quality gate before cleaning up. The last executed validation is recorded in `VALIDATION.md`.
