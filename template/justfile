@@ -1,0 +1,27 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+default:
+    @just --list
+
+bootstrap:
+    uv sync --all-groups
+    uv run pre-commit install --hook-type pre-commit --hook-type pre-push
+
+fix:
+    uv run ruff check --fix .
+    uv run ruff format .
+
+check:
+    uv run python scripts/quality_gate.py
+
+test:
+    uv run pytest
+
+arch:
+    uv run python -m scripts.architecture_guard
+    uv run lint-imports
+
+update:
+    uv lock --upgrade
+    uv run pre-commit autoupdate
+    uv run python scripts/quality_gate.py

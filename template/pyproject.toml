@@ -1,0 +1,204 @@
+[build-system]
+requires = ["uv_build==0.11.28"]
+build-backend = "uv_build"
+
+[project]
+name = "__PROJECT_NAME__"
+version = "0.1.0"
+description = "A Python 3.14 project with executable design guardrails."
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "basedpyright==1.39.9",
+  "coverage[toml]==7.15.0",
+  "hypothesis==6.156.6",
+  "import-linter==2.13",
+  "pre-commit==4.6.0",
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+  "pytest-socket==0.8.0",
+  "ruff==0.15.21",
+]
+
+[tool.uv]
+required-version = ">=0.11.28,<0.12"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests", "scripts"]
+force-exclude = true
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "ANN",
+  "ARG",
+  "ASYNC",
+  "B",
+  "BLE",
+  "C4",
+  "C90",
+  "DTZ",
+  "E",
+  "ERA",
+  "F",
+  "FBT",
+  "FLY",
+  "FURB",
+  "G",
+  "I",
+  "ICN",
+  "ISC",
+  "LOG",
+  "N",
+  "PERF",
+  "PGH",
+  "PIE",
+  "PL",
+  "PT",
+  "PTH",
+  "Q",
+  "RET",
+  "RSE",
+  "RUF",
+  "S",
+  "SIM",
+  "SLF",
+  "T10",
+  "T20",
+  "TC",
+  "TID",
+  "TRY",
+  "UP",
+  "W",
+]
+ignore = [
+  "COM812",
+  "ISC001",
+  "PLR0904",
+  "TRY003",
+]
+fixable = ["ALL"]
+unfixable = ["ERA001"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+  "ANN201",
+  "ARG001",
+  "PLR2004",
+  "S101",
+  "SLF001",
+]
+"scripts/**/*.py" = ["T201"]
+"scripts/architecture_rules.py" = ["TC003"]
+"scripts/quality_gate.py" = ["S603"]
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = false
+mypy-init-return = false
+suppress-dummy-args = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["__PACKAGE__"]
+combine-as-imports = true
+force-sort-within-sections = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 6
+max-branches = 10
+max-locals = 12
+max-nested-blocks = 4
+max-public-methods = 12
+max-returns = 6
+max-statements = 40
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+
+[tool.basedpyright]
+include = ["src", "tests", "scripts"]
+pythonVersion = "3.14"
+pythonPlatform = "All"
+typeCheckingMode = "recommended"
+failOnWarnings = true
+reportAny = "error"
+reportExplicitAny = "error"
+reportImplicitOverride = "error"
+reportMatchNotExhaustive = "error"
+reportMissingParameterType = "error"
+reportMissingTypeArgument = "error"
+reportPrivateUsage = "error"
+reportUnannotatedClassAttribute = "error"
+reportUnnecessaryTypeIgnoreComment = "error"
+
+[tool.pytest.ini_options]
+minversion = "9.1"
+testpaths = ["tests"]
+addopts = [
+  "-ra",
+  "--strict-config",
+  "--strict-markers",
+  "--disable-socket",
+  "--cov=__PACKAGE__",
+  "--cov-branch",
+  "--cov-report=term-missing:skip-covered",
+  "--cov-fail-under=90",
+]
+markers = [
+  "contract: shared behavioral contract for a port implementation",
+  "integration: deterministic integration test across real local components",
+]
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["__PACKAGE__"]
+relative_files = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+]
+
+[tool.importlinter]
+root_package = "__PACKAGE__"
+include_external_packages = false
+exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+id = "layers"
+name = "Dependencies point inward"
+type = "layers"
+layers = [
+  "__PACKAGE__.bootstrap",
+  "__PACKAGE__.adapters",
+  "__PACKAGE__.application",
+  "__PACKAGE__.domain",
+]
+
+[[tool.importlinter.contracts]]
+id = "adapter-independence"
+name = "Inbound and outbound adapters are independent"
+type = "independence"
+modules = [
+  "__PACKAGE__.adapters.inbound",
+  "__PACKAGE__.adapters.outbound",
+]

@@ -1,0 +1,19 @@
+"""Domain entities and aggregate behavior."""
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from __PACKAGE__.domain.value_objects import ItemId, ItemName
+
+
+@dataclass(slots=True, kw_only=True)
+class Item:
+    """Example aggregate root."""
+
+    item_id: ItemId
+    name: ItemName
+
+    def rename(self, new_name: ItemName) -> None:
+        """Change the name while preserving validation in the value object."""
+        self.name = new_name
