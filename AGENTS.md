@@ -56,6 +56,11 @@ repository, not this one.
    places that must move together: `template/pyproject.toml` (dev group and
    `tool.uv.required-version`), `template/.pre-commit-config.yaml` (hook
    revisions), and `template/.github/workflows/quality.yml` (uv version).
+   Two diagram-toolchain pins join this rule: the grimp pin appears in
+   `template/pyproject.toml` (dev group) **and** the root `justfile`
+   (`--with grimp==…` for the diagram-sync tests) — move both together. The
+   LikeC4 CLI version is pinned in exactly one place, `[tool.likec4]` in
+   `template/pyproject.toml`; never introduce a second copy.
 5. **No local artifacts in `template/`.** Runtime caches (`.ruff_cache`,
    `__pycache__`, `.pytest_cache`, …) must never exist there; the authoritative
    pattern list is `IGNORED_ARTIFACT_PATTERNS` in `instantiate.py`. Note that
@@ -92,10 +97,12 @@ Required before claiming completion:
 `just test` alone (generator tests, no downstream install) is a fast inner
 loop, not a completion criterion for template changes.
 
-Prerequisites: `python3` (3.14), `uv`, `just`, and network access for the
-first dependency resolution. `uv run --with pytest` supplies pytest; the root
-intentionally has no `pyproject.toml` and no virtualenv, so IDE warnings about
-unresolved `pytest`/`validate_pack` imports in `tests/` are expected.
+Prerequisites: `python3` (3.14), `uv`, `just`, `bun`, and network access for
+the first dependency resolution (including the first `bunx` download of the
+pinned LikeC4 CLI, exercised by the downstream gate's `diagram views` check).
+`uv run --with` supplies pytest and grimp; the root intentionally has no
+`pyproject.toml` and no virtualenv, so IDE warnings about unresolved
+`pytest`/`validate_pack`/`grimp` imports are expected.
 
 ## Documentation synchronization
 

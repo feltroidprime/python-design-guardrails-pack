@@ -10,6 +10,7 @@ bootstrap:
 fix:
     uv run ruff check --fix .
     uv run ruff format .
+    uv run python -m scripts.sync_architecture_diagrams --write
 
 check:
     uv run python scripts/quality_gate.py
@@ -20,6 +21,14 @@ test:
 arch:
     uv run python -m scripts.architecture_guard
     uv run lint-imports
+    uv run python -m scripts.sync_architecture_diagrams --check
+
+# Browse live architecture diagrams (requires Bun; first run downloads the pinned LikeC4 CLI).
+diagrams:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="$(uv run python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['tool']['likec4']['version'])")"
+    exec bunx "likec4@${version}" serve docs/architecture/likec4
 
 update:
     uv lock --upgrade

@@ -68,6 +68,31 @@ Owns translation to/from external systems and frameworks.
 
 The composition root. It is the only ordinary location allowed to instantiate the production dependency graph.
 
+## Architecture diagrams (derived, never drawn)
+
+The LikeC4 model under `docs/architecture/likec4/generated/` is derived from
+the import-linter contracts and the real import graph (grimp). See
+`docs/adr/0001-derived-architecture-diagrams.md`.
+
+- **Never edit files under `docs/architecture/likec4/generated/`.** The
+  quality gate's `diagram sync` check fails on any drift; resolve it with
+  `just fix` (or `uv run python -m scripts.sync_architecture_diagrams --write`).
+- Layers are declared in exactly one place: the import-linter `layers`
+  contract in `pyproject.toml`. Adding a layer there updates the linter and
+  the diagrams simultaneously.
+- Hand-written views belong in `docs/architecture/likec4/views.c4` (never
+  regenerated). The gate's `diagram views` check validates them against the
+  generated model, so renaming or deleting a module forces the views to move
+  in the same commit. `specification.c4` is written once; extend it only
+  deliberately.
+- The LikeC4 CLI version is pinned in exactly one place, `[tool.likec4]` in
+  `pyproject.toml`, and every invocation goes through `bunx likec4@<version>`
+  (Bun is a toolchain prerequisite). Do not introduce `package.json`,
+  JavaScript lockfiles, or `node_modules`. Version bumps move that single pin
+  and must pass the full gate.
+- To reason from the current architecture, browse it with `just diagrams` or
+  query the model through LikeC4 tooling instead of trusting stale prose.
+
 ## Typing policy
 
 - Python target is exactly 3.14.x.

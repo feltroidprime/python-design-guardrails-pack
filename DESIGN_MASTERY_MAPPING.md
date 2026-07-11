@@ -46,6 +46,7 @@ The public page describes a program launching in 2026 and exposes a detailed cur
 | Strangler Pattern | old/new implementations behind one port, traffic or call-path migration | migration ADR template with coexistence, rollback, telemetry, and deletion criteria |
 | Branch by Abstraction | introduce seam, dual implementation, switch, remove old path | dedicated migration checklist and expiring exception ledger |
 | Prevent architectural drift | fitness functions executed locally and in CI | AST guard + Import Linter + strict type/lint/test gate |
+| Architecture communication without drift | diagrams derived from the code, not drawn | LikeC4 model generated from the grimp import graph (same library Import Linter uses); gate fails on model drift and on views referencing missing elements; free-form views stay team-owned |
 | Trade-offs under pressure | ADR with forces, rejected options, cost, revisit trigger | mandatory ADR triggers and explicit exception expiry |
 | AI speed vs long-term risk | AI proposes; deterministic tools and humans retain design authority | agent contract forbids architecture invention without evidence and requires gate output |
 

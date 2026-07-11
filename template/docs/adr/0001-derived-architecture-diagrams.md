@@ -1,0 +1,87 @@
+# ADR-0001: Architecture diagrams are derived from the import graph
+
+- Status: accepted
+- Date: 2026-07-11
+- Owners: repository maintainers (shipped with the Python Design Guardrails Pack)
+- Revisit trigger: LikeC4 CLI or grimp becomes unmaintained, or the derived
+  model stops matching how the team actually reasons about the system
+
+## Context and forces
+
+Hand-drawn architecture diagrams silently drift from the code they describe.
+Humans, coding agents, and stakeholders all need a current, trustworthy
+picture of the system, but a hand-maintained diagram is a second source of
+truth that no gate protects: six months in, it is a well-formatted lie. This
+repository's core promise is that design principles are executable
+constraints; diagrams must not be the one design artifact without any.
+
+## Decision
+
+The LikeC4 architecture model is **derived from the code**, never edited:
+
+- `scripts/sync_architecture_diagrams.py` reads the layer list from the
+  import-linter `layers` contract (and adapter independence from the
+  `independence` contract) in `pyproject.toml`, builds the real import graph
+  with grimp — the same library import-linter uses — and regenerates
+  `docs/architecture/likec4/generated/` (the model plus baseline views).
+- The quality gate fails when the committed model lags the code
+  (`--check`, pure Python) and when any view references elements that no
+  longer exist (`bunx likec4@<pinned> validate`). The same gate runs
+  locally, in pre-push, and in CI.
+- `docs/architecture/likec4/views.c4` is team-owned free-form narration;
+  the generator never touches it. `specification.c4` is written once.
+- All LikeC4 CLI invocations go through `bunx likec4@<version>` with the
+  version pinned in exactly one place: `[tool.likec4]` in `pyproject.toml`.
+
+**Files under `docs/architecture/likec4/generated/` must never be edited by
+hand.** Resolve drift with `just fix` (or
+`uv run python -m scripts.sync_architecture_diagrams --write`).
+
+## Alternatives considered
+
+- **Hand-maintained diagrams with review discipline.** Rejected: no gate can
+  verify prose-level intent, and drift is invisible until it misleads.
+- **No committed model (generate on demand).** Rejected: reviewers and
+  agents need the model in the diff, and views must be validated against a
+  committed model in the same commit.
+- **A JavaScript project (package.json, lockfile, node_modules) for the
+  LikeC4 CLI.** Rejected: this is a Python repository; a pinned `bunx`
+  invocation keeps the JS toolchain ephemeral.
+
+## Consequences
+
+### Positive
+
+- Diagrams can never contradict the import linter: both read the same grimp
+  graph, and stale diagrams are uncommittable.
+- Layers are declared in exactly one place (the import-linter contract).
+- Free-form views stay expressive without becoming a second source of truth.
+
+### Negative / cost accepted
+
+- Bun is a full toolchain prerequisite alongside uv and just.
+- The first `bunx` invocation on a machine downloads the pinned LikeC4
+  package (network once, then cached) — same posture as the first `uv sync`.
+
+### Risks and mitigations
+
+- *LikeC4 CLI breakage:* the version is pinned; bumps are deliberate and
+  atomic.
+- *grimp/import-linter divergence:* both are maintained by the same author;
+  the sync script must never substitute a different import extractor.
+
+## Validation
+
+The quality gate's `diagram sync` and `diagram views` checks enforce this
+decision on every commit, pre-push, and CI run.
+
+## Migration and rollback
+
+Shipped with the repository from day one. Rolling back means deleting
+`docs/architecture/likec4/`, the sync script, and the two gate checks.
+
+## Removal / supersession criteria
+
+Superseded if the team adopts a different derived-model toolchain that
+preserves the guarantee: diagrams regenerate from the code and drift fails
+the gate.

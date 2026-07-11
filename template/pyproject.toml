@@ -14,6 +14,7 @@ dependencies = []
 dev = [
   "basedpyright==1.39.9",
   "coverage[toml]==7.15.0",
+  "grimp==3.15",
   "hypothesis==6.156.6",
   "import-linter==2.13",
   "pre-commit==4.6.0",
@@ -25,6 +26,12 @@ dev = [
 
 [tool.uv]
 required-version = ">=0.11.28,<0.12"
+
+# The only place the LikeC4 CLI version is pinned. Every invocation goes
+# through `bunx likec4@<version>` (quality gate and `just diagrams`), which
+# keeps this Python repository free of JavaScript project files.
+[tool.likec4]
+version = "1.58.0"
 
 [tool.ruff]
 target-version = "py314"

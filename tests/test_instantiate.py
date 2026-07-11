@@ -34,12 +34,19 @@ EXPECTED_FILES = (
     "README.md",
     "architecture.toml",
     "docs/adr/0000-template.md",
+    "docs/adr/0001-derived-architecture-diagrams.md",
     "docs/architecture/EXCEPTIONS.md",
+    "docs/architecture/likec4/generated/baseline-views.c4",
+    "docs/architecture/likec4/generated/model.c4",
+    "docs/architecture/likec4/likec4.config.json",
+    "docs/architecture/likec4/specification.c4",
+    "docs/architecture/likec4/views.c4",
     "justfile",
     "pyproject.toml",
     "scripts/architecture_guard.py",
     "scripts/architecture_rules.py",
     "scripts/quality_gate.py",
+    "scripts/sync_architecture_diagrams.py",
     f"src/{PACKAGE_NAME}/bootstrap.py",
     f"src/{PACKAGE_NAME}/domain/value_objects.py",
     f"src/{PACKAGE_NAME}/py.typed",
@@ -175,6 +182,57 @@ def test_generated_architecture_guard_runs_and_passes(generated: Path) -> None:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Architecture guard passed." in result.stdout
+
+
+def run_diagram_sync(repo: Path, mode: str) -> subprocess.CompletedProcess[str]:
+    """Run the diagram sync script inside a generated repository (pure Python, no Bun)."""
+    return subprocess.run(
+        [sys.executable, "-m", "scripts.sync_architecture_diagrams", mode],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+GENERATED_DIAGRAM_FILES = (
+    "docs/architecture/likec4/generated/model.c4",
+    "docs/architecture/likec4/generated/baseline-views.c4",
+)
+
+
+def test_diagram_sync_check_passes_on_fresh_repository(generated: Path) -> None:
+    """The committed derived model must match the import graph byte for byte."""
+    result = run_diagram_sync(generated, "--check")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_diagram_sync_detects_drift_and_names_the_fix(tmp_path: Path) -> None:
+    output = tmp_path / "repo"
+    assert run_instantiate(PROJECT_NAME, PACKAGE_NAME, output).returncode == 0
+
+    planted = output / "src" / PACKAGE_NAME / "domain" / "planted_policy.py"
+    planted.write_text('"""Planted module for drift detection."""\n', encoding="utf-8")
+
+    drifted = run_diagram_sync(output, "--check")
+    assert drifted.returncode == 1, drifted.stdout + drifted.stderr
+    assert "sync_architecture_diagrams --write" in drifted.stdout + drifted.stderr
+
+    written = run_diagram_sync(output, "--write")
+    assert written.returncode == 0, written.stdout + written.stderr
+    resynced = run_diagram_sync(output, "--check")
+    assert resynced.returncode == 0, resynced.stdout + resynced.stderr
+
+
+def test_diagram_sync_output_is_byte_stable(tmp_path: Path) -> None:
+    output = tmp_path / "repo"
+    assert run_instantiate(PROJECT_NAME, PACKAGE_NAME, output).returncode == 0
+
+    assert run_diagram_sync(output, "--write").returncode == 0
+    first = [(output / name).read_bytes() for name in GENERATED_DIAGRAM_FILES]
+    assert run_diagram_sync(output, "--write").returncode == 0
+    second = [(output / name).read_bytes() for name in GENERATED_DIAGRAM_FILES]
+    assert first == second
 
 
 def test_generated_vertical_slice_executes(generated: Path) -> None:

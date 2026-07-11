@@ -38,7 +38,8 @@ This pack is inspired by the public curriculum of ArjanCodes' **Software Design 
 - ADR required for architecture exceptions, new cross-layer dependencies, framework adoption, or migration strategies;
 - exception ledger with expiry/removal criteria;
 - Strangler and Branch-by-Abstraction migration templates;
-- a single local quality gate mirrored in CI.
+- a single local quality gate mirrored in CI;
+- architecture diagrams derived from the import graph (LikeC4 + grimp): the gate fails when the committed model lags the code or a hand-written view references a missing element, so stale diagrams are uncommittable.
 
 ## Create a new repository
 
@@ -67,13 +68,14 @@ The generated project intentionally contains a tiny vertical slice that passes t
 - `.pre-commit-config.yaml`: fast commit checks and full pre-push gate.
 - `.vscode/settings.json`: hides derived artifacts (caches, coverage, `.venv`) from the VS Code explorer and search.
 - `docs/architecture/`: pattern admission rules, ADRs, migration and exception templates.
+- `docs/architecture/likec4/`: architecture diagrams — `generated/` is derived from the import graph by `scripts/sync_architecture_diagrams.py` (never hand-edited), `views.c4` is team-owned narration.
 - `scripts/quality_gate.py`: canonical one-command acceptance gate.
 
 See `DESIGN_MASTERY_MAPPING.md` for the detailed mapping from curriculum promises to repository mechanisms.
 
 ## Maintaining the pack
 
-Prerequisites: `python3` (3.14), [`uv`](https://docs.astral.sh/uv/), and [`just`](https://github.com/casey/just). The root intentionally has no `pyproject.toml` or virtualenv; pytest is supplied ephemerally by `uv run --with`.
+Prerequisites: `python3` (3.14), [`uv`](https://docs.astral.sh/uv/), [`just`](https://github.com/casey/just), and [`bun`](https://bun.sh) (pack validation runs the downstream quality gate, which validates the LikeC4 diagrams through a pinned `bunx` invocation). The root intentionally has no `pyproject.toml` or virtualenv; pytest and grimp are supplied ephemerally by `uv run --with`.
 
 ```bash
 just test       # generator unit tests (fast inner loop)

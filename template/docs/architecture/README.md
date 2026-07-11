@@ -33,3 +33,10 @@ This template uses the `system` profile. Tiny scripts may collapse layers only t
 - BasedPyright checks contracts and exhaustive variants.
 - Ruff checks complexity, error handling, security, performance, and style.
 - pytest contract tests verify adapter substitutability.
+- `scripts/sync_architecture_diagrams.py` derives the LikeC4 model under `likec4/generated/` from the same import graph Import Linter enforces; the gate fails when the committed model lags the code or a hand-written view references a missing element.
+
+## Diagrams
+
+- `likec4/generated/` — derived model and baseline views. Never hand-edited; regenerate with `just fix`.
+- `likec4/views.c4` — team-owned free-form views.
+- `just diagrams` serves the live viewer.
