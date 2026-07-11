@@ -29,6 +29,7 @@ EXPECTED_FILES = (
     ".gitignore",
     ".pre-commit-config.yaml",
     ".python-version",
+    ".vscode/settings.json",
     "AGENTS.md",
     "README.md",
     "architecture.toml",

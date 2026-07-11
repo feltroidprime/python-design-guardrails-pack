@@ -1,0 +1,22 @@
+{
+  // Hide derived artifacts from the explorer; sources of truth stay visible.
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "**/.venv": true,
+    "**/.DS_Store": true,
+    ".idea": true
+  },
+  // search.exclude inherits files.exclude; add search-only noise here.
+  "search.exclude": {
+    "skills-lock.json": true
+  },
+  "files.watcherExclude": {
+    "**/__pycache__/**": true,
+    "**/.pytest_cache/**": true,
+    "**/.ruff_cache/**": true,
+    "**/.venv/**": true
+  }
+}

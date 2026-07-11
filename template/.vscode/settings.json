@@ -1,0 +1,32 @@
+{
+  // Hide derived artifacts from the explorer; sources of truth stay visible.
+  // Keep this list in sync with .gitignore: everything hidden here is
+  // regenerable output, never hand-edited content.
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "**/.basedpyright": true,
+    "**/.venv": true,
+    "**/.DS_Store": true,
+    "**/*.egg-info": true,
+    ".coverage": true,
+    "coverage.xml": true,
+    "htmlcov": true,
+    "dist": true,
+    "build": true,
+    ".idea": true
+  },
+  // search.exclude inherits files.exclude; add search-only noise here.
+  "search.exclude": {
+    "uv.lock": true
+  },
+  "files.watcherExclude": {
+    "**/__pycache__/**": true,
+    "**/.pytest_cache/**": true,
+    "**/.ruff_cache/**": true,
+    "**/.basedpyright/**": true,
+    "**/.venv/**": true
+  }
+}

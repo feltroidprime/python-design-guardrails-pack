@@ -24,7 +24,6 @@ IGNORED_ARTIFACT_PATTERNS = (
     ".pytest_cache",
     ".ruff_cache",
     ".venv",
-    ".vscode",
     "*.egg-info",
     "*.py[cod]",
     "__pycache__",

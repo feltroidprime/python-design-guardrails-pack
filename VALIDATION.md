@@ -17,6 +17,7 @@ over-length `ItemName` rejection) were added to `template/` to close the gap.
 - Template cleanliness: no local runtime artifacts under `template/`.
 - Fresh instantiation (`orchard-billing` / `orchard_billing`) in a temporary
   directory: no placeholder token survived in any file name or file content.
+- `.vscode/settings.json` 
 
 ## Generated repository checks (its own `scripts/quality_gate.py`)
 

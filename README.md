@@ -65,6 +65,7 @@ The generated project intentionally contains a tiny vertical slice that passes t
 - `scripts/architecture_guard.py`: AST-level fitness functions.
 - `pyproject.toml`: Ruff, BasedPyright, pytest, Coverage, Import Linter, and dependencies.
 - `.pre-commit-config.yaml`: fast commit checks and full pre-push gate.
+- `.vscode/settings.json`: hides derived artifacts (caches, coverage, `.venv`) from the VS Code explorer and search.
 - `docs/architecture/`: pattern admission rules, ADRs, migration and exception templates.
 - `scripts/quality_gate.py`: canonical one-command acceptance gate.
 
