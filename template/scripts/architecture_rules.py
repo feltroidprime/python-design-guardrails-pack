@@ -310,23 +310,15 @@ def check_tree(path: Path, tree: ast.AST, policy: Policy) -> list[Violation]:
     return violations
 
 
-def check_module(path: Path, policy: Policy) -> list[Violation]:
-    text = path.read_text(encoding="utf-8")
+def check_source(path: Path, text: str, tree: ast.Module, policy: Policy) -> list[Violation]:
+    """Run every general fitness function on one already-parsed module.
+
+    The guard owns reading and parsing (and reports ARCH000 for unparsable
+    files), so every rule family checks the same text and tree.
+    """
     violations = check_suppressions(path, text, policy)
     violations.extend(check_init_file(path, text, policy))
     violations.extend(check_module_shape(path, len(text.splitlines()), policy))
-    try:
-        tree = ast.parse(text, filename=str(path))
-    except SyntaxError as error:
-        violations.append(
-            Violation(
-                path=path,
-                line=error.lineno or 1,
-                code="ARCH000",
-                message=f"Cannot parse module: {error.msg}",
-            )
-        )
-        return violations
     violations.extend(check_tree(path, tree, policy))
     return violations
 

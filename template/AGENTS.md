@@ -147,6 +147,7 @@ Patterns are responses to forces, not decorations.
 - **Domain event:** name the already-completed domain fact and the independent consumers. Do not use events to hide a direct call.
 - **Decorator:** use for transparent call-level augmentation.
 - **Proxy:** use when access, lifecycle, identity, or remote substitution belongs to an object boundary.
+- **Null object:** name the collaborator whose absence means "do nothing"; implement its port with a no-op and inject it in `bootstrap` instead of passing `port | None`.
 - **State machine:** use only when legal transitions and transition-triggered behavior are first-class domain constraints.
 
 A new foundational abstraction, framework, event bus, DI container, plugin system, or cross-layer dependency requires an ADR.
@@ -158,7 +159,19 @@ A new foundational abstraction, framework, event bus, DI container, plugin syste
 - Catch only where recovery, translation, cleanup, or added context occurs.
 - Preserve causes with `raise ... from error`.
 - Never catch an exception merely to log and continue.
-- Do not return `None` for a failure that callers must distinguish; use a domain exception or an explicit closed result type.
+- Do not return `None` for a failure that callers must distinguish; use a domain exception (see "None discipline"). Result/Either types are not this repository's idiom; adopting one requires an ADR.
+
+## None discipline
+
+`None` is edge data, not domain vocabulary. Raw input (API payloads, sensor readings, argv) may be incomplete; the core must never inherit that uncertainty. Before typing `X | None`, apply the first matching rule:
+
+1. **"Nothing" has a real value.** Prefer an empty collection, `0`, or `False` over `None` when the meaning is "nothing to do": `field(default_factory=tuple)`, never `list[X] | None = None` (ARCH016).
+2. **Required data may be missing at the edge.** Parse, don't propagate: the adapter converts raw input into a strict domain object and raises at the boundary (fail fast). Optional fields belong to edge DTOs in `adapters`; domain models never carry them (ARCH017).
+3. **The operation can fail.** Raise the narrowest domain exception instead of returning `None` (ARCH018 in domain).
+4. **The object moves through lifecycle states with different guarantees.** One class accumulating optional fields is the warning sign. Model each state as its own frozen type (`DraftOrder` / `PaidOrder`, not `Order` with optional `paid_at`) and let each signature demand exactly the state it needs — invalid states become unrepresentable.
+5. **A collaborator is optional and doing nothing is valid.** Inject a null object implementing the same port from `bootstrap`; do not thread `port | None` through call sites and re-check it everywhere.
+6. **`None` is itself a legal value and "not provided" must be distinguished.** Use a dedicated module-level sentinel object, not a second meaning for `None`.
+7. **A query may legitimately find nothing.** A port may return `X | None` (`ItemRepository.get` is the exemplar); the caller converts it into a domain exception or an explicit branch immediately. An optional never travels more than one call inward.
 
 ## State, concurrency, and lifecycle
 
@@ -190,6 +203,7 @@ Forbidden without an ADR-backed exception:
 - speculative generic frameworks for one implementation;
 - hidden I/O in properties, constructors, or domain methods;
 - boolean flags that switch unrelated behavior;
+- `None` where "None discipline" prescribes a default, a parse, an exception, or a state (ARCH016–ARCH018);
 - comments that restate code instead of explaining a non-obvious invariant or trade-off;
 - broad refactors mixed into a feature change;
 - weakening a gate to make generated code pass.

@@ -1,7 +1,18 @@
 # Validation record
 
 Last executed: 2026-07-13, macOS (arm64), CPython 3.14.6, uv 0.11.28,
-bun 1.3.9, via `just validate` — after adding `.codebase-memory/` (local
+bun 1.3.9, via `just validate` — after adding the None-discipline guards
+ARCH016–ARCH018 (`scripts/none_discipline.py`, a separate module so
+`architecture_rules.py` respects its own 400-line ceiling) and their single
+source of truth, the "None discipline" section of the template `AGENTS.md`.
+`architecture_guard.py` became the composition point: it reads and parses
+each file once, reports ARCH000 itself, runs both rule families on the same
+tree, and applies the inline `ARCH-EXCEPTION: ADR-XXXX` marker centrally for
+exactly the codes that admit it. Pack tests
+(`tests/test_none_discipline.py`) prove each rule fires on planted
+violations and stays silent on legitimate idioms (optional port returns
+outside the domain, function-local optionals, non-collection edge DTO
+fields). Before that: after adding `.codebase-memory/` (local
 index of the codebase-memory MCP server) to the ignore set everywhere it
 belongs: template `.gitignore`, template `.vscode/settings.json`
 (files.exclude + watcherExclude), and `IGNORED_ARTIFACT_PATTERNS` in
@@ -26,7 +37,8 @@ import-linter layers contract and the derived diagrams.
 
 ## Pack-level checks (`just validate`)
 
-- Generator test suite (`tests/test_instantiate.py`): 30 passed — name
+- Generator test suite (`tests/test_instantiate.py` +
+  `tests/test_none_discipline.py`): 41 passed — name
   validation, non-empty-directory refusal, package renaming, full placeholder
   replacement, cache-artifact exclusion, expected-file preservation
   (including `__main__.py`, the SQLite adapter, `application/errors.py`,

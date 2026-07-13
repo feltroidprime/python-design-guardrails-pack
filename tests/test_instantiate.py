@@ -12,13 +12,11 @@ import sys
 
 import pytest
 
+# Import paths are provided by tests/conftest.py.
+from instantiate import PACKAGE_TOKEN
+from validate_pack import find_forbidden_artifacts, find_placeholder_occurrences
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT))
-sys.path.insert(0, str(REPO_ROOT / "scripts"))
-
-from instantiate import PACKAGE_TOKEN  # noqa: E402
-from validate_pack import find_forbidden_artifacts, find_placeholder_occurrences  # noqa: E402
-
 INSTANTIATE = REPO_ROOT / "instantiate.py"
 TEMPLATE = REPO_ROOT / "template"
 
@@ -47,6 +45,7 @@ EXPECTED_FILES = (
     "pyproject.toml",
     "scripts/architecture_guard.py",
     "scripts/architecture_rules.py",
+    "scripts/none_discipline.py",
     "scripts/quality_gate.py",
     "scripts/sync_architecture_diagrams.py",
     f"src/{PACKAGE_NAME}/__main__.py",
