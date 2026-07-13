@@ -39,14 +39,18 @@ repos:
         entry: uv run ruff format
         language: system
         types_or: [python, pyi]
+      # `env PYTHONPYCACHEPREFIX=...` mirrors the justfile export: hooks run
+      # outside just, and without it each commit would re-scatter __pycache__
+      # directories through the source tree (hooks always run from repo root,
+      # so the relative path resolves to the project venv).
       - id: architecture-guard
         name: architecture guard
-        entry: uv run python -m scripts.architecture_guard
+        entry: env PYTHONPYCACHEPREFIX=.venv/pycache uv run python -m scripts.architecture_guard
         language: system
         pass_filenames: false
       - id: full-quality-gate
         name: full quality gate
-        entry: uv run python scripts/quality_gate.py
+        entry: env PYTHONPYCACHEPREFIX=.venv/pycache uv run python scripts/quality_gate.py
         language: system
         pass_filenames: false
         stages: [pre-push]
