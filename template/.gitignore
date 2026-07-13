@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.hypothesis/
 .ruff_cache/
 .basedpyright/
 .import_linter_cache/

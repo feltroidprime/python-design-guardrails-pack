@@ -6,6 +6,7 @@
     "**/__pycache__": true,
     "**/*.pyc": true,
     "**/.pytest_cache": true,
+    "**/.hypothesis": true,
     "**/.ruff_cache": true,
     "**/.basedpyright": true,
     "**/.import_linter_cache": true,
@@ -27,6 +28,7 @@
   "files.watcherExclude": {
     "**/__pycache__/**": true,
     "**/.pytest_cache/**": true,
+    "**/.hypothesis/**": true,
     "**/.ruff_cache/**": true,
     "**/.basedpyright/**": true,
     "**/.import_linter_cache/**": true,
