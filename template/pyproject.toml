@@ -10,18 +10,22 @@ readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = []
 
+# Dev tooling floats: floors are the last versions the template was validated
+# against, and the first `uv sync` of a generated repository resolves the
+# latest releases. Reproducibility comes from uv.lock (kept current by the
+# uv-lock pre-commit hook), not from exact pins here.
 [dependency-groups]
 dev = [
-  "basedpyright==1.39.9",
-  "coverage[toml]==7.15.0",
-  "grimp==3.15",
-  "hypothesis==6.156.6",
-  "import-linter==2.13",
-  "pre-commit==4.6.0",
-  "pytest==9.1.1",
-  "pytest-cov==7.1.0",
-  "pytest-socket==0.8.0",
-  "ruff==0.15.21",
+  "basedpyright>=1.39.9",
+  "coverage[toml]>=7.15.0",
+  "grimp>=3.15",
+  "hypothesis>=6.156.6",
+  "import-linter>=2.13",
+  "pre-commit>=4.6.0",
+  "pytest>=9.1.1",
+  "pytest-cov>=7.1.0",
+  "pytest-socket>=0.8.0",
+  "ruff>=0.15.21",
 ]
 
 [tool.uv]

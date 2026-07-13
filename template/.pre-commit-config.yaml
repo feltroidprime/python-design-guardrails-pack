@@ -24,15 +24,21 @@ repos:
     hooks:
       - id: uv-lock
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.21
-    hooks:
-      - id: ruff-check
-        args: [--fix, --exit-non-zero-on-fix]
-      - id: ruff-format
-
   - repo: local
     hooks:
+      # Run ruff from the project venv (not a pinned ruff-pre-commit rev) so
+      # the hook, the CLI, and the quality gate always share one ruff version:
+      # whatever uv.lock resolved for the floating dev group.
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types_or: [python, pyi]
       - id: architecture-guard
         name: architecture guard
         entry: uv run python -m scripts.architecture_guard
