@@ -28,3 +28,14 @@ include = ["instantiate.py"]
 
 [tool.hatch.build.targets.sdist]
 include = ["instantiate.py", "template", "README.md"]
+
+# The root ships the generator only (instantiate.py + scripts/). `template/` is
+# an un-instantiated scaffold: it holds placeholder tokens (__PACKAGE__) and
+# imports dependencies that are never installed at the root, so type-checking it
+# in place is meaningless — its correctness is proven by generating a real
+# project and running the full quality gate (`just validate`). Exclude it from
+# analysis so the editor stops reporting expected scaffold errors; keep scripts/
+# on the import path so first-party imports (validate_pack) resolve in tests.
+[tool.basedpyright]
+exclude = ["**/node_modules", "**/__pycache__", "**/.*", "template"]
+extraPaths = ["scripts"]

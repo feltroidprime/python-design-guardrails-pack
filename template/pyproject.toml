@@ -140,6 +140,12 @@ docstring-code-format = true
 
 [tool.basedpyright]
 include = ["src", "tests", "scripts"]
+# Locate the project venv explicitly so the editor language server resolves
+# third-party imports the same way the CLI does. Without this, the basedpyright
+# VS Code extension analyses against an empty environment and reports spurious
+# "import could not be resolved" errors for installed dependencies.
+venvPath = "."
+venv = ".venv"
 pythonVersion = "3.14"
 pythonPlatform = "All"
 typeCheckingMode = "recommended"
