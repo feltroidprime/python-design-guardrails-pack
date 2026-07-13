@@ -107,6 +107,28 @@ The generated project contains a small vertical slice built on **foundation bric
 
 See `DESIGN_MASTERY_MAPPING.md` for the detailed mapping from curriculum promises to repository mechanisms.
 
+## Does the template actually help? Measure it
+
+`benchmarks/` contains an end-to-end value benchmark: the same LLM receives
+the same application prompt twice — in an empty repository and in a freshly
+generated one — and the harness compares the results with functional probes,
+pinned neutral analyzers (ruff, basedpyright, radon, coverage), build-effort
+statistics, and a blind cross-family LLM judge panel. It is reproducible from
+a single TOML config (prompt, models, probes, pins) and writes a
+self-contained report per run.
+
+```bash
+just benchmark                                 # full run (long, costs provider usage)
+just benchmark benchmarks/config/smoke.toml    # cheap plumbing check
+```
+
+On a terminal, the run renders a live two-arm dashboard (probe checklist,
+judge verdicts revealed one by one); `--no-tui` keeps plain logs.
+
+See `benchmarks/README.md` for the methodology and the judge-bias controls.
+It is a maintainer tool built on [`headless_llm`](../../headless_llm) and is
+not part of `just validate`.
+
 ## Maintaining the pack
 
 Prerequisites: `python3` (3.14), [`uv`](https://docs.astral.sh/uv/), [`just`](https://github.com/casey/just), and [`bun`](https://bun.sh) (pack validation runs the downstream quality gate, which validates the LikeC4 diagrams through a pinned `bunx` invocation). The root `pyproject.toml` exists only to package the `python-repo` CLI (`uv tool install`); the root intentionally has no virtualenv or lock file, and pytest and grimp are supplied ephemerally by `uv run --no-project --with`.

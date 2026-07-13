@@ -23,3 +23,17 @@ validate: test
 # and `git pull` take effect without reinstalling).
 install:
     uv tool install --force --editable .
+
+# End-to-end value benchmark: one LLM builds the same app with and without the
+# template; objective metrics + a blind LLM judge panel compare the results.
+# Long and costs provider usage — see benchmarks/README.md before running.
+# Pick the app (config file) and the coding model without editing TOML:
+#   just benchmark                                          # ledger app, config model
+#   just benchmark benchmarks/config/smoke.toml             # tiny app
+#   just benchmark benchmarks/config/default.toml haiku     # model alias or full id
+#   just benchmark benchmarks/config/default.toml gpt-5.6-sol codex xhigh
+benchmark config="benchmarks/config/default.toml" model="" provider="" effort="":
+    python3 benchmarks/run.py --config {{config}} \
+        {{ if model == "" { "" } else { "--builder-model " + model } }} \
+        {{ if provider == "" { "" } else { "--builder-provider " + provider } }} \
+        {{ if effort == "" { "" } else { "--builder-effort " + effort } }}

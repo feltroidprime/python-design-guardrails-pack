@@ -1,0 +1,338 @@
+# End-to-end value benchmark: one LLM builds the same app in an empty repo and
+# in a template-generated repo; the harness compares the results.
+# Everything that can change the outcome lives in this file.
+# Run with: python3 benchmarks/run.py --config benchmarks/config/default.toml
+
+[run]
+# Out-of-tree on purpose: the pack forbids generated repositories inside its
+# own working tree.
+output_root = "~/.local/share/guardrails-benchmark/runs"
+label = "ledger"
+seed = 0
+keep_workspaces = true
+# Also run each arm's own quality gate when one exists (arm-specific signal,
+# never part of the cross-arm comparison).
+run_native_gate = true
+# The arms are independent until judging; run them concurrently. Set to false
+# under provider rate limits or heavy machine load.
+parallel_arms = true
+headless_llm_path = "../../headless_llm"
+install_timeout_seconds = 600.0
+tests_timeout_seconds = 600.0
+gate_timeout_seconds = 1200.0
+
+[project]
+name = "ledger"
+package = "ledger"
+
+[builder]
+provider = "claude"
+model = "claude-opus-4-8"
+effort = "high"
+# The template arm legitimately takes longer (it also satisfies its own
+# quality gate); give both arms the same generous ceiling.
+timeout_seconds = 3600.0
+# Pre-approved tools for headless building (claude/opencode); codex has no
+# per-run allow-list, so remove this key when switching the builder to codex.
+allowed_tools = [
+  "Bash",
+  "Read",
+  "Write",
+  "Edit",
+  "Glob",
+  "Grep",
+  "TodoWrite",
+  "BashOutput",
+  "KillShell",
+]
+# binary = "/absolute/path/to/claude"   # optional CLI override
+
+[prompt]
+spec_file = "prompts/ledger_spec.md"
+charter_file = "prompts/build_charter.md"
+
+[judge]
+# Cross-family panel on purpose: no judge shares the builder's model family,
+# which removes self-preference toward the builder. Every judge sees both
+# presentation orders (position bias is cancelled and measured).
+timeout_seconds = 900.0
+max_bundle_chars = 400000
+max_file_chars = 40000
+# Applied identically to both candidates: the judge evaluates the application
+# deliverable (source, tests, packaging, README); repository infrastructure is
+# covered by the quantitative metrics instead.
+exclude = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "architecture.toml",
+  "justfile",
+  ".pre-commit-config.yaml",
+  ".python-version",
+  ".gitignore",
+  ".github/*",
+  ".vscode/*",
+  "docs/*",
+  "scripts/*",
+  "*.lock",
+  "*.log",
+]
+# The generated template itself carries no pack-identifying wording (enforced
+# by a bundle test); `redact = [...]` stays available for custom setups whose
+# judged content needs masking.
+
+[[judge.panel]]
+provider = "codex"
+model = "gpt-5.6-sol"
+effort = "high"
+
+[[judge.panel]]
+provider = "opencode"
+model = "minimax/MiniMax-M3"
+effort = "high"
+
+[tools]
+# Pinned neutral analyzers, run through uvx for both arms with fixed flags.
+ruff = "0.15.21"
+basedpyright = "1.39.9"
+radon = "6.0.1"
+coverage = "7.15.1"
+ruff_select = "F,E,W,B"
+ruff_ignore = "E501"
+
+# ---------------------------------------------------------------------------
+# Functional acceptance probes: the objective yardstick. Same scenario, same
+# order, for both arms; `{db}` is a fresh scratch database shared across the
+# scenario; captures carry values (like created ids) into later probes.
+# ---------------------------------------------------------------------------
+
+[[probes]]
+name = "add-valid-expense"
+argv = [
+  "uv",
+  "run",
+  "ledger",
+  "--db",
+  "{db}",
+  "add",
+  "--amount",
+  "12.50",
+  "--category",
+  "food",
+  "--date",
+  "2026-01-15",
+  "--note",
+  "lunch",
+]
+expect_exit = 0
+stdout_regex = '\A\s*id=\d+\s*\Z'
+capture = [["id1", 'id=(\d+)']]
+timeout_seconds = 300.0
+
+[[probes]]
+name = "add-rejects-negative-amount"
+argv = [
+  "uv",
+  "run",
+  "ledger",
+  "--db",
+  "{db}",
+  "add",
+  "--amount",
+  "-5",
+  "--category",
+  "food",
+  "--date",
+  "2026-01-15",
+]
+expect_exit = 2
+stderr_regex = '\S'
+
+[[probes]]
+name = "add-rejects-impossible-date"
+argv = [
+  "uv",
+  "run",
+  "ledger",
+  "--db",
+  "{db}",
+  "add",
+  "--amount",
+  "5.00",
+  "--category",
+  "food",
+  "--date",
+  "2026-13-40",
+]
+expect_exit = 2
+stderr_regex = '\S'
+
+[[probes]]
+name = "list-shows-expense"
+argv = ["uv", "run", "ledger", "--db", "{db}", "list", "--month", "2026-01"]
+expect_exit = 0
+stdout_regex = '2026-01-15\s+12\.50\s+food\s+lunch'
+
+[[probes]]
+name = "list-empty-month-prints-nothing"
+argv = ["uv", "run", "ledger", "--db", "{db}", "list", "--month", "2030-12"]
+expect_exit = 0
+stdout_regex = '\A\s*\Z'
+
+[[probes]]
+name = "list-rejects-malformed-month"
+argv = ["uv", "run", "ledger", "--db", "{db}", "list", "--month", "2026-1"]
+expect_exit = 2
+stderr_regex = '\S'
+
+[[probes]]
+name = "budget-set"
+argv = [
+  "uv",
+  "run",
+  "ledger",
+  "--db",
+  "{db}",
+  "budget",
+  "set",
+  "--category",
+  "food",
+  "--month",
+  "2026-01",
+  "--limit",
+  "100.00",
+]
+expect_exit = 0
+
+[[probes]]
+name = "budget-status-shows-remaining"
+argv = [
+  "uv",
+  "run",
+  "ledger",
+  "--db",
+  "{db}",
+  "budget",
+  "status",
+  "--month",
+  "2026-01",
+]
+expect_exit = 0
+stdout_regex = 'food\s+spent=12\.50\s+limit=100\.00\s+remaining=87\.50'
+
+[[probes]]
+name = "add-second-expense"
+argv = [
+  "uv",
+  "run",
+  "ledger",
+  "--db",
+  "{db}",
+  "add",
+  "--amount",
+  "95.00",
+  "--category",
+  "food",
+  "--date",
+  "2026-01-20",
+]
+expect_exit = 0
+stdout_regex = '\A\s*id=\d+\s*\Z'
+capture = [["id2", 'id=(\d+)']]
+
+[[probes]]
+name = "budget-status-flags-overspend"
+argv = [
+  "uv",
+  "run",
+  "ledger",
+  "--db",
+  "{db}",
+  "budget",
+  "status",
+  "--month",
+  "2026-01",
+]
+expect_exit = 0
+stdout_regex = 'food\s+spent=107\.50\s+limit=100\.00\s+remaining=-7\.50\s+OVER'
+
+[[probes]]
+name = "report-totals-per-category"
+argv = ["uv", "run", "ledger", "--db", "{db}", "report", "--month", "2026-01"]
+expect_exit = 0
+stdout_regex = '(?s)food\s+107\.50\s*.*total\s+107\.50'
+
+[[probes]]
+name = "remove-unknown-id-fails"
+argv = ["uv", "run", "ledger", "--db", "{db}", "remove", "--id", "999999"]
+expect_exit = 3
+stderr_regex = '\S'
+
+[[probes]]
+name = "remove-first-expense"
+argv = ["uv", "run", "ledger", "--db", "{db}", "remove", "--id", "{id1}"]
+expect_exit = 0
+
+[[probes]]
+name = "list-after-remove"
+argv = ["uv", "run", "ledger", "--db", "{db}", "list", "--month", "2026-01"]
+expect_exit = 0
+stdout_regex = '(?s)\A(?!.*12\.50).*95\.00'
+
+[[probes]]
+name = "budget-upsert-replaces-limit"
+argv = [
+  "uv",
+  "run",
+  "ledger",
+  "--db",
+  "{db}",
+  "budget",
+  "set",
+  "--category",
+  "food",
+  "--month",
+  "2026-01",
+  "--limit",
+  "50.00",
+]
+expect_exit = 0
+
+[[probes]]
+name = "budget-status-after-upsert"
+argv = [
+  "uv",
+  "run",
+  "ledger",
+  "--db",
+  "{db}",
+  "budget",
+  "status",
+  "--month",
+  "2026-01",
+]
+expect_exit = 0
+stdout_regex = 'food\s+spent=95\.00\s+limit=50\.00\s+remaining=-45\.00\s+OVER'
+
+[[probes]]
+name = "add-transport-expense"
+argv = [
+  "uv",
+  "run",
+  "ledger",
+  "--db",
+  "{db}",
+  "add",
+  "--amount",
+  "20.00",
+  "--category",
+  "transport",
+  "--date",
+  "2026-01-22",
+]
+expect_exit = 0
+
+[[probes]]
+name = "report-orders-categories-by-total"
+argv = ["uv", "run", "ledger", "--db", "{db}", "report", "--month", "2026-01"]
+expect_exit = 0
+stdout_regex = '(?s)food\s+95\.00\s*.*transport\s+20\.00\s*.*(?m:^total\s+115\.00\s*$)'

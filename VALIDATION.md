@@ -1,7 +1,48 @@
 # Validation record
 
 Last executed: 2026-07-13, macOS (arm64), CPython 3.14.6, uv 0.11.28,
-bun 1.3.9, via `just validate` — after adding the Path-discipline guards
+bun 1.3.9, via `just validate` — after adding the end-to-end value benchmark
+(`benchmarks/`): a maintainer harness where one LLM (via `headless_llm`)
+builds the same specified application in an empty repository and in a
+template-generated repository, compared by functional probes, pinned neutral
+analyzers (ruff/basedpyright/radon/coverage via `uvx`), build-effort
+statistics, and a blind cross-family LLM judge panel (both presentation
+orders, anti-volume rubric, no provenance in the judge framing — enforced by
+a unit test). The two arms run concurrently by default (`run.parallel_arms`,
+one runner per arm, proven by a barrier test), benchmark agents opt out of
+the host's global MCP configuration (`mcp_servers=()`), and a rich-based
+live dashboard (`benchmarks/e2e/tui.py`, `--tui`/`--no-tui`) renders the
+orchestrator's structured event stream without touching what is measured.
+`just benchmark [config] [model] [provider] [effort]` picks the app spec and
+the coding model without editing TOML (`apply_builder_overrides`, aliases
+sonnet/opus/haiku, provider switch drops claude-specific settings).
+A two-pass audit (methodology + silent bugs, with live micro-probes against
+the real provider CLIs) then hardened the design: generated repositories no
+longer carry any pack-identifying wording (`template/README.md`,
+`template/pyproject.toml` description and toolchain comment, ADR owner
+lines — enforced by a bundle test against a real instantiation); judges run
+tool-less where the provider allows, in a fresh neutral working directory
+(their CLIs inject CWD instruction files and reveal the path); files the
+builder created or modified bypass judge exclusions (git-diff against the
+arm's initial commit) so agent work is never hidden; every static metric now
+measures the same application scope as the judge bundle, with whole-repo LOC
+reported separately; coverage runs under a generated neutral rcfile immune
+to the arm's own coverage config, with tooling exit codes recorded; the
+judging report declares a primary endpoint (preference of
+position-consistent judges — flipped judges carry no weight), prints the
+per-judge×order matrix and observed judge tool calls, and reports cached
+input tokens; pytest summaries parse only the final summary line; probe
+timeouts keep partial output; capture names cannot shadow `{db}`/`{ws}`;
+the launcher always re-executes through uv so a stale ambient headless_llm
+can never be benchmarked silently.
+The harness is standard-library-only except one lazily imported
+`headless_llm` adapter and the optional TUI (rich pinned in the launcher),
+so the deterministic pack tests (`tests/test_benchmark_config.py`,
+`tests/test_benchmark_pipeline.py`, 47 tests) run the full pipeline with
+fake agents — including the fairness invariants (identical build prompt
+across arms, symmetric judge exclusions, out-of-tree output root) and the
+event-stream contract — without any network or SDK. Benchmark runs write
+only outside the working tree. Before that: after adding the Path-discipline guards
 ARCH019–ARCH020 (`scripts/path_discipline.py`, a separate module like
 `none_discipline.py`) and their single source of truth, the "Path
 discipline" section of the template `AGENTS.md`: a filesystem location is
@@ -71,7 +112,8 @@ import-linter layers contract and the derived diagrams.
 
 - Generator test suite (`tests/test_instantiate.py` +
   `tests/test_none_discipline.py` + `tests/test_path_discipline.py` +
-  `tests/test_docs_guard.py`): 70 passed — name
+  `tests/test_docs_guard.py` + `tests/test_benchmark_config.py` +
+  `tests/test_benchmark_pipeline.py`): 117 passed — name
   validation, non-empty-directory refusal, package renaming, full placeholder
   replacement, cache-artifact exclusion, expected-file preservation
   (including `__main__.py`, the SQLite adapter, `application/errors.py`,
