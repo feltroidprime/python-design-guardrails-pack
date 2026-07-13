@@ -1,16 +1,42 @@
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
 from __PACKAGE__.adapters.outbound.memory_repository import MemoryItemRepository
 from __PACKAGE__.application.use_cases import CreateItem, CreateItemCommand
+from __PACKAGE__.domain.events import ItemCreatedEvent
 from __PACKAGE__.domain.value_objects import ItemId
 
+if TYPE_CHECKING:
+    from __PACKAGE__.domain.events import DomainEvent
 
-def test_create_item_persists_validated_aggregate() -> None:
+FIXED_TIME = datetime(2026, 1, 1, tzinfo=UTC)
+
+
+class RecordingPublisher:
+    """Test double that records every published event."""
+
+    def __init__(self) -> None:
+        self.events: list[DomainEvent] = []
+
+    def publish(self, event: DomainEvent) -> None:
+        self.events.append(event)
+
+
+def test_create_item_persists_validates_and_announces() -> None:
     repository = MemoryItemRepository()
+    publisher = RecordingPublisher()
     expected_id = ItemId(value="item-1")
-    handler = CreateItem(repository=repository, id_factory=lambda: expected_id)
+    handler = CreateItem(
+        repository=repository,
+        id_factory=lambda: expected_id,
+        clock=lambda: FIXED_TIME,
+        events=publisher,
+    )
 
     event = handler(CreateItemCommand(name="  First item  "))
 
     saved = repository.get(expected_id)
     assert saved is not None
     assert saved.name.value == "First item"
-    assert event.item_id == expected_id
+    assert event == ItemCreatedEvent(item_id=expected_id, name=saved.name, occurred_at=FIXED_TIME)
+    assert publisher.events == [event]

@@ -22,7 +22,7 @@ from typing import cast
 
 import grimp
 
-from scripts.architecture_rules import mapping, string
+from scripts.architecture_policy import mapping, string
 
 GENERATED_DIR = Path("docs") / "architecture" / "likec4" / "generated"
 MODEL_FILE = "model.c4"

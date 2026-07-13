@@ -1,0 +1,65 @@
+import io
+from typing import TYPE_CHECKING
+
+import pytest
+
+from __PACKAGE__.adapters.inbound.cli import run
+from __PACKAGE__.bootstrap import main, memory_application
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from __PACKAGE__.bootstrap import Application
+
+
+def run_cli(application: Application, argv: list[str]) -> tuple[int, str, str]:
+    out, err = io.StringIO(), io.StringIO()
+    exit_code = run(
+        argv,
+        create_item=application.create_item,
+        list_items=application.list_items,
+        out=out,
+        err=err,
+    )
+    return exit_code, out.getvalue(), err.getvalue()
+
+
+@pytest.mark.integration
+def test_add_then_list_round_trip() -> None:
+    application = memory_application()
+
+    exit_code, out, _ = run_cli(application, ["add", "Wired item"])
+    assert exit_code == 0
+    assert "Wired item" in out
+
+    exit_code, out, _ = run_cli(application, ["list"])
+    assert exit_code == 0
+    assert "Wired item" in out
+
+
+@pytest.mark.integration
+def test_invalid_name_translates_to_domain_error_and_exit_code_one() -> None:
+    exit_code, out, err = run_cli(memory_application(), ["add", "   "])
+
+    assert exit_code == 1
+    assert out == ""
+    assert "must not be blank" in err
+
+
+@pytest.mark.integration
+def test_unknown_command_prints_usage() -> None:
+    exit_code, _, err = run_cli(memory_application(), ["frobnicate"])
+
+    assert exit_code == 2
+    assert "usage:" in err
+
+
+@pytest.mark.integration
+def test_main_runs_against_a_local_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    assert main(["add", "From main"]) == 0
+    assert main(["list"]) == 0
+    assert "From main" in capsys.readouterr().out

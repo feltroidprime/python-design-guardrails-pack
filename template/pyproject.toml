@@ -101,6 +101,7 @@ unfixable = ["ERA001"]
   "SLF001",
 ]
 "scripts/**/*.py" = ["T201"]
+"scripts/architecture_policy.py" = ["TC003"]
 "scripts/architecture_rules.py" = ["TC003"]
 "scripts/quality_gate.py" = ["S603"]
 
@@ -110,7 +111,9 @@ mypy-init-return = false
 suppress-dummy-args = true
 
 [tool.ruff.lint.isort]
-known-first-party = ["__PACKAGE__"]
+# "tests" is declared explicitly because namespace packages (no __init__.py)
+# are not auto-detected as first-party.
+known-first-party = ["__PACKAGE__", "tests"]
 combine-as-imports = true
 force-sort-within-sections = true
 
@@ -154,6 +157,11 @@ reportUnnecessaryTypeIgnoreComment = "error"
 [tool.pytest.ini_options]
 minversion = "9.1"
 testpaths = ["tests"]
+# Test packages are namespace packages (PEP 420): no __init__.py under tests/
+# (enforced by ARCH014). The repository root on sys.path plus namespace
+# detection keeps `tests.*` imports (the contract kit) working without them.
+consider_namespace_packages = true
+pythonpath = ["."]
 addopts = [
   "-ra",
   "--strict-config",

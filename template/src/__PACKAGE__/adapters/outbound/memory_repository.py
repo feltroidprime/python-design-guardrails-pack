@@ -3,6 +3,8 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from __PACKAGE__.domain.entities import Item
     from __PACKAGE__.domain.value_objects import ItemId
 
@@ -18,3 +20,6 @@ class MemoryItemRepository:
 
     def save(self, item: Item) -> None:
         self._items[item.item_id] = item
+
+    def list_all(self) -> Iterator[Item]:
+        yield from list(self._items.values())

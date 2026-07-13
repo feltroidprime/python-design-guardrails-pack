@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from __PACKAGE__.domain.value_objects import ItemId, ItemName
 
 
@@ -13,3 +15,8 @@ class ItemCreatedEvent:
 
     item_id: ItemId
     name: ItemName
+    occurred_at: datetime
+
+
+# Extend this union as new domain facts appear; publishers and handlers stay typed.
+type DomainEvent = ItemCreatedEvent

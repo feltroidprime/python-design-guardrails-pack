@@ -30,6 +30,31 @@ just diagrams   # browse live architecture diagrams (LikeC4 viewer)
 just update     # update dependencies and hook revisions intentionally
 ```
 
+## Try the example application
+
+```bash
+uv run python -m __PACKAGE__ add "First item"   # persists to ./items.db
+uv run python -m __PACKAGE__ list
+```
+
+## What to replace, what to keep
+
+The example separates throwaway from foundation (see
+`docs/adr/0002-foundation-ports-and-reference-adapters.md`):
+
+- **Replace**: the `Item` aggregate, its value objects, use cases, and CLI
+  verbs — they exist to be substituted by your real domain.
+- **Keep**: the foundation bricks, each the reference exemplar of a
+  cross-cutting capability you will need again — the `Clock` and
+  `ItemIdFactory` callable ports, the `EventPublisher` protocol with its
+  in-process implementation and audit-log consumer, the SQLite reference
+  adapter (error translation + context-managed lifecycle), the reusable
+  repository contract test in `tests/contract/`, and the `python -m`
+  entry point through the single composition root.
+
+The "Foundation bricks" table in `AGENTS.md` maps each recurring need to
+the brick to imitate.
+
 ## Architecture diagrams
 
 Diagrams are **derived from the code**, never hand-maintained

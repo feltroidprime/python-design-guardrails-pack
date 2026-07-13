@@ -66,7 +66,26 @@ Owns translation to/from external systems and frameworks.
 
 ### `bootstrap`
 
-The composition root. It is the only ordinary location allowed to instantiate the production dependency graph.
+The composition root. It is the only ordinary location allowed to instantiate the production dependency graph. `__main__.py` only delegates to it.
+
+## Foundation bricks: imitate, then extend
+
+The example application separates two kinds of code (see ADR-0002):
+
+- **Replaceable example**: the `Item` aggregate, its value objects, use cases, and CLI verbs. Replace them with the real domain; preserve the structure.
+- **Foundation bricks to keep**: each cross-cutting capability has exactly one reference exemplar. Before writing new plumbing, imitate the brick:
+
+| Need | Imitate |
+|---|---|
+| Current time | `Clock` port + `adapters/outbound/system_clock.py`; never read the clock in domain/application |
+| New identifiers | `ItemIdFactory` port + `adapters/outbound/uuid_ids.py` |
+| React to a domain fact | publish through `EventPublisher`; subscribe a handler in `bootstrap.build_application` (first consumer: `adapters/outbound/audit_log.py`) |
+| Talk to an external system | `adapters/outbound/sqlite_repository.py`: injected resource, errors translated to the application-owned error with causes preserved |
+| Resource lifecycle | `bootstrap.sqlite_application` context manager; acquire at the edge, release deterministically |
+| Certify a port implementation | subclass the port's contract in `tests/contract/` (see `item_repository_contract.py`) and provide a `repository` fixture |
+| New port | single operation → callable `type` alias; multiple operations → `Protocol` (both in `application/ports.py`) |
+
+Every new implementation of an existing port must pass that port's shared contract test. A new cross-cutting brick (not listed above) requires an ADR before it exists.
 
 ## Architecture diagrams (derived, never drawn)
 
@@ -165,6 +184,7 @@ A new foundational abstraction, framework, event bus, DI container, plugin syste
 Forbidden without an ADR-backed exception:
 
 - `utils.py`, `helpers.py`, `common.py`, or `misc.py` dumping grounds;
+- `__init__.py` under `tests/` (test packages are namespace packages, ARCH014) and empty `__init__.py` anywhere (an `__init__.py` states its package's public surface or ownership, ARCH015);
 - duplicated models for the same concept;
 - `Manager`, `Handler`, `Processor`, or `Service` names without a precise domain qualifier;
 - speculative generic frameworks for one implementation;

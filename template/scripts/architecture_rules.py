@@ -8,30 +8,14 @@ size ceilings. It deliberately does not pretend to prove subjective quality.
 import ast
 from dataclasses import dataclass
 from pathlib import Path
-import tomllib
-from typing import cast
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from scripts.architecture_policy import Policy
 
 TYPE_IGNORE_TOKEN = "type:" + " ignore"
 PYRIGHT_IGNORE_TOKEN = "pyright:" + " ignore"
 NOQA_TOKEN = "no" + "qa"
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Policy:
-    root: Path
-    source_root: Path
-    package: str
-    package_root: Path
-    domain_root: Path
-    max_module_lines: int
-    max_test_module_lines: int
-    max_function_lines: int
-    max_class_lines: int
-    forbidden_module_stems: frozenset[str]
-    exception_marker: str
-    immutable_module_stems: frozenset[str]
-    forbidden_import_roots: frozenset[str]
-    forbidden_call_suffixes: frozenset[str]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -43,71 +27,6 @@ class Violation:
 
     def render(self, root: Path) -> str:
         return f"{self.path.relative_to(root)}:{self.line}: {self.code} {self.message}"
-
-
-def mapping(value: object, name: str) -> dict[str, object]:
-    if not isinstance(value, dict):
-        raise TypeError(f"{name} must be a TOML table")
-    return cast("dict[str, object]", value)
-
-
-def string(value: object, name: str) -> str:
-    if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string")
-    return value
-
-
-def integer(value: object, name: str) -> int:
-    if not isinstance(value, int):
-        raise TypeError(f"{name} must be an integer")
-    return value
-
-
-def string_set(value: object, name: str) -> frozenset[str]:
-    if not isinstance(value, list):
-        raise TypeError(f"{name} must be an array of strings")
-    items = cast("list[object]", value)
-    if not all(isinstance(item, str) for item in items):
-        raise TypeError(f"{name} must be an array of strings")
-    return frozenset(cast("list[str]", items))
-
-
-def load_policy(root: Path) -> Policy:
-    raw = mapping(tomllib.loads((root / "architecture.toml").read_text()), "root")
-    project = mapping(raw["project"], "project")
-    limits = mapping(raw["limits"], "limits")
-    conventions = mapping(raw["conventions"], "conventions")
-    domain = mapping(raw["domain"], "domain")
-    source_root = root / string(project["source_root"], "project.source_root")
-    package = string(project["package"], "project.package")
-    package_root = source_root / package
-    domain_root = package_root / string(domain["package"], "domain.package")
-    return Policy(
-        root=root,
-        source_root=source_root,
-        package=package,
-        package_root=package_root,
-        domain_root=domain_root,
-        max_module_lines=integer(limits["max_module_lines"], "limits.max_module_lines"),
-        max_test_module_lines=integer(
-            limits["max_test_module_lines"], "limits.max_test_module_lines"
-        ),
-        max_function_lines=integer(limits["max_function_lines"], "limits.max_function_lines"),
-        max_class_lines=integer(limits["max_class_lines"], "limits.max_class_lines"),
-        forbidden_module_stems=string_set(
-            conventions["forbidden_module_stems"], "conventions.forbidden_module_stems"
-        ),
-        exception_marker=string(conventions["exception_marker"], "conventions.exception_marker"),
-        immutable_module_stems=string_set(
-            domain["immutable_module_stems"], "domain.immutable_module_stems"
-        ),
-        forbidden_import_roots=string_set(
-            domain["forbidden_import_roots"], "domain.forbidden_import_roots"
-        ),
-        forbidden_call_suffixes=string_set(
-            domain["forbidden_call_suffixes"], "domain.forbidden_call_suffixes"
-        ),
-    )
 
 
 def is_under(path: Path, parent: Path) -> bool:
@@ -197,6 +116,39 @@ def check_suppressions(path: Path, text: str, policy: Policy) -> list[Violation]
                 )
             )
     return violations
+
+
+def check_init_file(path: Path, text: str, policy: Policy) -> list[Violation]:
+    """Every __init__.py must earn its existence.
+
+    Test packages are namespace packages (PEP 420), so __init__.py is banned
+    there outright. Elsewhere an __init__.py must state its package's public
+    surface or ownership; an empty marker file is noise.
+    """
+    if path.name != "__init__.py":
+        return []
+    if is_under(path, policy.root / "tests"):
+        return [
+            Violation(
+                path=path,
+                line=1,
+                code="ARCH014",
+                message="Test packages are namespace packages; delete this __init__.py.",
+            )
+        ]
+    if not text.strip():
+        return [
+            Violation(
+                path=path,
+                line=1,
+                code="ARCH015",
+                message=(
+                    "Empty __init__.py is forbidden; state the package surface "
+                    "or ownership in a docstring."
+                ),
+            )
+        ]
+    return []
 
 
 def check_module_shape(path: Path, line_count: int, policy: Policy) -> list[Violation]:
@@ -361,6 +313,7 @@ def check_tree(path: Path, tree: ast.AST, policy: Policy) -> list[Violation]:
 def check_module(path: Path, policy: Policy) -> list[Violation]:
     text = path.read_text(encoding="utf-8")
     violations = check_suppressions(path, text, policy)
+    violations.extend(check_init_file(path, text, policy))
     violations.extend(check_module_shape(path, len(text.splitlines()), policy))
     try:
         tree = ast.parse(text, filename=str(path))

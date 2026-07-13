@@ -8,7 +8,14 @@ from __PACKAGE__.domain.events import ItemCreatedEvent
 from __PACKAGE__.domain.value_objects import ItemName
 
 if TYPE_CHECKING:
-    from __PACKAGE__.application.ports import ItemIdFactory, ItemRepository
+    from collections.abc import Iterator
+
+    from __PACKAGE__.application.ports import (
+        Clock,
+        EventPublisher,
+        ItemIdFactory,
+        ItemRepository,
+    )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -19,13 +26,34 @@ class CreateItemCommand:
 
 
 class CreateItem:
-    """Create and persist a validated Item aggregate."""
+    """Create, persist, and announce a validated Item aggregate."""
 
-    def __init__(self, repository: ItemRepository, id_factory: ItemIdFactory) -> None:
+    def __init__(
+        self,
+        *,
+        repository: ItemRepository,
+        id_factory: ItemIdFactory,
+        clock: Clock,
+        events: EventPublisher,
+    ) -> None:
         self._repository: ItemRepository = repository
         self._id_factory: ItemIdFactory = id_factory
+        self._clock: Clock = clock
+        self._events: EventPublisher = events
 
     def __call__(self, command: CreateItemCommand) -> ItemCreatedEvent:
         item = Item(item_id=self._id_factory(), name=ItemName(value=command.name))
         self._repository.save(item)
-        return ItemCreatedEvent(item_id=item.item_id, name=item.name)
+        event = ItemCreatedEvent(item_id=item.item_id, name=item.name, occurred_at=self._clock())
+        self._events.publish(event)
+        return event
+
+
+class ListItems:
+    """Stream every stored item without materializing the collection."""
+
+    def __init__(self, *, repository: ItemRepository) -> None:
+        self._repository: ItemRepository = repository
+
+    def __call__(self) -> Iterator[Item]:
+        yield from self._repository.list_all()

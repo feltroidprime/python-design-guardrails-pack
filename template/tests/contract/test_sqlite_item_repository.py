@@ -1,0 +1,52 @@
+"""Certify the SQLite repository against the shared contract.
+
+Also proves the reference adapter's error translation: driver failures
+surface as the application-owned RepositoryError, never as sqlite3 types.
+"""
+
+import sqlite3
+from typing import TYPE_CHECKING
+
+import pytest
+
+from __PACKAGE__.adapters.outbound.sqlite_repository import SqliteItemRepository
+from __PACKAGE__.application.errors import RepositoryError
+from __PACKAGE__.domain.entities import Item
+from __PACKAGE__.domain.value_objects import ItemId, ItemName
+from tests.contract.item_repository_contract import ItemRepositoryContract
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+
+class TestSqliteItemRepository(ItemRepositoryContract):
+    @pytest.fixture
+    def repository(self) -> Iterator[SqliteItemRepository]:
+        connection = sqlite3.connect(":memory:")
+        yield SqliteItemRepository(connection)
+        connection.close()
+
+    def test_driver_failure_surfaces_as_repository_error(self) -> None:
+        connection = sqlite3.connect(":memory:")
+        repository = SqliteItemRepository(connection)
+        connection.close()
+
+        with pytest.raises(RepositoryError, match="Could not save"):
+            repository.save(Item(item_id=ItemId(value="x"), name=ItemName(value="X")))
+        with pytest.raises(RepositoryError, match="rejected the operation"):
+            _ = list(repository.list_all())
+
+    def test_streaming_read_requires_a_live_connection(self) -> None:
+        """list_all streams lazily, so its cursor depends on the injected lifecycle."""
+        connection = sqlite3.connect(":memory:")
+        repository = SqliteItemRepository(connection)
+        repository.save(Item(item_id=ItemId(value="a"), name=ItemName(value="A")))
+        repository.save(Item(item_id=ItemId(value="b"), name=ItemName(value="B")))
+
+        items = repository.list_all()
+        first = next(items)
+        assert first.item_id == ItemId(value="a")
+        connection.close()
+
+        with pytest.raises(RepositoryError, match="next items row"):
+            _ = next(items)

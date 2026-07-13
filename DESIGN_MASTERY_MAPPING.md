@@ -15,8 +15,8 @@ The public page describes a program launching in 2026 and exposes a detailed cur
 | Strategy, Adapter, Facade | callable strategies; adapters around I/O/frameworks; narrow stable public API | adapters isolated by import contracts; `__all__` public surfaces; pattern admission record |
 | Ports & Adapters | application-owned ports and outer implementations | Import Linter layer contract; inbound/outbound adapter independence; domain purity guard |
 | Domain invariants | value objects and aggregate methods; invalid construction rejected | frozen/slotted value-object modules; property tests; no raw primitive obsession at boundaries |
-| Repository boundaries | repository `Protocol` defined inward, implementation outward | application ports package plus contract tests shared by implementations |
-| Fail fast at correct boundary | domain raises domain errors; adapters translate external failures | blanket catches forbidden; exception chaining and narrow handling enforced by Ruff |
+| Repository boundaries | repository `Protocol` defined inward, implementation outward | application ports package plus a reusable contract-test kit (`tests/contract/`) certifying both shipped implementations (memory, SQLite) |
+| Fail fast at correct boundary | domain raises domain errors; adapters translate external failures | blanket catches forbidden; exception chaining and narrow handling enforced by Ruff; the SQLite reference adapter translates driver errors into the application-owned `RepositoryError` |
 | AI-generated structural problems | explicit scope, minimal diffs, no parallel abstractions, proof via gate | `AGENTS.md` workflow; one quality command; no completion claim without evidence |
 
 ## System Designer
@@ -27,18 +27,18 @@ The public page describes a program launching in 2026 and exposes a detailed cur
 | Strategies and higher-order functions | `Callable`, generic callables, closures, `Protocol.__call__` | strict typing and examples; avoid framework DI containers by default |
 | Protocols and ABCs | `Protocol` for structural ports; ABC only for shared runtime semantics | port package convention; `@override` required when inheritance is used |
 | Generators and streaming | `Iterator`, `Iterable`, generators; no eager materialization without reason | Ruff performance rules; explicit streaming policy |
-| Global coupling and shared state | explicit ownership; immutable configuration; injected clock/RNG/clients | mutable module globals rejected; domain wall-clock/random/UUID calls rejected |
+| Global coupling and shared state | explicit ownership; immutable configuration; injected clock/RNG/clients | mutable module globals rejected; domain wall-clock/random/UUID calls rejected; `Clock`/`ItemIdFactory` ports with outer adapters as the injected exemplars |
 | Error handling | small domain exception taxonomy; translate at boundaries; preserve causes | blind/bare catches rejected; exception messages and chaining checked |
-| Modules and folders around boundaries | package-by-boundary rather than technical dumping grounds | fixed layer skeleton, import contracts, generic module-name ban |
+| Modules and folders around boundaries | package-by-boundary rather than technical dumping grounds | fixed layer skeleton, import contracts, generic module-name ban; `__init__.py` must carry a public surface or ownership docstring (empty ones rejected, none allowed under `tests/`) |
 | Async and concurrency outside domain | sync domain; async orchestration in adapters/application edge | `async def` rejected in domain; concurrency imports rejected there |
-| Event-driven decoupling | immutable typed events; handlers as callables; events used across real workflow boundaries | event modules must contain frozen/slotted/keyword-only dataclasses; event adoption checklist |
+| Event-driven decoupling | immutable typed events; handlers as callables; events used across real workflow boundaries | event modules must contain frozen/slotted/keyword-only dataclasses; `EventPublisher` port + in-process publisher with a real subscribed consumer (ADR-0002); event adoption checklist |
 | Build vs buy | dependency decision includes maintenance, lockfile, replacement boundary | ADR required for foundational dependency; `uv.lock --check`; dependency audit workflow |
 
 ## Master Designer
 
 | Public topic | Probable Python 3.14 technique | Deterministic materialization |
 |---|---|---|
-| Context managers | `contextmanager`, `ExitStack`, `AsyncExitStack` for lifecycle guarantees | lifecycle resources must be acquired at edges and tested for cleanup |
+| Context managers | `contextmanager`, `ExitStack`, `AsyncExitStack` for lifecycle guarantees | lifecycle resources must be acquired at edges and tested for cleanup; `bootstrap.sqlite_application` is the shipped exemplar (integration test reopens the database) |
 | Decorator vs Proxy | decorator for call-level augmentation; proxy for object-level substitution/control | pattern admission matrix in architecture docs |
 | Async failure containment | `TaskGroup`, cancellation discipline, timeout boundaries, exception groups | concurrency checklist; no fire-and-forget tasks; integration tests for cancellation |
 | Generic composable engines | Python 3.12+ type-parameter syntax and constrained generic protocols | BasedPyright strict generics; no unbound/dynamic type parameters |

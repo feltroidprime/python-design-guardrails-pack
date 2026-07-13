@@ -4,7 +4,8 @@
 from pathlib import Path
 import sys
 
-from scripts.architecture_rules import check_module, load_policy, python_files
+from scripts.architecture_policy import load_policy
+from scripts.architecture_rules import check_module, python_files
 
 
 def main() -> int:
