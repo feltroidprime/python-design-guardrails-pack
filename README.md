@@ -114,6 +114,11 @@ Prerequisites: `python3` (3.14), [`uv`](https://docs.astral.sh/uv/), [`just`](ht
 ```bash
 just test       # generator unit tests (fast inner loop)
 just validate   # canonical validation — required before claiming any template change done
+pre-commit install --hook-type pre-commit --hook-type pre-push   # once per clone
 ```
+
+The pack's own `.pre-commit-config.yaml` (local hooks only, through the
+justfile) runs `just test` on every commit — a broken template cannot be
+committed — and `just validate` on every push.
 
 `just validate` runs the generator tests, then instantiates a throwaway repository in a temporary directory, verifies that `template/` carries no local runtime artifacts, that no placeholder token survives generation, resolves the pinned dependencies, and runs the generated repository's own full quality gate before cleaning up. The last executed validation is recorded in `VALIDATION.md`.
