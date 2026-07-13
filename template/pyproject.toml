@@ -5,15 +5,15 @@ build-backend = "uv_build"
 [project]
 name = "__PROJECT_NAME__"
 version = "0.1.0"
-description = "A Python 3.14 project with executable design guardrails."
+description = "A Python 3.14 application with an executable architecture and quality contract."
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = []
 
-# Dev tooling floats: floors are the last versions the template was validated
-# against, and the first `uv sync` of a generated repository resolves the
-# latest releases. Reproducibility comes from uv.lock (kept current by the
-# uv-lock pre-commit hook), not from exact pins here.
+# Dev tooling floats: floors are the last versions this repository's toolchain
+# was validated against, and the first `uv sync` resolves the latest releases.
+# Reproducibility comes from uv.lock (kept current by the uv-lock pre-commit
+# hook), not from exact pins here.
 [dependency-groups]
 dev = [
   "basedpyright>=1.39.9",

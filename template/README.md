@@ -1,6 +1,7 @@
 # __PROJECT_NAME__
 
-Python 3.14 project generated from the Python Design Guardrails Pack.
+Python 3.14 application repository with an executable architecture and
+quality contract.
 
 ## Prerequisites
 

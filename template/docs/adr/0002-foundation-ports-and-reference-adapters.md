@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-13
-- Owners: repository maintainers (shipped with the Python Design Guardrails Pack)
+- Owners: repository maintainers
 - Revisit trigger: the first real feature of this repository replaces the
   example slice, or a foundation brick stays unused after the domain has
   three or more aggregates

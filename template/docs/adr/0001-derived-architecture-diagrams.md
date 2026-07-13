@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-11
-- Owners: repository maintainers (shipped with the Python Design Guardrails Pack)
+- Owners: repository maintainers
 - Revisit trigger: LikeC4 CLI or grimp becomes unmaintained, or the derived
   model stops matching how the team actually reasons about the system
 
