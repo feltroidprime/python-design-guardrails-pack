@@ -32,6 +32,7 @@ EXPECTED_FILES = (
     "AGENTS.md",
     "README.md",
     "architecture.toml",
+    "docs/README.md",
     "docs/adr/0000-template.md",
     "docs/adr/0001-derived-architecture-diagrams.md",
     "docs/adr/0002-foundation-ports-and-reference-adapters.md",
@@ -45,6 +46,7 @@ EXPECTED_FILES = (
     "pyproject.toml",
     "scripts/architecture_guard.py",
     "scripts/architecture_rules.py",
+    "scripts/docs_guard.py",
     "scripts/none_discipline.py",
     "scripts/quality_gate.py",
     "scripts/sync_architecture_diagrams.py",
@@ -295,6 +297,19 @@ def test_generated_architecture_guard_runs_and_passes(generated: Path) -> None:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Architecture guard passed." in result.stdout
+
+
+def test_generated_docs_guard_runs_and_passes(generated: Path) -> None:
+    """The docs guard is stdlib-only, so it must run in the generated repo as-is."""
+    result = subprocess.run(
+        [sys.executable, "-m", "scripts.docs_guard"],
+        cwd=generated,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Documentation guard passed." in result.stdout
 
 
 def run_diagram_sync(repo: Path, mode: str) -> subprocess.CompletedProcess[str]:

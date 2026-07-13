@@ -39,7 +39,8 @@ This pack is inspired by the public curriculum of ArjanCodes' **Software Design 
 - exception ledger with expiry/removal criteria;
 - Strangler and Branch-by-Abstraction migration templates;
 - a single local quality gate mirrored in CI;
-- architecture diagrams derived from the import graph (LikeC4 + grimp): the gate fails when the committed model lags the code or a hand-written view references a missing element, so stale diagrams are uncommittable.
+- architecture diagrams derived from the import graph (LikeC4 + grimp): the gate fails when the committed model lags the code or a hand-written view references a missing element, so stale diagrams are uncommittable;
+- a documentation contract (`docs/README.md`, the map) enforced by a docs guard: broken path references in prose, unregistered documents, malformed ADRs, and exception markers pointing at nonexistent ADRs all fail the gate.
 
 ## Install the generator system-wide (once)
 
@@ -99,6 +100,7 @@ The generated project contains a small vertical slice built on **foundation bric
 - `pyproject.toml`: Ruff, BasedPyright, pytest, Coverage, Import Linter, and dependencies.
 - `.pre-commit-config.yaml`: fast commit checks and full pre-push gate.
 - `.vscode/settings.json`: hides derived artifacts (caches, coverage, `.venv`) from the VS Code explorer and search.
+- `docs/README.md`: the documentation map — one row per document (who reads it, when, freshness mode) plus the admission rule for new documents; kept true by `scripts/docs_guard.py`.
 - `docs/architecture/`: pattern admission rules, ADRs, migration and exception templates.
 - `docs/architecture/likec4/`: architecture diagrams — `generated/` is derived from the import graph by `scripts/sync_architecture_diagrams.py` (never hand-edited), `views.c4` is team-owned narration.
 - `scripts/quality_gate.py`: canonical one-command acceptance gate.

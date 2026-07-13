@@ -1,7 +1,22 @@
 # Validation record
 
 Last executed: 2026-07-13, macOS (arm64), CPython 3.14.6, uv 0.11.28,
-bun 1.3.9, via `just validate` — after adding the None-discipline guards
+bun 1.3.9, via `just validate` — after adding the documentation contract:
+the documentation map (`docs/README.md`: one row per document, freshness
+ladder derived > checked > dated, admission rule) and the docs guard
+(`scripts/docs_guard.py`, new `docs guard` step in the quality gate and in
+`just arch`) with rules DOC001–DOC007 — broken path references in markdown
+(resolved against the file's directory, the repository root, and the package
+root; fenced code blocks and URLs ignored), `ARCH-EXCEPTION` markers naming
+nonexistent ADRs, ADR file-name/heading/front-matter/status conventions,
+non-contiguous or duplicate ADR numbering, and documents not registered in
+the map. The template `README.md` no longer paraphrases the foundation-bricks
+distinction (single owner: `AGENTS.md`), and `AGENTS.md` gained the
+"Documentation" section stating the three rules. Pack tests
+(`tests/test_docs_guard.py`, 17 tests) prove each rule fires on planted
+violations and stays silent on legitimate prose, and that the shipped
+template passes its own documentation contract. Before that: after adding
+the None-discipline guards
 ARCH016–ARCH018 (`scripts/none_discipline.py`, a separate module so
 `architecture_rules.py` respects its own 400-line ceiling) and their single
 source of truth, the "None discipline" section of the template `AGENTS.md`.
@@ -38,7 +53,7 @@ import-linter layers contract and the derived diagrams.
 ## Pack-level checks (`just validate`)
 
 - Generator test suite (`tests/test_instantiate.py` +
-  `tests/test_none_discipline.py`): 41 passed — name
+  `tests/test_none_discipline.py` + `tests/test_docs_guard.py`): 59 passed — name
   validation, non-empty-directory refusal, package renaming, full placeholder
   replacement, cache-artifact exclusion, expected-file preservation
   (including `__main__.py`, the SQLite adapter, `application/errors.py`,
@@ -64,6 +79,8 @@ import-linter layers contract and the derived diagrams.
 - BasedPyright, `pythonVersion = "3.14"`, recommended mode,
   `failOnWarnings = true`, explicit `Any` errors: 0 errors, 0 warnings.
 - Repository AST architecture guard: passed.
+- Documentation guard (map registration, path references, ADR conventions,
+  exception markers): passed.
 - Import Linter: 2 contracts kept, 0 broken (22 files, 22 dependencies).
 - Diagram sync: derived LikeC4 model matches the import graph, including the
   new `application/errors` module and the bootstrap → inbound/domain.events

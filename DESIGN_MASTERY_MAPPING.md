@@ -48,6 +48,7 @@ The public page describes a program launching in 2026 and exposes a detailed cur
 | Branch by Abstraction | introduce seam, dual implementation, switch, remove old path | dedicated migration checklist and expiring exception ledger |
 | Prevent architectural drift | fitness functions executed locally and in CI | AST guard + Import Linter + strict type/lint/test gate |
 | Architecture communication without drift | diagrams derived from the code, not drawn | LikeC4 model generated from the grimp import graph (same library Import Linter uses); gate fails on model drift and on views referencing missing elements; free-form views stay team-owned |
+| Documentation that stays true | one owner per fact; freshness ladder (derived > checked > dated); registry with admission rule | documentation map (`docs/README.md`) + docs guard (DOC001–DOC007): broken path references, dangling `ARCH-EXCEPTION` markers, malformed or non-contiguous ADRs, and unregistered documents fail the gate |
 | Trade-offs under pressure | ADR with forces, rejected options, cost, revisit trigger | mandatory ADR triggers and explicit exception expiry |
 | AI speed vs long-term risk | AI proposes; deterministic tools and humans retain design authority | agent contract forbids architecture invention without evidence and requires gate output |
 

@@ -20,6 +20,7 @@ test:
 
 arch:
     uv run python -m scripts.architecture_guard
+    uv run python -m scripts.docs_guard
     uv run lint-imports
     uv run python -m scripts.sync_architecture_diagrams --check
 

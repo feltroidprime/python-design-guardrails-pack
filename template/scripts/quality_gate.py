@@ -45,6 +45,7 @@ def checks(root: Path) -> tuple[Check, ...]:
         Check(
             name="architecture AST", command=(sys.executable, "-m", "scripts.architecture_guard")
         ),
+        Check(name="docs guard", command=(sys.executable, "-m", "scripts.docs_guard")),
         Check(name="import contracts", command=("lint-imports",)),
         Check(
             name="diagram sync",

@@ -97,6 +97,16 @@ The LikeC4 model under `docs/architecture/likec4/generated/` is derived from the
 - The LikeC4 CLI version is pinned in exactly one place, `[tool.likec4]` in `pyproject.toml`; every invocation goes through `bunx likec4@<version>` (Bun is a toolchain prerequisite). Do not introduce `package.json`, JavaScript lockfiles, or `node_modules`. A version bump moves that single pin and must pass the full gate.
 - To reason from the current architecture, browse `just diagrams` or query the LikeC4 model instead of trusting stale prose.
 
+## Documentation
+
+`docs/README.md` is the documentation map: one row per document, stating who reads it and how its freshness is guaranteed. Three rules, enforced by the gate's `docs guard` check (`scripts/docs_guard.py`):
+
+1. **One owner per fact.** Link to the owning document; never paraphrase it into a second copy.
+2. **Freshness ladder — derived > checked > dated.** Generate documentation from code where possible (the LikeC4 model). Otherwise cite real repository paths so the guard can verify them — renaming a file fails the gate until every document that cited it moves in the same commit. Prose no gate can verify (context, decisions) carries a status, owner, and revisit trigger: that is what `docs/adr/` is for.
+3. **Admission.** A new documentation file claims a row in the map in the same commit; a kind of knowledge with no fitting row requires an ADR before the file exists.
+
+ADR conventions are mechanical: `NNNN-kebab-case.md` file names, a matching `# ADR-NNNN:` heading, the front-matter keys of `docs/adr/0000-template.md`, contiguous numbering. Supersede a decision with a new ADR; never delete or rewrite an old one.
+
 ## Typing policy
 
 - Python target is exactly 3.14.x.

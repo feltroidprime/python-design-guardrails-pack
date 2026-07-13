@@ -39,21 +39,10 @@ uv run python -m __PACKAGE__ list
 
 ## What to replace, what to keep
 
-The example separates throwaway from foundation (see
-`docs/adr/0002-foundation-ports-and-reference-adapters.md`):
-
-- **Replace**: the `Item` aggregate, its value objects, use cases, and CLI
-  verbs — they exist to be substituted by your real domain.
-- **Keep**: the foundation bricks, each the reference exemplar of a
-  cross-cutting capability you will need again — the `Clock` and
-  `ItemIdFactory` callable ports, the `EventPublisher` protocol with its
-  in-process implementation and audit-log consumer, the SQLite reference
-  adapter (error translation + context-managed lifecycle), the reusable
-  repository contract test in `tests/contract/`, and the `python -m`
-  entry point through the single composition root.
-
-The "Foundation bricks" table in `AGENTS.md` maps each recurring need to
-the brick to imitate.
+The example separates the replaceable `Item` slice from the foundation
+bricks you keep and imitate. The single owner of that distinction is the
+"Foundation bricks" section of `AGENTS.md`; the decision behind it is
+`docs/adr/0002-foundation-ports-and-reference-adapters.md`.
 
 ## Architecture diagrams
 
@@ -66,4 +55,8 @@ Diagrams are **derived from the code**, never hand-maintained
 - `docs/architecture/likec4/views.c4` — team-owned free-form views; add your
   own narration here. `specification.c4` is written once.
 
-Read `AGENTS.md` before changing code. Architecture decisions live under `docs/adr/`.
+## Documentation
+
+`docs/README.md` is the documentation map: one row per document, saying who
+reads it, when, and how its freshness is guaranteed. Read `AGENTS.md` before
+changing code; record decisions under `docs/adr/`.
