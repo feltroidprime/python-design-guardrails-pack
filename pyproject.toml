@@ -38,4 +38,6 @@ include = ["instantiate.py", "template", "README.md"]
 # on the import path so first-party imports (validate_pack) resolve in tests.
 [tool.basedpyright]
 exclude = ["**/node_modules", "**/__pycache__", "**/.*", "template"]
-extraPaths = ["scripts"]
+# "template" stays excluded from analysis (placeholder scaffold) but remains an
+# import root so tests importing scripts.* (the guard modules) resolve.
+extraPaths = ["scripts", "template"]
