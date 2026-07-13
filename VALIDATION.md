@@ -1,7 +1,24 @@
 # Validation record
 
 Last executed: 2026-07-13, macOS (arm64), CPython 3.14.6, uv 0.11.28,
-bun 1.3.9, via `just validate` — after adding the documentation contract:
+bun 1.3.9, via `just validate` — after adding the Path-discipline guards
+ARCH019–ARCH020 (`scripts/path_discipline.py`, a separate module like
+`none_discipline.py`) and their single source of truth, the "Path
+discipline" section of the template `AGENTS.md`: a filesystem location is
+`pathlib.Path` from the moment it exists; `str` paths are wire data parsed
+at the adapter edge and serialized only inside the final external call.
+ARCH019 rejects path-named parameters and returns that admit `str`
+(including `str | Path` unions and `list[str]` elements); ARCH020 rejects
+path-named annotated fields that admit `str`. Name matching is whole-token
+(`profile`/`file_format` stay clean; `config_file` is a path); mapping
+annotations check only the key position, so `files: dict[Path, str]` —
+path-to-content, the diagram-sync exemplar — stays legal. Both codes are
+`ARCH-EXCEPTION` marker-suppressible. Ruff's `PTH` family (already enabled)
+keeps rejecting the `os.path` API at call sites; the guard adds the part a
+call-site linter cannot see, and BasedPyright then propagates `Path`-typed
+boundaries to every caller. Pack tests (`tests/test_path_discipline.py`,
+11 tests) prove each rule fires on planted violations and stays silent on
+legitimate idioms. Before that: after adding the documentation contract:
 the documentation map (`docs/README.md`: one row per document, freshness
 ladder derived > checked > dated, admission rule) and the docs guard
 (`scripts/docs_guard.py`, new `docs guard` step in the quality gate and in
@@ -53,7 +70,8 @@ import-linter layers contract and the derived diagrams.
 ## Pack-level checks (`just validate`)
 
 - Generator test suite (`tests/test_instantiate.py` +
-  `tests/test_none_discipline.py` + `tests/test_docs_guard.py`): 59 passed — name
+  `tests/test_none_discipline.py` + `tests/test_path_discipline.py` +
+  `tests/test_docs_guard.py`): 70 passed — name
   validation, non-empty-directory refusal, package renaming, full placeholder
   replacement, cache-artifact exclusion, expected-file preservation
   (including `__main__.py`, the SQLite adapter, `application/errors.py`,

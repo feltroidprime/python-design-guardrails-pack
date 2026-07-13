@@ -18,6 +18,7 @@ The public page describes a program launching in 2026 and exposes a detailed cur
 | Repository boundaries | repository `Protocol` defined inward, implementation outward | application ports package plus a reusable contract-test kit (`tests/contract/`) certifying both shipped implementations (memory, SQLite) |
 | Fail fast at correct boundary | domain raises domain errors; adapters translate external failures | blanket catches forbidden; exception chaining and narrow handling enforced by Ruff; the SQLite reference adapter translates driver errors into the application-owned `RepositoryError` |
 | None at the edge, strict core | better defaults over `Optional`; parse raw data into strict domain types at the boundary; explicit state types; null objects over `port \| None` | "None discipline" decision ladder in the template `AGENTS.md`, enforced by guard rules ARCH016–ARCH018 |
+| Primitive obsession: paths | `pathlib.Path` from first touch; `str` paths are wire data parsed at the adapter edge and serialized only in the final external call | "Path discipline" decision ladder in the template `AGENTS.md`; Ruff `PTH` rejects the `os.path` API; guard rules ARCH019–ARCH020 reject path-named `str` declarations, letting BasedPyright propagate `Path` to every caller |
 | AI-generated structural problems | explicit scope, minimal diffs, no parallel abstractions, proof via gate | `AGENTS.md` workflow; one quality command; no completion claim without evidence |
 
 ## System Designer

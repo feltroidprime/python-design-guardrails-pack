@@ -165,6 +165,17 @@ A new foundational abstraction, framework, event bus, DI container, plugin syste
 6. **`None` is itself a legal value and "not provided" must be distinguished.** Use a dedicated module-level sentinel object, not a second meaning for `None`.
 7. **A query may legitimately find nothing.** A port may return `X | None` (`ItemRepository.get` is the exemplar); the caller converts it into a domain exception or an explicit branch immediately. An optional never travels more than one call inward.
 
+## Path discipline
+
+A filesystem location is a `pathlib.Path` from the moment it exists. A `str` path is wire data — argv, JSON payloads, database columns, environment variables — and follows the same parse-don't-propagate rule as `None`. Ruff's `PTH` rules already reject the `os.path` API at call sites; the guard covers what a call-site linter cannot see:
+
+1. **Declarations demand `Path`.** A parameter, return, or field whose name says "path" is typed `pathlib.Path`, never `str` — and never `str | Path`, which forces every consumer to re-normalize (ARCH019, ARCH020). Once the boundary says `Path`, the type checker propagates the obligation to every caller.
+2. **Parse at the edge.** The inbound adapter converts raw text to `Path` at first touch: `argparse` uses `type=Path`; a payload field becomes `Path(raw["database"])` before it is stored or passed inward. Name pre-parse text for what it is (`raw`, `text`), not for what it will become.
+3. **Serialize at the last moment.** `str(path)` / `os.fspath(path)` appear only inside the outbound call that hands the value to the external system (database parameter, JSON body, subprocess argv); the serialized form is never stored, returned, or passed on.
+4. **A bare name is not a path.** A value with no directory meaning is domain data: name it `stem`, `label`, or `slug` and keep it a `str`; `filename: str` is flagged because the name claims filesystem semantics the type denies.
+5. **The domain never sees the filesystem.** `pathlib` and `os` are in `domain.forbidden_import_roots`; pass content or a value object inward and keep paths in application/adapter signatures behind ports.
+6. **Published-library boundaries are the one exception.** Accepting `str | os.PathLike[str]` in a public API mimics the standard library and requires an ADR-backed exception; internal code normalizes immediately behind it.
+
 ## State, concurrency, and lifecycle
 
 - One owner for each mutable state.
@@ -195,6 +206,7 @@ Forbidden without an ADR-backed exception:
 - hidden I/O in properties, constructors, or domain methods;
 - boolean flags that switch unrelated behavior;
 - `None` where "None discipline" prescribes a default, a parse, an exception, or a state (ARCH016–ARCH018);
+- filesystem paths typed as `str` where "Path discipline" prescribes `pathlib.Path` (ARCH019–ARCH020);
 - comments that restate code instead of explaining a non-obvious invariant or trade-off;
 - broad refactors mixed into a feature change;
 - weakening a gate to make generated code pass.
