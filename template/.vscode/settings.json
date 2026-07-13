@@ -8,6 +8,7 @@
     "**/.pytest_cache": true,
     "**/.ruff_cache": true,
     "**/.basedpyright": true,
+    "**/.import_linter_cache": true,
     "**/.codebase-memory": true,
     "**/.venv": true,
     "**/.DS_Store": true,
@@ -28,6 +29,7 @@
     "**/.pytest_cache/**": true,
     "**/.ruff_cache/**": true,
     "**/.basedpyright/**": true,
+    "**/.import_linter_cache/**": true,
     "**/.codebase-memory/**": true,
     "**/.venv/**": true
   },

@@ -4,6 +4,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .basedpyright/
+.import_linter_cache/
 .codebase-memory/
 .coverage
 coverage.xml
