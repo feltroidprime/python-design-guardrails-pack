@@ -5,6 +5,7 @@
     "**/*.pyc": true,
     "**/.pytest_cache": true,
     "**/.ruff_cache": true,
+    "**/.codebase-memory": true,
     "**/.venv": true,
     "**/.DS_Store": true,
     ".idea": true
@@ -17,6 +18,7 @@
     "**/__pycache__/**": true,
     "**/.pytest_cache/**": true,
     "**/.ruff_cache/**": true,
+    "**/.codebase-memory/**": true,
     "**/.venv/**": true
   }
 }

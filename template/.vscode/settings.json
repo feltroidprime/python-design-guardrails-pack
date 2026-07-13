@@ -8,6 +8,7 @@
     "**/.pytest_cache": true,
     "**/.ruff_cache": true,
     "**/.basedpyright": true,
+    "**/.codebase-memory": true,
     "**/.venv": true,
     "**/.DS_Store": true,
     "**/*.egg-info": true,
@@ -27,6 +28,7 @@
     "**/.pytest_cache/**": true,
     "**/.ruff_cache/**": true,
     "**/.basedpyright/**": true,
+    "**/.codebase-memory/**": true,
     "**/.venv/**": true
   }
 }

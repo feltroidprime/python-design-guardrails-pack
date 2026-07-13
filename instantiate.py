@@ -26,6 +26,7 @@ PLACEHOLDER_TOKENS = (PROJECT_TOKEN, PACKAGE_TOKEN)
 IGNORED_ARTIFACT_PATTERNS = (
     ".DS_Store",
     ".basedpyright",
+    ".codebase-memory",
     ".coverage",
     ".idea",
     ".mypy_cache",
