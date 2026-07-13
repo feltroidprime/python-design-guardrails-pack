@@ -4,6 +4,7 @@ These tests exercise the generator only. The full downstream quality gate is
 covered by scripts/validate_pack.py (run through 'just validate').
 """
 
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -35,6 +36,7 @@ EXPECTED_FILES = (
     "architecture.toml",
     "docs/adr/0000-template.md",
     "docs/adr/0001-derived-architecture-diagrams.md",
+    "docs/adr/0002-foundation-ports-and-reference-adapters.md",
     "docs/architecture/EXCEPTIONS.md",
     "docs/architecture/likec4/generated/baseline-views.c4",
     "docs/architecture/likec4/generated/model.c4",
@@ -47,9 +49,13 @@ EXPECTED_FILES = (
     "scripts/architecture_rules.py",
     "scripts/quality_gate.py",
     "scripts/sync_architecture_diagrams.py",
+    f"src/{PACKAGE_NAME}/__main__.py",
+    f"src/{PACKAGE_NAME}/adapters/outbound/sqlite_repository.py",
+    f"src/{PACKAGE_NAME}/application/errors.py",
     f"src/{PACKAGE_NAME}/bootstrap.py",
     f"src/{PACKAGE_NAME}/domain/value_objects.py",
     f"src/{PACKAGE_NAME}/py.typed",
+    "tests/contract/item_repository_contract.py",
     "tests/unit/domain/test_value_objects.py",
 )
 
@@ -118,6 +124,114 @@ def test_refuses_to_overwrite_non_empty_directory(tmp_path: Path) -> None:
     assert "Refusing to overwrite" in result.stdout
     assert sentinel.read_text(encoding="utf-8") == "do not touch"
     assert list(output.iterdir()) == [sentinel]
+
+
+def run_cli(
+    *args: str, script: Path = INSTANTIATE, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    """Invoke the `python-repo`-style subcommand interface of instantiate.py."""
+    return subprocess.run(
+        [sys.executable, str(script), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+
+
+def make_gh_stub(tmp_path: Path) -> tuple[dict[str, str], Path]:
+    """PATH-prepend a fake `gh` that records its arguments instead of hitting GitHub."""
+    stub_dir = tmp_path / "stub-bin"
+    stub_dir.mkdir()
+    recorded = tmp_path / "gh-args.txt"
+    stub = stub_dir / "gh"
+    stub.write_text(f'#!/bin/sh\necho "$@" > "{recorded}"\n', encoding="utf-8")
+    stub.chmod(0o755)
+    env = dict(os.environ)
+    env["PATH"] = f"{stub_dir}{os.pathsep}{env['PATH']}"
+    return env, recorded
+
+
+def test_init_creates_project_and_git_repository(tmp_path: Path) -> None:
+    result = run_cli("init", PROJECT_NAME, str(tmp_path), "--no-github")
+    assert result.returncode == 0, result.stdout + result.stderr
+    target = tmp_path / PROJECT_NAME
+    assert (target / "src" / PACKAGE_NAME).is_dir(), "package name was not derived"
+    assert f"Created {PROJECT_NAME}" in result.stdout
+    assert (target / ".git").is_dir(), "git repository was not initialized"
+    head = subprocess.run(
+        ["git", "log", "--oneline"], cwd=target, capture_output=True, text=True, check=False
+    )
+    assert head.returncode == 0 and head.stdout.count("\n") == 1, "expected one initial commit"
+
+
+def test_init_honors_explicit_package_name(tmp_path: Path) -> None:
+    result = run_cli(
+        "init", PROJECT_NAME, str(tmp_path), "--package", "customcore", "--no-git"
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (tmp_path / PROJECT_NAME / "src" / "customcore").is_dir()
+
+
+def test_init_no_git_skips_git_and_github(tmp_path: Path) -> None:
+    result = run_cli("init", PROJECT_NAME, str(tmp_path), "--no-git")
+    assert result.returncode == 0, result.stdout + result.stderr
+    target = tmp_path / PROJECT_NAME
+    assert not (target / ".git").exists()
+    assert find_placeholder_occurrences(target) == []
+
+
+def test_init_creates_private_github_repository_by_default(tmp_path: Path) -> None:
+    env, recorded = make_gh_stub(tmp_path)
+    result = run_cli("init", PROJECT_NAME, str(tmp_path / "work"), env=env)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert recorded.read_text(encoding="utf-8").split() == [
+        "repo",
+        "create",
+        PROJECT_NAME,
+        "--private",
+        "--source",
+        ".",
+        "--remote",
+        "origin",
+        "--push",
+    ]
+
+
+def test_init_public_flag_flips_github_visibility(tmp_path: Path) -> None:
+    env, recorded = make_gh_stub(tmp_path)
+    result = run_cli("init", PROJECT_NAME, str(tmp_path / "work"), "--public", env=env)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "--public" in recorded.read_text(encoding="utf-8").split()
+    assert "--private" not in recorded.read_text(encoding="utf-8").split()
+
+
+def test_init_failing_gh_reports_manual_command_and_exit_1(tmp_path: Path) -> None:
+    env, _ = make_gh_stub(tmp_path)
+    stub = tmp_path / "stub-bin" / "gh"
+    stub.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    result = run_cli("init", PROJECT_NAME, str(tmp_path / "work"), env=env)
+    assert result.returncode == 1
+    assert "GitHub repository creation failed" in result.stdout
+    assert f"gh repo create {PROJECT_NAME} --private" in result.stdout
+    # The local repository is still usable.
+    assert (tmp_path / "work" / PROJECT_NAME / ".git").is_dir()
+
+
+def test_init_rejects_underivable_package_name(tmp_path: Path) -> None:
+    result = run_cli("init", "1orders", str(tmp_path), "--no-git")
+    assert result.returncode == 2
+    assert "--package" in result.stdout
+    assert not (tmp_path / "1orders").exists()
+
+
+def test_init_refuses_existing_non_empty_target(tmp_path: Path) -> None:
+    occupied = tmp_path / PROJECT_NAME
+    occupied.mkdir()
+    (occupied / "precious.txt").write_text("do not touch", encoding="utf-8")
+    result = run_cli("init", PROJECT_NAME, str(tmp_path), "--no-git")
+    assert result.returncode == 2
+    assert "Refusing to overwrite" in result.stdout
 
 
 def test_package_directory_is_renamed(generated: Path) -> None:
@@ -238,13 +352,20 @@ def test_diagram_sync_output_is_byte_stable(tmp_path: Path) -> None:
 def test_generated_vertical_slice_executes(generated: Path) -> None:
     """The example slice must be importable and behave under the new package name."""
     program = (
+        "import io\n"
         "import sys\n"
         "sys.path.insert(0, 'src')\n"
-        f"from {PACKAGE_NAME}.adapters.inbound.cli import create_item_from_text\n"
-        f"from {PACKAGE_NAME}.bootstrap import create_item_handler\n"
-        "event = create_item_from_text(create_item_handler(), '  Pack check  ')\n"
-        "assert event.name.value == 'Pack check', event.name.value\n"
-        "assert event.item_id.value\n"
+        f"from {PACKAGE_NAME}.adapters.inbound.cli import run\n"
+        f"from {PACKAGE_NAME}.bootstrap import memory_application\n"
+        "app = memory_application()\n"
+        "out, err = io.StringIO(), io.StringIO()\n"
+        "code = run(['add', '  Pack check  '], create_item=app.create_item,"
+        " list_items=app.list_items, out=out, err=err)\n"
+        "assert code == 0, (code, err.getvalue())\n"
+        "assert 'Pack check' in out.getvalue(), out.getvalue()\n"
+        "code = run(['list'], create_item=app.create_item,"
+        " list_items=app.list_items, out=out, err=err)\n"
+        "assert code == 0, (code, err.getvalue())\n"
         "print('slice ok')\n"
     )
     result = subprocess.run(

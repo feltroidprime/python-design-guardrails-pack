@@ -11,7 +11,15 @@ product.
 
 - `instantiate.py` is the generator. It copies `template/` into a target
   directory, renames `src/__PACKAGE__`, and replaces the placeholder tokens
-  `__PROJECT_NAME__` and `__PACKAGE__`.
+  `__PROJECT_NAME__` and `__PACKAGE__`. It is also the module behind the
+  installable `python-repo` console script (`python-repo init <name>
+  [directory] [--package NAME] [--public] [--no-github] [--no-git]`); the
+  root `pyproject.toml` exists solely to package that CLI plus `template/`
+  for `uv tool install` (see `just install`). The `init` subcommand also
+  runs `git init` + initial commit and `gh repo create --private … --push`;
+  the legacy positional form stays purely local (no git, no gh, no network)
+  because the pack's tests and `validate_pack.py` depend on that. Tests for
+  the gh behavior must use a PATH-stubbed `gh`, never the real one.
 - `template/` is the canonical source of every generated repository, verbatim
   except for placeholder substitution.
 
@@ -34,6 +42,7 @@ repository, not this one.
 |---|---|
 | Everything a generated repository contains | `template/**` |
 | Generation logic, name validation, placeholder tokens, artifact exclusion | `instantiate.py` |
+| `python-repo` CLI packaging (console script, wheel contents) | `pyproject.toml` (root) |
 | Downstream architecture policy | `template/architecture.toml` + `template/scripts/architecture_rules.py` |
 | Downstream agent contract | `template/AGENTS.md` |
 | Downstream quality gate | `template/scripts/quality_gate.py` (mirrored by `template/.github/workflows/quality.yml` and the pre-push hook) |
@@ -100,9 +109,13 @@ loop, not a completion criterion for template changes.
 Prerequisites: `python3` (3.14), `uv`, `just`, `bun`, and network access for
 the first dependency resolution (including the first `bunx` download of the
 pinned LikeC4 CLI, exercised by the downstream gate's `diagram views` check).
-`uv run --with` supplies pytest and grimp; the root intentionally has no
-`pyproject.toml` and no virtualenv, so IDE warnings about unresolved
-`pytest`/`validate_pack`/`grimp` imports are expected.
+`uv run --no-project --with` supplies pytest and grimp; the root
+`pyproject.toml` is packaging-only (no dependencies, no dev tooling) and the
+root intentionally has no virtualenv or lock file, so IDE warnings about
+unresolved `pytest`/`validate_pack`/`grimp` imports are expected. If you
+change what a wheel must ship (new top-level template asset, renamed
+generator), update the hatchling include/force-include sections in the root
+`pyproject.toml` in the same change.
 
 ## Documentation synchronization
 

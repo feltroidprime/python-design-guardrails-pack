@@ -13,3 +13,8 @@ test:
 # temporary directory that must pass the generated repository's full quality gate.
 validate: test
     python3 scripts/validate_pack.py
+
+# Install the `python-repo` CLI system-wide with uv (editable: template edits
+# and `git pull` take effect without reinstalling).
+install:
+    uv tool install --force --editable .
