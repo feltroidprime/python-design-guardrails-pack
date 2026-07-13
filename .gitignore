@@ -4,6 +4,9 @@ __pycache__/
 .ruff_cache/
 .codebase-memory/
 .venv/
+# The generator root is intentionally lock-file-free (stdlib-only, no runtime
+# deps); ignore any uv.lock an ad-hoc `uv run` leaves behind.
+uv.lock
 .DS_Store
 dist/
 *.egg-info/
