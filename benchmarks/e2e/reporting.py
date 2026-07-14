@@ -37,6 +37,13 @@ _LIMITATIONS = """\
 - The builder inherits the host machine's agent CLI configuration (settings,
   hooks); this is symmetric between arms but makes absolute numbers
   machine-dependent.
+- Token counts are comparable only within a provider: providers use different
+  tokenizers and native accounting conventions even though headless_llm keeps
+  uncached input, cached input, output, and reasoning counts distinct.
+- Cost provenance is explicit. `reported` means provider-supplied dollars;
+  `computed` means headless_llm applied its pinned per-model pricing table.
+  Computed API-equivalent cost can differ from subscription credits or
+  negotiated pricing; a missing value means neither path was available.
 - This design measures one greenfield build of one small application by one
   model. It cannot measure maintenance-phase value (the template's core
   claim); `change_safety` is judged from reading, not from performing changes.
@@ -79,12 +86,13 @@ def _build_section(results: dict[str, object]) -> str:
     rows = [
         _arm_row(results, "Workspace setup (s)", "setup", "seconds"),
         _arm_row(results, "Build wall time (s)", "build", "duration_seconds"),
-        _arm_row(results, "Agent turns (provider-reported)", "build", "turns"),
-        _arm_row(results, "Tool calls (provider-reported)", "build", "tool_calls"),
+        _arm_row(results, "Agent turns (model response cycles)", "build", "turns"),
+        _arm_row(results, "Tool calls (native invocations)", "build", "tool_calls"),
         _arm_row(results, "Input tokens (non-cached)", "build", "input_tokens"),
         _arm_row(results, "Cached input tokens (context reads)", "build", "cached_input_tokens"),
         _arm_row(results, "Output tokens", "build", "output_tokens"),
-        _arm_row(results, "Reported cost (USD, cache included)", "build", "cost_usd"),
+        _arm_row(results, "Cost (USD, cache included)", "build", "cost_usd"),
+        _arm_row(results, "Cost provenance", "build", "cost_provenance"),
         _arm_row(results, "Build error", "build", "error"),
     ]
     return _table(["Build effort", *[_ARM_TITLES[arm] for arm in ARMS]], rows)

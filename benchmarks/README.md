@@ -88,7 +88,7 @@ consistent without a provider or network.
 
 | Family | Mechanism | Bias control |
 |---|---|---|
-| Build effort | wall time, turns, tool calls, tokens (cached reads reported separately), reported cost from headless_llm | same prompt, same agent, same timeout |
+| Build effort | wall time, model response cycles, native tool invocations, tokens (cached reads reported separately), and cost with reported/computed provenance from headless_llm | same prompt, same agent, same timeout |
 | Functional acceptance | scripted probes: argv + expected exit codes + output regexes from the spec | identical scenario, no shell, recorded verbatim; cascade risk disclosed in the report |
 | Installability & self-tests | `uv sync`, each arm's own `pytest` suite | arm's own standard, reported as such |
 | Neutral static quality | pinned `ruff --isolated` (F,E,W,B minus E501), pinned basedpyright in *standard* mode with a generated config, radon complexity, in-process coverage driven by a generated neutral rcfile | **every** static metric measures the same application scope as the judge bundle (`judge.exclude`); whole-repo LOC is reported separately as descriptive; per-KLOC numerators and denominators share the scope |
@@ -161,9 +161,15 @@ agent with a change request and measure that.
   server configuration even when the harness requests none; judge tool
   lockdown and the neutral CWD make this moot for judging, but an OpenCode
   *builder* keeps the host's MCP servers in context.
-- "Agent turns"/"Tool calls" are accurate for claude; codex/opencode report
-  coarser values (turns fixed at 1, opencode tool calls undercounted), so
-  compare those rows only within the same provider.
+- Agent turns (model response cycles) and tool calls (native invocation events)
+  now use the same semantics across Claude, Codex, and OpenCode. Token counts
+  remain comparable only within the same provider because providers use
+  different tokenizers and native accounting conventions.
+- Costs carry provenance in results and reports: `reported` is supplied by the
+  provider, `computed` comes from headless_llm's pinned per-model pricing table,
+  and an absent value means neither path was available. Computed dollars are
+  API-equivalent estimates and may differ from subscription credits or
+  negotiated pricing.
 
 ## Reproducibility
 

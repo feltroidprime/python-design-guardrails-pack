@@ -21,10 +21,11 @@ class AgentOutcome:
     duration_ms: int
     turns: int | None
     tool_calls: int
-    input_tokens: int
-    output_tokens: int
-    cached_input_tokens: int
+    input_tokens: int | None
+    output_tokens: int | None
+    cached_input_tokens: int | None
     cost_usd: float | None
+    cost_provenance: str | None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -36,6 +37,7 @@ class AgentOutcome:
             "output_tokens": self.output_tokens,
             "cached_input_tokens": self.cached_input_tokens,
             "cost_usd": self.cost_usd,
+            "cost_provenance": self.cost_provenance,
             "text": self.text,
         }
 
@@ -114,6 +116,9 @@ class _HeadlessRunner:
             output_tokens=usage.output_tokens,
             cached_input_tokens=usage.cached_input_tokens,
             cost_usd=usage.cost_usd,
+            cost_provenance=(
+                usage.cost_provenance.value if usage.cost_provenance is not None else None
+            ),
         )
 
 

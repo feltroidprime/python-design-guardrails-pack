@@ -242,6 +242,8 @@ class _Dashboard:
                 cost = build.get("cost_usd")
                 if isinstance(cost, (int, float)):
                     line.append(f" · ${cost:.2f}", style="bold green")
+                    if provenance := build.get("cost_provenance"):
+                        line.append(f" {provenance}", style="dim green")
             body.append(line)
         body.append(self._probe_strip(view))
         body.append(self._metric_line(view))

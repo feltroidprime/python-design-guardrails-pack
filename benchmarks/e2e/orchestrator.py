@@ -156,7 +156,8 @@ def _build_arm(
     del record["text"]
     log(
         f"[{arm}] build finished in {record['duration_seconds']}s, "
-        f"{outcome.tool_calls} tool calls, cost {outcome.cost_usd}"
+        f"{outcome.tool_calls} tool calls, cost {outcome.cost_usd} "
+        f"({outcome.cost_provenance or 'unavailable'})"
     )
     events(ev.Event(kind=ev.BUILD_FINISHED, arm=arm, payload=dict(record)))
     return record
