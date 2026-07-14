@@ -49,6 +49,16 @@ benchmark config="benchmarks/config/default.toml" model="" provider="" effort=""
         {{ if provider == "" { "" } else { "--builder-provider " + provider } }} \
         {{ if effort == "" { "" } else { "--builder-effort " + effort } }}
 
+# Expand and validate a campaign without provisioning dependencies, creating
+# workspaces, or calling a provider. Always do this before benchmark-matrix.
+benchmark-matrix-plan config="benchmarks/matrices/flagship.example.toml":
+    python3 benchmarks/matrix.py --config {{config}} --dry-run
+
+# Execute/resume every builder × app × seed × variant × repetition cell.
+# Long and potentially expensive: inspect the dry-run cell count first.
+benchmark-matrix config="benchmarks/matrices/flagship.example.toml":
+    python3 benchmarks/matrix.py --config {{config}}
+
 # Render the append-only run registry as a standalone, offline HTML report.
 bench-report registry="~/.local/share/guardrails-benchmark/runs/registry.jsonl" output="~/.local/share/guardrails-benchmark/runs/bench-report.html":
     python3 benchmarks/report.py --registry "{{registry}}" --output "{{output}}"

@@ -27,6 +27,8 @@ just benchmark benchmarks/config/default.toml gpt-5.6-sol codex xhigh
 just bench-report                                         # compare every recorded run
 python3 benchmarks/run.py --config path/to/your.toml \
     --builder-model sonnet --builder-effort high          # equivalent flags
+just benchmark-matrix-plan                                # validate/list campaign
+just benchmark-matrix                                     # execute or resume it
 ```
 
 The first `just` argument picks the app to build (any config file — copy
@@ -79,6 +81,55 @@ just bench-report path/to/registry.jsonl path/to/report.html
 ```
 
 A missing or empty registry prints a next-step message and exits cleanly.
+
+## Run a matrix campaign
+
+A matrix expands builders × apps × seeds × variants × repetitions into full
+two-arm benchmark runs. Start with the exact same command in dry-run mode:
+
+```bash
+python3 benchmarks/matrix.py \
+    --config benchmarks/matrices/flagship.example.toml --dry-run
+# After checking the printed cells and count:
+python3 benchmarks/matrix.py \
+    --config benchmarks/matrices/flagship.example.toml
+
+# Equivalent justfile conveniences:
+just benchmark-matrix-plan
+just benchmark-matrix
+```
+
+Dry-run performs all config, variant, and judge-family validation using only
+the standard library. It does not provision `headless_llm`, create the output
+root or workspaces, or make provider calls. The shipped example plans 12 cells
+(2 builders × 2 apps × 3 seeds × 1 variant × 1 repetition).
+
+Cost scales by cells, not campaigns: every cell is a complete two-arm build
+plus the fixed judge panel. As a rough planning baseline, the first default-app
+run cost about $16, so a 12-cell campaign can be on the order of $192 before
+model/app differences. Treat the dry-run count as a budget multiplier and use
+the smoke app with one seed before a new configuration.
+
+The campaign's `[template].vcs_ref` is forced into every cell. Use a release
+tag for publication campaigns; use `HEAD` only for working-tree experiments,
+whose resolved `git describe` identity will carry `-dirty` when appropriate.
+Named variants are Copier answer sets; unknown names fail during matrix load,
+before any cell starts.
+
+`[concurrency]` sets independent provider caps. The shared limiter covers
+builders and judges, while separate provider queues prevent one provider's
+backlog from starving another. Provider-specific builder settings are
+normalized through the single-run configuration path (for example, Codex
+drops Claude's tool allow-list) and the effective settings are recorded in
+each manifest. The one `[[judge.panel]]` list is applied to every app and must
+be model-family-disjoint from every builder; invalid Claude/Claude or GPT/GPT
+pairings are rejected before execution.
+
+Completed cells append their full dimensions and resolved template identity
+to the normal registry. Re-running the same matrix reads those rows and skips
+a cell only when both arm rows are present; partial cells run again. Cell IDs
+also include the prompt digest and fixed panel, so changing either creates a
+new campaign cell rather than silently resuming incompatible evidence.
 
 ## Configure it
 

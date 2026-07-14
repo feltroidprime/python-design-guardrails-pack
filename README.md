@@ -136,6 +136,8 @@ variant settings.
 just benchmark                                 # full run (long, costs provider usage)
 just benchmark benchmarks/config/relay.toml    # event-sourced job queue
 just benchmark benchmarks/config/smoke.toml    # cheap plumbing check
+just benchmark-matrix-plan                     # validate/list campaign cells, no spend
+just benchmark-matrix                          # execute or resume the campaign
 just bench-report                              # offline cross-run comparison report
 ```
 
