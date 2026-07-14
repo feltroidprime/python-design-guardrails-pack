@@ -101,6 +101,32 @@ Fake-agent benchmark tests never launch Claude Code, import this lab, or make
 a Langfuse request. Consequently the stack can remain down for `just test` and
 the deterministic fake-agent pipeline.
 
+## Export completed benchmark runs
+
+The harness's provider-neutral exporter is separate from the Claude hook. Set
+`[langfuse].enabled = true` in the selected benchmark config, export the local
+project keys, and run the benchmark normally:
+
+```bash
+set -a
+source benchmarks/langfuse/.env
+set +a
+just benchmark benchmarks/config/smoke.toml
+```
+
+Export runs after result/report generation and fails open with a warning. It
+creates one trace per arm with pipeline spans, identity tags, and numeric
+scores, regardless of the builder provider. The full config and saved
+dashboard recipe are in the [benchmark guide](../README.md).
+
+The opt-in fake-agent round trip is outside the deterministic suite:
+
+```bash
+LANGFUSE_INTEGRATION=1 uv run --no-project --python 3.14 \
+  --with pytest==9.1.1 --with copier==9.17.0 \
+  pytest -q benchmarks/integration/test_langfuse_export.py
+```
+
 ## OpenTelemetry fallback
 
 If the plugin becomes incompatible with Claude Code, Langfuse v3 also accepts
