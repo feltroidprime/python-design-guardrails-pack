@@ -18,20 +18,30 @@ recurrence intervals. Relay now probes that JSON imports cannot mix legacy and
 extended job schemas, that rejection appends nothing, and its reference
 implementation enforces the same contract.
 
+Matrix benchmark campaigns now expand builders, apps, seeds, named Copier
+answer-set variants, and repetitions into deterministic cells. Campaigns pin
+all cells to one immutable template snapshot, including dirty `HEAD`
+experiments, and preserve the resolved revision and source digest in manifests
+and registry rows. Validation rejects duplicate dimensions, OpenCode roles
+whose model family cannot be established, builder/judge family overlap, and
+unknown variants before execution. Cross-provider builders use the target
+provider's native model and effort defaults, while scheduling enforces declared
+per-provider concurrency caps and resume skips registry-complete cells.
+
 ## Commands and results
 
 - Focused maintenance regression command: 3 passed in 2.40s after first
   demonstrating that the mixed-schema Relay import was incorrectly accepted.
 - `just test`: passed; 175 passed in 62.79s before the review-follow-up commit.
 - `just validate`: passed.
-  - Root suite: 175 passed in 72.44s. The single `DirtyLocalWarning` is expected
+  - Root suite: 181 passed in 81.56s. The single `DirtyLocalWarning` is expected
     from the test that deliberately creates a dirty temporary template repo.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
     `.jinja` suffix survived.
   - Generated dependency resolution: 32 packages resolved; 31 installed.
   - Generated quality gate: all steps passed.
-  - Offline update round trip: 1 passed in 19.24s after the current generated
+  - Offline update round trip: 1 passed in 19.26s after the current generated
     gate warmed the pinned tool caches.
 
 ## Generated repository gate
