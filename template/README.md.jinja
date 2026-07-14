@@ -16,8 +16,8 @@ quality contract.
 
 ```bash
 uv sync --all-groups
-uv run pre-commit install --hook-type pre-commit --hook-type pre-push
-uv run python scripts/quality_gate.py
+{% if precommit %}uv run pre-commit install --hook-type pre-commit --hook-type pre-push
+{% endif %}uv run python scripts/quality_gate.py
 ```
 
 ## Daily commands
@@ -53,8 +53,9 @@ inline conflict markers. Resolve every marker, then run the generated
 repository's existing guard and full gate before committing:
 
 ```bash
-uv run pre-commit run check-merge-conflict --all-files
-uv run python scripts/quality_gate.py
+{% if precommit %}uv run pre-commit run check-merge-conflict --all-files
+{% else %}git diff --check
+{% endif %}uv run python scripts/quality_gate.py
 ```
 
 ## Try the example application

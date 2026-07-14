@@ -9,8 +9,8 @@ default:
 
 bootstrap:
     uv sync --all-groups
-    uv run pre-commit install --hook-type pre-commit --hook-type pre-push
-
+{% if precommit %}    uv run pre-commit install --hook-type pre-commit --hook-type pre-push
+{% endif %}
 fix:
     uv run ruff check --fix .
     uv run ruff format .
@@ -37,5 +37,5 @@ diagrams:
 
 update:
     uv lock --upgrade
-    uv run pre-commit autoupdate
-    uv run python scripts/quality_gate.py
+{% if precommit %}    uv run pre-commit autoupdate
+{% endif %}    uv run python scripts/quality_gate.py

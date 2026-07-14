@@ -37,3 +37,17 @@ package:
     {% if (package | regex_search('^[a-z][a-z0-9_]*$')) != package %}
     Package name must be a valid lowercase Python identifier.
     {% endif %}
+
+precommit:
+  type: bool
+  help: Include the pre-commit and pre-push hook policy
+  default: true
+
+agents_contract:
+  type: str
+  help: Agent operating contract
+  choices:
+    - full
+    - hooks-first
+    - none
+  default: full

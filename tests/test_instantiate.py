@@ -146,6 +146,112 @@ def test_default_generation_matches_recorded_output(generated: Path) -> None:
     assert digest.hexdigest() == EXPECTED_GENERATED_TREE_SHA256
 
 
+def _generate_with_answers(output: Path, answers: dict[str, object]) -> Path:
+    with instantiate.without_local_git_context():
+        run_copy(
+            str(REPO_ROOT),
+            output,
+            data={
+                "project_name": PROJECT_NAME,
+                "package": PACKAGE_NAME,
+                **answers,
+            },
+            vcs_ref="HEAD",
+            defaults=True,
+            quiet=True,
+            skip_tasks=True,
+        )
+    return output
+
+
+def _generated_snapshot(root: Path) -> dict[str, bytes]:
+    snapshot: dict[str, bytes] = {}
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(root).as_posix()
+        content = path.read_bytes()
+        if relative == ".copier-answers.yml":
+            content = re.sub(rb"(?m)^_commit: .+$", b"_commit: <resolved>", content)
+        snapshot[relative] = content
+    return snapshot
+
+
+def test_explicit_default_toggles_are_byte_identical_to_defaults(tmp_path: Path) -> None:
+    implicit = _generate_with_answers(tmp_path / "implicit", {})
+    explicit = _generate_with_answers(
+        tmp_path / "explicit",
+        {"precommit": True, "agents_contract": "full"},
+    )
+
+    assert _generated_snapshot(implicit) == _generated_snapshot(explicit)
+
+
+def test_no_precommit_has_exact_file_delta(tmp_path: Path) -> None:
+    baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
+    variant = _generated_snapshot(
+        _generate_with_answers(tmp_path / "no-precommit", {"precommit": False})
+    )
+
+    assert set(baseline) - set(variant) == {".pre-commit-config.yaml"}
+    assert set(variant) - set(baseline) == set()
+    assert {
+        path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
+    } == {".copier-answers.yml", "README.md", "justfile", "pyproject.toml"}
+    for path in ("README.md", "justfile", "pyproject.toml"):
+        assert b"pre-commit" not in variant[path]
+        assert b"pre-push" not in variant[path]
+
+
+def test_no_agents_md_has_exact_file_delta(tmp_path: Path) -> None:
+    baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
+    variant = _generated_snapshot(
+        _generate_with_answers(tmp_path / "no-agents-md", {"agents_contract": "none"})
+    )
+
+    assert set(baseline) - set(variant) == {"AGENTS.md"}
+    assert set(variant) - set(baseline) == set()
+    assert {
+        path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
+    } == {".copier-answers.yml"}
+
+
+def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> None:
+    baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
+    variant = _generated_snapshot(
+        _generate_with_answers(
+            tmp_path / "checks-via-commit",
+            {"agents_contract": "hooks-first"},
+        )
+    )
+
+    assert set(baseline) == set(variant)
+    assert {
+        path for path in baseline if baseline[path] != variant[path]
+    } == {".copier-answers.yml", "AGENTS.md"}
+
+    expected_agents = baseline["AGENTS.md"].replace(
+        b"Normative for every coding agent and human contributor. A change is complete only "
+        b"when `uv run python scripts/quality_gate.py` passes.",
+        b"Normative for every coding agent and human contributor. For verification, use only "
+        b"the repository's justfile commands; do not invoke their underlying tools directly. "
+        b"A change is complete only after its commit and pre-push hooks succeed.",
+    ).replace(
+        b"Before claiming completion:\n\n"
+        b"1. Run `uv run python scripts/quality_gate.py` to green.\n"
+        b"2. Report the behavior changed, tests added, architecture impact, and remaining risks.\n"
+        b"3. Never claim success over a failing or weakened gate; report the failure instead.",
+        b"Before claiming completion:\n\n"
+        b"1. Use only `just fix`, `just check`, `just test`, and `just arch` for repository "
+        b"checks; never invoke their underlying tools directly.\n"
+        b"2. Commit; the hooks run the gate: pre-commit checks the change and pre-push runs the "
+        b"full quality gate before publication.\n"
+        b"3. Report the behavior changed, tests added, architecture impact, and remaining risks.\n"
+        b"4. Never claim success over a failing or weakened gate; report the failure instead.",
+    )
+    assert variant["AGENTS.md"] == expected_agents
+
+
 def test_copier_derives_package_default_from_project_name(tmp_path: Path) -> None:
     output = tmp_path / "default-answer"
 

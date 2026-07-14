@@ -14,6 +14,7 @@ import subprocess
 import sys
 
 import pytest
+from yaml import safe_load
 
 from benchmarks.e2e.agents import AgentOutcome
 from benchmarks.e2e.config import (
@@ -807,7 +808,17 @@ class TestOrchestration:
             for arm in run.results["arms"].values()
         )
 
-    def test_bare_workspace_ignores_all_template_settings(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        ("variant", "answers"),
+        (
+            ("no-precommit", {"precommit": False}),
+            ("no-agents-md", {"agents_contract": "none"}),
+            ("checks-via-commit", {"agents_contract": "hooks-first"}),
+        ),
+    )
+    def test_bare_workspace_ignores_every_variant_configuration(
+        self, tmp_path: Path, variant: str, answers: dict[str, object]
+    ) -> None:
         cfg = _pipeline_config(tmp_path)
         first = replace(
             cfg,
@@ -819,8 +830,12 @@ class TestOrchestration:
             cfg,
             template=TemplateSettings(
                 vcs_ref="ref-that-does-not-exist",
-                variant="baseline",
-                answers={"project_name": "different", "package": "different"},
+                variant=variant,
+                answers={
+                    "project_name": "different",
+                    "package": "different",
+                    **answers,
+                },
             ),
         )
 
@@ -879,8 +894,10 @@ class TestOrchestration:
             "vcs_ref": "HEAD",
             "variant": "baseline",
             "answers": {
+                "agents_contract": "full",
                 "project_name": "demo",
                 "package": "configured_demo",
+                "precommit": True,
             },
         }
         manifest = json.loads(
@@ -898,6 +915,65 @@ class TestOrchestration:
         assert "package=configured_demo" in report
         workspace = run.run_dir / "arms" / ARM_GUARDRAILS / "workspace"
         assert (workspace / "src" / "configured_demo").is_dir()
+
+    def test_fake_agent_run_applies_and_records_variant(self, tmp_path: Path) -> None:
+        cfg = replace(
+            _pipeline_config(tmp_path),
+            template=TemplateSettings(
+                vcs_ref="HEAD",
+                variant="checks-via-commit",
+                answers={"agents_contract": "hooks-first"},
+            ),
+        )
+
+        run = run_benchmark(
+            cfg,
+            repo_root=REPO_ROOT,
+            runner_factory=lambda role: _FakeRunner(role, []),
+            metrics_collector=lambda workspace, out_dir: {},
+            log=lambda message: None,
+        )
+
+        expected_answers = {
+            "agents_contract": "hooks-first",
+            "package": "demo",
+            "precommit": True,
+            "project_name": "demo",
+        }
+        workspace = run.run_dir / "arms" / ARM_GUARDRAILS / "workspace"
+        recorded_answers = safe_load(
+            (workspace / ".copier-answers.yml").read_text(encoding="utf-8")
+        )
+        assert {
+            key: value
+            for key, value in recorded_answers.items()
+            if not key.startswith("_")
+        } == expected_answers
+        assert "Commit; the hooks run the gate" in (
+            workspace / "AGENTS.md"
+        ).read_text(encoding="utf-8")
+
+        manifest = json.loads(
+            (run.run_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+        serialized_results = json.loads(
+            (run.run_dir / "results.json").read_text(encoding="utf-8")
+        )
+        assert manifest["template"]["variant"] == "checks-via-commit"
+        assert manifest["template"]["answers"] == expected_answers
+        assert serialized_results["meta"]["template"] == manifest["template"]
+
+        registry_rows = [
+            json.loads(line)
+            for line in (cfg.run.output_root / "registry.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        assert [row["variant"] for row in registry_rows] == [
+            "checks-via-commit",
+            "checks-via-commit",
+        ]
+        assert all(row["template"] == manifest["template"] for row in registry_rows)
 
     def test_dirty_template_identity_is_flagged_in_fake_agent_pipeline(
         self, tmp_path: Path
