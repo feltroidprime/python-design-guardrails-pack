@@ -8,6 +8,7 @@ import struct
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+import zlib
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -81,6 +82,29 @@ def _png_text(path: Path) -> dict[str, str]:
     return metadata
 
 
+def _png_pixels(path: Path) -> tuple[int, int, bytes]:
+    data = path.read_bytes()
+    width, height = struct.unpack(">II", data[16:24])
+    compressed = bytearray()
+    offset = 8
+    while offset < len(data):
+        length = struct.unpack(">I", data[offset : offset + 4])[0]
+        kind = data[offset + 4 : offset + 8]
+        payload = data[offset + 8 : offset + 8 + length]
+        offset += 12 + length
+        if kind == b"IDAT":
+            compressed.extend(payload)
+        if kind == b"IEND":
+            break
+    scanlines = zlib.decompress(compressed)
+    stride = width * 3
+    pixels = b"".join(
+        scanlines[row * (stride + 1) + 1 : (row + 1) * (stride + 1)]
+        for row in range(height)
+    )
+    return width, height, pixels
+
+
 def test_export_cli_produces_deterministic_full_figure_set_with_exact_csv_data(
     tmp_path: Path,
 ) -> None:
@@ -126,6 +150,10 @@ def test_export_cli_produces_deterministic_full_figure_set_with_exact_csv_data(
             range(len(rows))
         )
         assert any("runs=" in (description.text or "") for description in descriptions)
+        if name.startswith("quality-"):
+            keys = svg_root.findall(".//svg:text[@class='config-key']", namespace)
+            assert len(keys) == len(rows)
+            assert all(group.findall("svg:text[@class='point-id']", namespace) for group in plotted)
 
         png_metadata = _png_text(first / f"{name}.png")
         assert png_metadata["CSV"] == f"{name}.csv"
@@ -159,6 +187,41 @@ def test_export_cli_produces_deterministic_full_figure_set_with_exact_csv_data(
         "judge_primary_rate": "1",
         "wall_time_seconds": "750",
     }
+    grouped_index = quality_rows.index(grouped)
+    svg_root = ET.fromstring(
+        (first / "quality-vs-time.svg").read_text(encoding="utf-8")
+    )
+    namespace = {"svg": "http://www.w3.org/2000/svg"}
+    group = svg_root.find(
+        f".//svg:g[@class='data-point'][@data-row='{grouped_index}']", namespace
+    )
+    assert group is not None
+    probe = group.find("svg:circle[@data-y-metric='probe_pass_rate']", namespace)
+    assert probe is not None
+    assert probe.attrib["data-x-value"] == "750"
+    assert probe.attrib["data-y-value"] == "0.9"
+    assert abs(float(probe.attrib["cx"]) - 594.70) < 0.01
+    assert abs(float(probe.attrib["cy"]) - 291.0) < 0.01
+    width, _, pixels = _png_pixels(first / "quality-vs-time.png")
+    x, y = round(float(probe.attrib["cx"])), round(float(probe.attrib["cy"]))
+    assert pixels[(y * width + x) * 3 : (y * width + x + 1) * 3] == bytes(
+        (22, 125, 160)
+    )
+
+    action_rows = list(
+        csv.DictReader((first / "effort-actions.csv").open(encoding="utf-8"))
+    )
+    action_svg = ET.fromstring(
+        (first / "effort-actions.svg").read_text(encoding="utf-8")
+    )
+    first_action = action_svg.find(
+        ".//svg:g[@class='data-point'][@data-row='0']"
+        "/svg:rect[@data-metric='tool_calls']",
+        namespace,
+    )
+    assert first_action is not None
+    assert action_rows[0]["tool_calls"] == first_action.attrib["data-value"] == "40.5"
+    assert abs(float(first_action.attrib["width"]) - 690.88) < 0.01
 
 
 def test_export_cli_handles_missing_registry_without_creating_output(
@@ -217,6 +280,51 @@ def test_export_cli_keeps_full_set_when_a_metric_is_unavailable(tmp_path: Path) 
     metadata = json.loads(svg_root.findtext("svg:metadata", namespaces=namespace))
     assert metadata["point_count"] == 0
     assert svg_root.findall(".//svg:g[@class='data-point']", namespace) == []
+
+
+def test_effort_figures_grow_to_keep_large_cross_product_visible(tmp_path: Path) -> None:
+    registry = tmp_path / "large.jsonl"
+    source = json.loads(FIXTURE_REGISTRY.read_text(encoding="utf-8").splitlines()[0])
+    rows = []
+    for index in range(12):
+        row = dict(source)
+        row["run_id"] = f"large-{index}"
+        row["effort"] = f"effort-{index:02d}"
+        rows.append(row)
+    registry.write_text(
+        "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+    )
+    output = tmp_path / "figures"
+
+    completed = subprocess.run(
+        (
+            sys.executable,
+            str(FIGURE_COMMAND),
+            "--registry",
+            str(registry),
+            "--output-dir",
+            str(output),
+        ),
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    svg_root = ET.fromstring(
+        (output / "effort-actions.svg").read_text(encoding="utf-8")
+    )
+    svg_height = int(svg_root.attrib["height"])
+    png_width, png_height, _ = _png_pixels(output / "effort-actions.png")
+    assert svg_height == png_height > 1200
+    assert png_width == 1600
+    namespace = {"svg": "http://www.w3.org/2000/svg"}
+    points = svg_root.findall(".//svg:g[@class='data-point']", namespace)
+    assert len(points) == 12
+    last_bar = points[-1].find("svg:rect[@data-metric='turns']", namespace)
+    assert last_bar is not None
+    assert float(last_bar.attrib["y"]) + float(last_bar.attrib["height"]) < svg_height - 120
 
 
 def test_publication_inventory_is_registered_and_names_every_figure() -> None:

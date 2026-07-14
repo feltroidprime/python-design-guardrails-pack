@@ -173,6 +173,25 @@ def _provenance(rows: list[dict[str, str]]) -> dict[str, object]:
     }
 
 
+def _figure_height(figure: Figure, rows: list[dict[str, str]]) -> int:
+    if figure.kind == "quality":
+        return max(1000, 850 + ((len(rows) + 1) // 2) * 30 + 140)
+    return max(1000, 222 + len(rows) * 88 + 220)
+
+
+def _legend_items(figure: Figure) -> tuple[tuple[str, str], ...]:
+    if figure.kind == "quality":
+        return (("bare", "bare"), ("guardrails", "guardrails"))
+    if figure.kind == "actions":
+        return (("guardrails", "tool calls"), ("bare", "turns"))
+    return (
+        ("input", "input"),
+        ("cached", "cached input"),
+        ("output", "output"),
+        ("reasoning", "reasoning"),
+    )
+
+
 def _xml(value: object) -> str:
     return html.escape(str(value), quote=True)
 
@@ -182,6 +201,7 @@ def _svg_header(
     rows: list[dict[str, str]],
     csv_name: str,
     csv_hash: str,
+    height: int,
 ) -> list[str]:
     provenance = _provenance(rows)
     metadata = {
@@ -194,13 +214,13 @@ def _svg_header(
     models = ", ".join(provenance["models"])
     variants = ", ".join(provenance["variants"])
     return [
-        '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" '
-        'viewBox="0 0 1600 1000" role="img">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="{height}" '
+        f'viewBox="0 0 1600 {height}" role="img">',
         f"<metadata>{_xml(json.dumps(metadata, sort_keys=True, separators=(',', ':')))}</metadata>",
         f"<title>{_xml(figure.title)}</title>",
         f"<desc>{_xml(figure.subtitle)}. Templates: {versions}. Models: {models}. "
         f"Variants: {variants}. Every mark records runs and seeds in its description.</desc>",
-        f'<rect width="1600" height="1000" fill="{COLORS["paper"]}"/>',
+        f'<rect width="1600" height="{height}" fill="{COLORS["paper"]}"/>',
         f'<rect width="1600" height="18" fill="{COLORS["accent"]}"/>',
         f'<text x="88" y="104" fill="{COLORS["ink"]}" font-family="Arial,Helvetica,sans-serif" '
         f'font-size="58" font-weight="700">{_xml(figure.title)}</text>',
@@ -279,12 +299,28 @@ def _quality_svg(figure: Figure, rows: list[dict[str, str]]) -> list[str]:
             color = COLORS.get(row["arm"], COLORS["muted"])
             marks.append(
                 f'<circle cx="{x:.2f}" cy="{y:.2f}" r="13" fill="{color}" '
-                f'stroke="{COLORS["paper"]}" stroke-width="4"/>'
+                f'stroke="{COLORS["paper"]}" stroke-width="4" '
+                f'data-x-metric="{x_metric}" data-x-value="{row[x_metric]}" '
+                f'data-y-metric="{metric}" data-y-value="{row[metric]}"/>'
+            )
+            marks.append(
+                f'<text class="point-id" x="{x + 18:.2f}" y="{y - 14:.2f}" '
+                f'fill="{COLORS["ink"]}" font-family="Arial,Helvetica,sans-serif" '
+                f'font-size="15" font-weight="700">{index + 1}</text>'
             )
         parts.append(
             f'<g class="data-point" data-row="{index}"><desc>{_xml(_point_caption(row))}</desc>'
             + "".join(marks)
             + "</g>"
+        )
+    for index, row in enumerate(rows):
+        column = index % 2
+        line = index // 2
+        parts.append(
+            f'<text class="config-key" x="{90 + column * 755}" y="{850 + line * 30}" '
+            f'fill="{COLORS["muted"]}" font-family="Arial,Helvetica,sans-serif" '
+            f'font-size="14"><tspan font-weight="700">{index + 1}</tspan> '
+            f'{_xml(_label(row))}</text>'
         )
     return parts
 
@@ -329,7 +365,8 @@ def _effort_svg(figure: Figure, rows: list[dict[str, str]]) -> list[str]:
                 bar_y = y + 4 + metric_index * 31
                 parts.append(
                     f'<rect x="{chart_left}" y="{bar_y}" width="{width:.2f}" height="23" '
-                    f'fill="{palette[metric_index]}"/><text x="{chart_left + width + 10:.2f}" '
+                    f'fill="{palette[metric_index]}" data-metric="{metric}" '
+                    f'data-value="{row[metric]}"/><text x="{chart_left + width + 10:.2f}" '
                     f'y="{bar_y + 17}" fill="{COLORS["muted"]}" '
                     f'font-family="Arial,Helvetica,sans-serif" font-size="15">'
                     f'{_xml(metric.replace("_", " "))} {row[metric]}</text>'
@@ -340,7 +377,8 @@ def _effort_svg(figure: Figure, rows: list[dict[str, str]]) -> list[str]:
                 width = float(row[metric]) / maximum * chart_width
                 parts.append(
                     f'<rect x="{x:.2f}" y="{y + 13}" width="{width:.2f}" height="42" '
-                    f'fill="{palette[metric_index]}"/>'
+                    f'fill="{palette[metric_index]}" data-metric="{metric}" '
+                    f'data-value="{row[metric]}"/>'
                 )
                 x += width
             total = sum(float(row[metric]) for metric in figure.metrics)
@@ -358,7 +396,8 @@ def _svg_bytes(
     csv_name: str,
     csv_hash: str,
 ) -> bytes:
-    parts = _svg_header(figure, rows, csv_name, csv_hash)
+    height = _figure_height(figure, rows)
+    parts = _svg_header(figure, rows, csv_name, csv_hash, height)
     parts.extend(
         _quality_svg(figure, rows)
         if figure.kind == "quality"
@@ -368,31 +407,23 @@ def _svg_bytes(
         "Each mark: template · model · effort · variant · arm. "
         "Runs and seed IDs are embedded per mark; CSV hash anchors the plotted data."
     )
-    if figure.kind == "quality":
-        legend_items = (("bare", "bare"), ("guardrails", "guardrails"))
-    elif figure.kind == "actions":
-        legend_items = (("guardrails", "tool calls"), ("bare", "turns"))
-    else:
-        legend_items = (
-            ("input", "input"),
-            ("cached", "cached input"),
-            ("output", "output"),
-            ("reasoning", "reasoning"),
-        )
+    legend_items = _legend_items(figure)
+    legend_y = height - 125
+    caption_y = height - 62
     legend_x = 90
     for color_key, label in legend_items:
         parts.append(
-            f'<rect x="{legend_x}" y="875" width="18" height="18" rx="3" '
-            f'fill="{COLORS[color_key]}"/><text x="{legend_x + 27}" y="891" '
+            f'<rect x="{legend_x}" y="{legend_y}" width="18" height="18" rx="3" '
+            f'fill="{COLORS[color_key]}"/><text x="{legend_x + 27}" y="{legend_y + 16}" '
             f'fill="{COLORS["ink"]}" font-family="Arial,Helvetica,sans-serif" '
             f'font-size="17">{_xml(label)}</text>'
         )
         legend_x += 48 + len(label) * 10
     parts.extend(
         (
-            f'<text x="90" y="938" fill="{COLORS["muted"]}" '
+            f'<text x="90" y="{caption_y}" fill="{COLORS["muted"]}" '
             f'font-family="Arial,Helvetica,sans-serif" font-size="16">{_xml(legend)}</text>',
-            f'<text x="1510" y="938" text-anchor="end" fill="{COLORS["muted"]}" '
+            f'<text x="1510" y="{caption_y}" text-anchor="end" fill="{COLORS["muted"]}" '
             f'font-family="Arial,Helvetica,sans-serif" font-size="14">CSV SHA-256 {csv_hash[:16]}…</text>',
             "</svg>",
         )
@@ -455,7 +486,8 @@ def _rgb(value: str) -> tuple[int, int, int]:
 
 
 def _draw_png(figure: Figure, rows: list[dict[str, str]]) -> _Canvas:
-    canvas = _Canvas(1600, 1000, _rgb(COLORS["paper"]))
+    height = _figure_height(figure, rows)
+    canvas = _Canvas(1600, height, _rgb(COLORS["paper"]))
     canvas.rect(0, 0, 1600, 18, _rgb(COLORS["accent"]))
     canvas.text(88, 74, figure.title, _rgb(COLORS["ink"]), 6)
     canvas.text(90, 145, figure.subtitle, _rgb(COLORS["muted"]), 3)
@@ -467,15 +499,32 @@ def _draw_png(figure: Figure, rows: list[dict[str, str]]) -> _Canvas:
             canvas.text(left, 202, metric.replace("_", " "), _rgb(COLORS["ink"]), 3)
             canvas.rect(left, top, 2, height, _rgb(COLORS["ink"]))
             canvas.rect(left, top + height, width, 2, _rgb(COLORS["ink"]))
-            for tick in range(1, 5):
-                canvas.rect(left, top + tick * height // 5, width, 1, _rgb(COLORS["grid"]))
-                canvas.rect(left + tick * width // 5, top, 1, height, _rgb(COLORS["grid"]))
-            for row in rows:
+            for tick in range(6):
+                grid_y = top + tick * height // 5
+                grid_x = left + tick * width // 5
+                canvas.rect(left, grid_y, width, 1, _rgb(COLORS["grid"]))
+                canvas.rect(grid_x, top, 1, height, _rgb(COLORS["grid"]))
+                canvas.text(left - 42, grid_y - 6, str(100 - tick * 20), _rgb(COLORS["muted"]), 1)
+                x_value = x_max * tick / 5
+                x_label = f"{x_value:.1f}" if x_metric == "cost_usd" else f"{x_value:.0f}"
+                canvas.text(grid_x - 12, top + height + 10, x_label, _rgb(COLORS["muted"]), 1)
+            for index, row in enumerate(rows):
                 x = int(_scale(float(row[x_metric]), x_max, left, width))
                 y = int(top + height - float(row[metric]) * height)
                 canvas.circle(x, y, 11, _rgb(COLORS.get(row["arm"], COLORS["muted"])))
+                canvas.text(x + 15, y - 13, str(index + 1), _rgb(COLORS["ink"]), 1)
             axis_label = "COST USD" if x_metric == "cost_usd" else "WALL CLOCK SECONDS"
             canvas.text(left + 215, top + height + 30, axis_label, _rgb(COLORS["muted"]), 2)
+        for index, row in enumerate(rows):
+            key_x = 90 + (index % 2) * 755
+            key_y = 836 + (index // 2) * 30
+            canvas.text(
+                key_x,
+                key_y,
+                f"{index + 1} {_label(row)[:72]}",
+                _rgb(COLORS["muted"]),
+                1,
+            )
     else:
         chart_left, chart_top, chart_width, row_height = 600, 222, 870, 88
         maximum = (
@@ -504,29 +553,48 @@ def _draw_png(figure: Figure, rows: list[dict[str, str]]) -> _Canvas:
                 for metric_index, metric in enumerate(figure.metrics):
                     width = int(float(row[metric]) / maximum * chart_width)
                     canvas.rect(chart_left, y + metric_index * 31, width, 23, palette[metric_index])
+                    canvas.text(
+                        chart_left + width + 8,
+                        y + metric_index * 31 + 6,
+                        row[metric],
+                        _rgb(COLORS["muted"]),
+                        1,
+                    )
             else:
                 x = chart_left
                 for metric_index, metric in enumerate(figure.metrics):
                     width = int(float(row[metric]) / maximum * chart_width)
                     canvas.rect(x, y + 10, width, 42, palette[metric_index])
                     x += width
-    if figure.kind == "quality":
-        png_legend = (("bare", "BARE"), ("guardrails", "GUARDRAILS"))
-    elif figure.kind == "actions":
-        png_legend = (("guardrails", "TOOL CALLS"), ("bare", "TURNS"))
-    else:
-        png_legend = (
-            ("input", "INPUT"),
-            ("cached", "CACHED INPUT"),
-            ("output", "OUTPUT"),
-            ("reasoning", "REASONING"),
+                canvas.text(
+                    x + 8,
+                    y + 25,
+                    f"{sum(float(row[metric]) for metric in figure.metrics):.0f}",
+                    _rgb(COLORS["muted"]),
+                    1,
+                )
+        canvas.text(chart_left, chart_top - 28, "0", _rgb(COLORS["muted"]), 1)
+        canvas.text(
+            chart_left + chart_width - 30,
+            chart_top - 28,
+            f"{maximum:.0f}",
+            _rgb(COLORS["muted"]),
+            1,
         )
+    png_legend = tuple((color, label.upper()) for color, label in _legend_items(figure))
+    legend_y = canvas.height - 125
     legend_x = 82
     for color_key, label in png_legend:
-        canvas.rect(legend_x, 875, 18, 18, _rgb(COLORS[color_key]))
-        canvas.text(legend_x + 28, 874, label, _rgb(COLORS["ink"]), 2)
+        canvas.rect(legend_x, legend_y, 18, 18, _rgb(COLORS[color_key]))
+        canvas.text(legend_x + 28, legend_y - 1, label, _rgb(COLORS["ink"]), 2)
         legend_x += 58 + len(label) * 12
-    canvas.text(90, 930, "RUN AND SEED PROVENANCE EMBEDDED PER POINT", _rgb(COLORS["muted"]), 2)
+    canvas.text(
+        90,
+        canvas.height - 70,
+        "RUN AND SEED PROVENANCE EMBEDDED PER POINT",
+        _rgb(COLORS["muted"]),
+        2,
+    )
     return canvas
 
 
@@ -561,7 +629,10 @@ def _png_bytes(
     return b"".join(
         (
             b"\x89PNG\r\n\x1a\n",
-            _chunk(b"IHDR", struct.pack(">IIBBBBB", 1600, 1000, 8, 2, 0, 0, 0)),
+            _chunk(
+                b"IHDR",
+                struct.pack(">IIBBBBB", canvas.width, canvas.height, 8, 2, 0, 0, 0),
+            ),
             *(
                 _chunk(b"tEXt", key.encode("latin-1") + b"\0" + value.encode("latin-1"))
                 for key, value in texts.items()

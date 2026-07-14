@@ -88,7 +88,7 @@ set under `publication-figures/` beside it. Every figure is emitted as a
 standalone SVG and PNG with a sibling CSV containing exactly its plotted rows.
 SVG metadata/descriptions and PNG text metadata carry the CSV hash, template
 versions, models, efforts, variants, and the run/seed provenance behind every
-point. `manifest.json` inventories the output hashes. Rendering uses only the
+point. `manifest.json` inventories the plotted-data hashes. Rendering uses only the
 Python standard library: it loads no web assets, makes no network requests, and
 does not require a plotting or provider SDK. To use another source or output:
 
