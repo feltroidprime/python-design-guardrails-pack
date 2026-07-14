@@ -59,7 +59,7 @@ both workspaces, every raw analyzer output, `results.json`, `report.md`.
 ## Configure it
 
 One TOML file holds everything that can change the outcome; unknown keys are
-rejected. The two most useful knobs:
+rejected. The three most useful knobs:
 
 - **prompt**: `[prompt] spec_file` (the app specification, with the exact
   CLI contract the probes exercise) and `charter_file` (working conditions,
@@ -67,6 +67,34 @@ rejected. The two most useful knobs:
   `[[probes]]` to match its contract.
 - **models**: `[builder]` (provider/model/effort/timeout) and
   `[[judge.panel]]` entries.
+- **template**: `[template] vcs_ref`, `variant`, and answer overrides select
+  exactly which Copier generation the template arm starts from. The bare arm
+  never reads these settings.
+
+The baseline template configuration is:
+
+```toml
+[template]
+vcs_ref = "HEAD"
+variant = "baseline"
+
+[template.answers]
+# Future Copier question overrides go here, for example:
+# package = "ledger_experiment"
+```
+
+`HEAD` means the current pack working tree. Its recorded identity is the
+repository's `git describe --tags --always --dirty` value, so uncommitted
+template experiments are visibly suffixed `-dirty`. Set `vcs_ref` to a release
+tag such as `v1.2.3` to render and record that committed release instead,
+regardless of later working-tree edits. Effective answers start with
+`[project] name`/`package`, then `[template.answers]` overrides them; the
+resolved version and complete answers from Copier's answers file are copied to
+`manifest.json`, `results.json`, and `report.md`.
+
+Only the `baseline` variant exists until the feature-toggle questions and
+named answer sets land. Any other name fails during config loading with a
+clear error instead of silently benchmarking the wrong template.
 
 ## Real benchmark applications
 
@@ -174,7 +202,8 @@ agent with a change request and measure that.
 ## Reproducibility
 
 - `manifest.json` records config path, seed, builder and judge identities,
-  analyzer pins, pack and headless_llm git revisions, and platform.
+  analyzer pins, pack and headless_llm git revisions, the resolved Copier
+  version/variant/answers, and platform.
 - Analyzer versions are pinned in `[tools]` and run through `uvx`.
 - Probes are plain argv with regexes: rerunnable by hand from `results.json`.
 - The deterministic part of the pipeline (workspaces, probes, metrics parsing,
