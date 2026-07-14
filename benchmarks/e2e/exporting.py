@@ -10,7 +10,7 @@ from typing import Protocol
 from urllib.request import Request, urlopen
 from uuid import NAMESPACE_URL, uuid5
 
-from benchmarks.e2e.config import ARMS, BenchmarkConfig, LangfuseSettings
+from benchmarks.e2e.config import ARMS, PHASE_BUILD, BenchmarkConfig, LangfuseSettings
 from benchmarks.e2e.judging import DIMENSIONS
 
 
@@ -24,7 +24,7 @@ class TraceSpan:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ArmTrace:
-    """Complete provider-neutral trace for one benchmark arm."""
+    """Complete provider-neutral trace for one benchmark arm and phase."""
 
     run_id: str
     arm: str
@@ -114,7 +114,13 @@ class LangfuseExporter:
 
 def langfuse_trace_id(trace: ArmTrace) -> str:
     """Stable Langfuse trace ID, also used by the round-trip integration test."""
-    return str(uuid5(NAMESPACE_URL, f"guardrails-benchmark:{trace.run_id}:{trace.arm}"))
+    phase = str(trace.metadata.get("phase") or PHASE_BUILD)
+    return str(
+        uuid5(
+            NAMESPACE_URL,
+            f"guardrails-benchmark:{trace.run_id}:{phase}:{trace.arm}",
+        )
+    )
 
 
 def _event_id(trace_id: str, kind: str, name: str) -> str:
@@ -234,7 +240,12 @@ def arm_traces(cfg: BenchmarkConfig, results: dict[str, object]) -> tuple[ArmTra
     phases = (
         _mapping(raw_phases)
         if isinstance(raw_phases, dict)
-        else {"build": {"arms": results.get("arms"), "judging": results.get("judging")}}
+        else {
+            PHASE_BUILD: {
+                "arms": results.get("arms"),
+                "judging": results.get("judging"),
+            }
+        }
     )
     traces: list[ArmTrace] = []
     for phase, raw_phase_results in phases.items():
@@ -326,7 +337,7 @@ def arm_traces(cfg: BenchmarkConfig, results: dict[str, object]) -> tuple[ArmTra
                 f"headless_llm:{headless_revision or 'unknown'}",
             )
             trace_name = f"benchmark:{cfg.project.name}:{arm}"
-            if phase != "build":
+            if phase != PHASE_BUILD:
                 trace_name = f"benchmark:{cfg.project.name}:{phase}:{arm}"
             traces.append(
                 ArmTrace(
@@ -337,7 +348,10 @@ def arm_traces(cfg: BenchmarkConfig, results: dict[str, object]) -> tuple[ArmTra
                     metadata=metadata,
                     spans=(
                         TraceSpan(name="instantiate", output=arm_results.get("setup", {})),
-                        TraceSpan(name="build" if phase == "build" else "change", output=agent),
+                        TraceSpan(
+                            name="build" if phase == PHASE_BUILD else "change",
+                            output=agent,
+                        ),
                         TraceSpan(name="install", output=metrics.get("install", {})),
                         TraceSpan(name="self-tests", output=metrics.get("own_tests", {})),
                         TraceSpan(name="probes", output=probes),

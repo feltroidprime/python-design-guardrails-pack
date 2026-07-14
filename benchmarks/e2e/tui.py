@@ -23,7 +23,14 @@ from rich.text import Text
 
 from benchmarks.e2e import events as ev
 from benchmarks.e2e.agents import RunnerFactory
-from benchmarks.e2e.config import ARM_BARE, ARM_GUARDRAILS, ARMS, BenchmarkConfig
+from benchmarks.e2e.config import (
+    ARM_BARE,
+    ARM_GUARDRAILS,
+    ARMS,
+    PHASE_BUILD,
+    PHASE_MAINTENANCE,
+    BenchmarkConfig,
+)
 from benchmarks.e2e.metrics import python_files
 from benchmarks.e2e.orchestrator import BenchmarkRun, run_benchmark
 
@@ -71,10 +78,10 @@ class _Dashboard:
         self._judging = False
         self._aggregate: dict[str, object] = {}
         self._run_id = ""
-        self._phase = "build"
-        self._probe_totals: dict[str, int] = {"build": len(cfg.probes)}
+        self._phase = PHASE_BUILD
+        self._probe_totals: dict[str, int] = {PHASE_BUILD: len(cfg.probes)}
         if cfg.maintenance is not None:
-            self._probe_totals["maintenance"] = len(cfg.maintenance.probes)
+            self._probe_totals[PHASE_MAINTENANCE] = len(cfg.maintenance.probes)
         self._report = ""
         self._log_lines: list[str] = []
         self._started = time.monotonic()

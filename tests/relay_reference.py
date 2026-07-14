@@ -303,6 +303,7 @@ def _execute(args: argparse.Namespace) -> None:
     events, jobs, history = _load(log_path)
     extended_log = any(bool(job["_extended"]) for job in jobs.values())
     priority_order = {priority: index for index, priority in enumerate(PRIORITIES)}
+    by_id = [jobs[ident] for ident in sorted(jobs)]
     ordered = sorted(
         jobs.values(),
         key=lambda job: (priority_order[str(job["priority"])], int(job["id"])),
@@ -404,8 +405,8 @@ def _execute(args: argparse.Namespace) -> None:
         return
 
     if args.command == "export":
-        _write_export(Path(args.output), args.format, ordered)
-        print(f"exported={len(ordered)}")
+        _write_export(Path(args.output), args.format, by_id)
+        print(f"exported={len(by_id)}")
         return
 
     if args.command == "import":

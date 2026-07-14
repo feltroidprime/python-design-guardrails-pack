@@ -118,12 +118,14 @@ See `DESIGN_MASTERY_MAPPING.md` for the detailed mapping from curriculum promise
 ## Does the template actually help? Measure it
 
 `benchmarks/` contains an end-to-end value benchmark: the same LLM receives
-the same application prompt twice — in an empty repository and in a freshly
-generated one — and the harness compares the results with functional probes,
-pinned neutral analyzers (ruff, basedpyright, radon, coverage), build-effort
-statistics, and a blind cross-family LLM judge panel. It is reproducible from
-a single TOML config (prompt, models, probes, pins) and writes a
-self-contained report per run.
+byte-identical instructions per phase — in an empty repository and in a
+freshly generated one — and the harness compares the results with functional
+probes, pinned neutral analyzers (ruff, basedpyright, radon, coverage), agent
+effort statistics, and a blind cross-family LLM judge panel. For the real
+apps, fresh agent sessions then apply identical maintenance requests to the
+finished workspaces, so change safety is observed rather than inferred. A
+single TOML config makes the run reproducible, and its report and registry
+rows keep build and maintenance comparisons separate.
 
 The template arm can select a named Copier answer-set variant such as
 `no-precommit`, `no-agents-md`, or `checks-via-commit`. Default answers remain

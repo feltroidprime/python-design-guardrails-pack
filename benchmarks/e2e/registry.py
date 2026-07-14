@@ -9,7 +9,7 @@ from collections.abc import Iterable
 import json
 from pathlib import Path
 
-from benchmarks.e2e.config import ARMS, BenchmarkConfig
+from benchmarks.e2e.config import ARMS, PHASE_BUILD, BenchmarkConfig
 
 REGISTRY_FILENAME = "registry.jsonl"
 
@@ -38,7 +38,12 @@ def registry_rows(
     phases = (
         raw_phases
         if isinstance(raw_phases, dict)
-        else {"build": {"arms": results.get("arms"), "judging": results.get("judging")}}
+        else {
+            PHASE_BUILD: {
+                "arms": results.get("arms"),
+                "judging": results.get("judging"),
+            }
+        }
     )
 
     rows: list[dict[str, object]] = []

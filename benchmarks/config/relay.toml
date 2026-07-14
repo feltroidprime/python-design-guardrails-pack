@@ -475,10 +475,92 @@ argv = ["uv", "run", "python", "-c", "import json,pathlib,sys; events=[json.load
 expect_exit = 0
 
 [[scenario.maintenance.probes]]
-name = "invalid-schedule-appends-nothing"
+name = "export-extended-json"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:02:00Z", "export", "--format", "json", "--output", "{db}.extended.json"]
+expect_exit = 0
+stdout_regex = '\Aexported=4\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "extended-json-has-exact-schema-and-values"
+argv = ["uv", "run", "python", "-c", "import json,pathlib,sys; raw=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'); payload=json.loads(raw); jobs=payload['jobs']; fields=['id','title','note','deadline','priority','scheduled_at','state','created_at','updated_at']; ok=list(payload)==['version','jobs'] and payload['version']==1 and [job['id'] for job in jobs]==[1,2,3,4] and all(list(job)==fields for job in jobs) and [jobs[0]['priority'],jobs[1]['priority'],jobs[1]['scheduled_at'],jobs[1]['state'],jobs[1]['updated_at']]==['low','high','2026-05-01T12:00:00Z','done','2026-05-01T12:01:00Z'] and raw==json.dumps(payload,ensure_ascii=False,separators=(',',':'))+'\\n'; raise SystemExit(0 if ok else 1)", "{db}.extended.json"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "import-extended-json-fresh"
+argv = ["uv", "run", "relay", "--log", "{db}.extended.json.log", "--now", "2026-05-01T12:03:00Z", "import", "--format", "json", "--input", "{db}.extended.json"]
+expect_exit = 0
+stdout_regex = '\Aimported=4 skipped=0\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "extended-json-roundtrip"
+argv = ["uv", "run", "relay", "--log", "{db}.extended.json.log", "--now", "2026-05-01T12:04:00Z", "export", "--format", "json", "--output", "{db}.extended.json.roundtrip"]
+expect_exit = 0
+stdout_regex = '\Aexported=4\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "extended-json-roundtrip-is-byte-identical"
+argv = ["uv", "run", "python", "-c", "import pathlib,sys; raise SystemExit(0 if pathlib.Path(sys.argv[1]).read_bytes()==pathlib.Path(sys.argv[2]).read_bytes() else 1)", "{db}.extended.json", "{db}.extended.json.roundtrip"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "snapshot-before-extended-json-reimport"
+argv = ["uv", "run", "python", "-c", "import pathlib,shutil,sys; shutil.copyfile(sys.argv[1],sys.argv[2])", "{db}.extended.json.log", "{db}.extended.json.log.before"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "extended-json-reimport-is-idempotent"
+argv = ["uv", "run", "relay", "--log", "{db}.extended.json.log", "--now", "2026-05-01T12:05:00Z", "import", "--format", "json", "--input", "{db}.extended.json"]
+expect_exit = 0
+stdout_regex = '\Aimported=0 skipped=4\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "extended-json-reimport-appends-nothing"
+argv = ["uv", "run", "python", "-c", "import pathlib,sys; raise SystemExit(0 if pathlib.Path(sys.argv[1]).read_bytes()==pathlib.Path(sys.argv[2]).read_bytes() else 1)", "{db}.extended.json.log.before", "{db}.extended.json.log"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "export-extended-csv"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:06:00Z", "export", "--format", "csv", "--output", "{db}.extended.csv"]
+expect_exit = 0
+stdout_regex = '\Aexported=4\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "extended-csv-has-exact-header"
+argv = ["uv", "run", "python", "-c", "import pathlib,sys; raw=pathlib.Path(sys.argv[1]).read_bytes(); expected=b'id,title,note,deadline,priority,scheduled_at,state,created_at,updated_at\\n'; raise SystemExit(0 if raw.startswith(expected) and b'\\r' not in raw and raw.endswith(b'\\n') else 1)", "{db}.extended.csv"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "import-extended-csv-fresh"
+argv = ["uv", "run", "relay", "--log", "{db}.extended.csv.log", "--now", "2026-05-01T12:07:00Z", "import", "--format", "csv", "--input", "{db}.extended.csv"]
+expect_exit = 0
+stdout_regex = '\Aimported=4 skipped=0\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "extended-csv-roundtrip"
+argv = ["uv", "run", "relay", "--log", "{db}.extended.csv.log", "--now", "2026-05-01T12:08:00Z", "export", "--format", "csv", "--output", "{db}.extended.csv.roundtrip"]
+expect_exit = 0
+stdout_regex = '\Aexported=4\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "extended-csv-roundtrip-is-byte-identical"
+argv = ["uv", "run", "python", "-c", "import pathlib,sys; raise SystemExit(0 if pathlib.Path(sys.argv[1]).read_bytes()==pathlib.Path(sys.argv[2]).read_bytes() else 1)", "{db}.extended.csv", "{db}.extended.csv.roundtrip"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "snapshot-before-invalid-schedule"
+argv = ["uv", "run", "python", "-c", "import pathlib,shutil,sys; shutil.copyfile(sys.argv[1],sys.argv[2])", "{db}", "{db}.before-invalid"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "invalid-schedule-is-rejected"
 argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:02:00Z", "enqueue", "--title", "bad", "--scheduled-at", "not-a-time"]
 expect_exit = 2
 stderr_regex = '\S'
+
+[[scenario.maintenance.probes]]
+name = "invalid-schedule-appends-nothing"
+argv = ["uv", "run", "python", "-c", "import pathlib,sys; raise SystemExit(0 if pathlib.Path(sys.argv[1]).read_bytes()==pathlib.Path(sys.argv[2]).read_bytes() else 1)", "{db}.before-invalid", "{db}"]
+expect_exit = 0
 
 [[scenario.maintenance.probes]]
 name = "regression-unknown-id-still-exits-three"

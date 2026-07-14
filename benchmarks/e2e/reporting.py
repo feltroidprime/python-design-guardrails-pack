@@ -5,7 +5,13 @@ outputs stay on disk next to it, and a fixed Limitations section spells out
 what this benchmark cannot claim.
 """
 
-from benchmarks.e2e.config import ARM_BARE, ARM_GUARDRAILS, ARMS
+from benchmarks.e2e.config import (
+    ARM_BARE,
+    ARM_GUARDRAILS,
+    ARMS,
+    PHASE_BUILD,
+    PHASE_MAINTENANCE,
+)
 from benchmarks.e2e.judging import DIMENSIONS
 
 _ARM_TITLES = {ARM_BARE: "Bare repo", ARM_GUARDRAILS: "Template repo"}
@@ -82,10 +88,13 @@ def _arm_row(results: dict[str, object], label: str, *keys: str) -> list[str]:
     return [label, *[_fmt(_get(results, "arms", arm, *keys)) for arm in ARMS]]
 
 
-def _build_section(results: dict[str, object]) -> str:
-    rows = [
-        _arm_row(results, "Workspace setup (s)", "setup", "seconds"),
-        _arm_row(results, "Build wall time (s)", "build", "duration_seconds"),
+def _build_section(results: dict[str, object], *, phase: str = PHASE_BUILD) -> str:
+    rows = []
+    if phase == PHASE_BUILD:
+        rows.append(_arm_row(results, "Workspace setup (s)", "setup", "seconds"))
+    action = "Build" if phase == PHASE_BUILD else "Change"
+    rows.extend([
+        _arm_row(results, f"{action} wall time (s)", "build", "duration_seconds"),
         _arm_row(results, "Agent turns (model response cycles)", "build", "turns"),
         _arm_row(results, "Tool calls (native invocations)", "build", "tool_calls"),
         _arm_row(results, "Input tokens (non-cached)", "build", "input_tokens"),
@@ -94,9 +103,10 @@ def _build_section(results: dict[str, object]) -> str:
         _arm_row(results, "Reasoning tokens", "build", "reasoning_tokens"),
         _arm_row(results, "Cost (USD, cache included)", "build", "cost_usd"),
         _arm_row(results, "Cost provenance", "build", "cost_provenance"),
-        _arm_row(results, "Build error", "build", "error"),
-    ]
-    return _table(["Build effort", *[_ARM_TITLES[arm] for arm in ARMS]], rows)
+        _arm_row(results, f"{action} error", "build", "error"),
+    ])
+    effort = "Build effort" if phase == PHASE_BUILD else "Maintenance effort"
+    return _table([effort, *[_ARM_TITLES[arm] for arm in ARMS]], rows)
 
 
 def _probe_section(results: dict[str, object]) -> str:
@@ -287,14 +297,21 @@ def _meta_section(results: dict[str, object]) -> str:
 def render_report(results: dict[str, object]) -> str:
     raw_phases = results.get("phases")
     if isinstance(raw_phases, dict):
+        has_maintenance = PHASE_MAINTENANCE in raw_phases
+        fairness_text = (
+            "Both arms received byte-identical instructions and agent configuration "
+            "within each phase. Maintenance used fresh agent sessions over the finished "
+            "build workspaces."
+            if has_maintenance
+            else "Both arms received the byte-identical build prompt and agent "
+            "configuration."
+        )
         sections = [
             "# Template value benchmark — one LLM, same app, with vs. without the template",
             "",
             _meta_section(results),
             "",
-            "Both arms received byte-identical instructions and agent configuration "
-            "within each phase. Maintenance used fresh agent sessions over the finished "
-            "build workspaces.",
+            fairness_text,
         ]
         for phase, phase_results in raw_phases.items():
             if not isinstance(phase_results, dict):
@@ -307,7 +324,7 @@ def render_report(results: dict[str, object]) -> str:
                     "",
                     "### Agent effort",
                     "",
-                    _build_section(phase_results),
+                    _build_section(phase_results, phase=str(phase)),
                     "",
                     "### Functional acceptance (objective, scripted)",
                     "",

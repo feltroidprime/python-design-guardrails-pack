@@ -35,7 +35,7 @@ from benchmarks.e2e.config import (
     ToolPins,
     load_config,
 )
-from benchmarks.e2e.exporting import ArmTrace
+from benchmarks.e2e.exporting import ArmTrace, langfuse_trace_id
 from benchmarks.e2e.judging import (
     DIMENSIONS,
     JudgingError,
@@ -579,6 +579,7 @@ class TestOrchestration:
             ("maintenance", ARM_BARE),
             ("maintenance", ARM_GUARDRAILS),
         ]
+        assert len({langfuse_trace_id(trace) for trace in exporter.traces}) == 4
 
         agent_prompts = [entry[1] for entry in journal if entry[0] == "build"]
         assert agent_prompts[:2] == [
@@ -601,6 +602,8 @@ class TestOrchestration:
         report = (run.run_dir / "report.md").read_text(encoding="utf-8")
         assert "## Build phase" in report
         assert "## Maintenance phase" in report
+        assert "| Maintenance effort |" in report
+        assert "| Change wall time (s) |" in report
 
     def test_maintenance_fairness_uses_identical_prompt_bytes_and_probe_lists(
         self, tmp_path: Path
@@ -1202,6 +1205,7 @@ class TestOrchestration:
             assert (run.run_dir / artifact).is_file()
         assert "Functional probe" in report
         assert "Limitations" in report
+        assert "Maintenance used fresh agent sessions" not in report
         guardrails_src = run.run_dir / "arms" / ARM_GUARDRAILS / "workspace" / "src" / "demo"
         assert guardrails_src.is_dir(), "guardrails arm must start from the instantiated template"
 
