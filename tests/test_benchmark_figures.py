@@ -154,6 +154,11 @@ def test_export_cli_produces_deterministic_full_figure_set_with_exact_csv_data(
             keys = svg_root.findall(".//svg:text[@class='config-key']", namespace)
             assert len(keys) == len(rows)
             assert all(group.findall("svg:text[@class='point-id']", namespace) for group in plotted)
+        else:
+            labels = svg_root.findall(".//svg:text[@class='config-label']", namespace)
+            assert len(labels) == len(rows)
+            for row, label in zip(rows, labels, strict=True):
+                assert row["variant"] in "".join(label.itertext())
 
         png_metadata = _png_text(first / f"{name}.png")
         assert png_metadata["CSV"] == f"{name}.csv"
@@ -208,6 +213,36 @@ def test_export_cli_produces_deterministic_full_figure_set_with_exact_csv_data(
         (22, 125, 160)
     )
 
+    cost_rows = list(
+        csv.DictReader((first / "quality-vs-cost.csv").open(encoding="utf-8"))
+    )
+    cost_index = next(
+        index
+        for index, row in enumerate(cost_rows)
+        if row["template_version"] == "v1.0.0"
+        and row["effort"] == "high"
+        and row["arm"] == "guardrails"
+    )
+    cost_svg = ET.fromstring(
+        (first / "quality-vs-cost.svg").read_text(encoding="utf-8")
+    )
+    cost_probe = cost_svg.find(
+        f".//svg:g[@class='data-point'][@data-row='{cost_index}']"
+        "/svg:circle[@data-y-metric='probe_pass_rate']",
+        namespace,
+    )
+    assert cost_probe is not None
+    assert cost_probe.attrib["data-x-value"] == "3.2"
+    assert cost_probe.attrib["data-y-value"] == "0.9"
+    assert abs(float(cost_probe.attrib["cx"]) - 570.58) < 0.01
+    assert abs(float(cost_probe.attrib["cy"]) - 291.0) < 0.01
+    cost_width, _, cost_pixels = _png_pixels(first / "quality-vs-cost.png")
+    cost_x = round(float(cost_probe.attrib["cx"]))
+    cost_y = round(float(cost_probe.attrib["cy"]))
+    assert cost_pixels[
+        (cost_y * cost_width + cost_x) * 3 : (cost_y * cost_width + cost_x + 1) * 3
+    ] == bytes((22, 125, 160))
+
     action_rows = list(
         csv.DictReader((first / "effort-actions.csv").open(encoding="utf-8"))
     )
@@ -222,6 +257,29 @@ def test_export_cli_produces_deterministic_full_figure_set_with_exact_csv_data(
     assert first_action is not None
     assert action_rows[0]["tool_calls"] == first_action.attrib["data-value"] == "40.5"
     assert abs(float(first_action.attrib["width"]) - 690.88) < 0.01
+    action_width, _, action_pixels = _png_pixels(first / "effort-actions.png")
+    assert action_pixels[(232 * action_width + 650) * 3 : (232 * action_width + 651) * 3] == bytes(
+        (22, 125, 160)
+    )
+
+    token_rows = list(
+        csv.DictReader((first / "effort-tokens.csv").open(encoding="utf-8"))
+    )
+    token_svg = ET.fromstring(
+        (first / "effort-tokens.svg").read_text(encoding="utf-8")
+    )
+    first_token = token_svg.find(
+        ".//svg:g[@class='data-point'][@data-row='0']"
+        "/svg:rect[@data-metric='input_tokens']",
+        namespace,
+    )
+    assert first_token is not None
+    assert token_rows[0]["input_tokens"] == first_token.attrib["data-value"] == "1025"
+    assert abs(float(first_token.attrib["width"]) - 291.18) < 0.01
+    token_width, _, token_pixels = _png_pixels(first / "effort-tokens.png")
+    assert token_pixels[(242 * token_width + 650) * 3 : (242 * token_width + 651) * 3] == bytes(
+        (22, 125, 160)
+    )
 
 
 def test_export_cli_handles_missing_registry_without_creating_output(

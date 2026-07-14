@@ -332,6 +332,13 @@ def _label(row: dict[str, str]) -> str:
     )
 
 
+def _visible_label_lines(row: dict[str, str]) -> tuple[str, str]:
+    return (
+        f"{row['template_version']} · {row['variant']} · {row['arm']}",
+        f"{row['model']} · {row['effort']}",
+    )
+
+
 def _effort_svg(figure: Figure, rows: list[dict[str, str]]) -> list[str]:
     parts: list[str] = []
     chart_left, chart_top, chart_width, row_height = 600, 222, 870, 88
@@ -354,10 +361,13 @@ def _effort_svg(figure: Figure, rows: list[dict[str, str]]) -> list[str]:
         )
     for index, row in enumerate(rows):
         y = chart_top + index * row_height
+        first_line, second_line = _visible_label_lines(row)
         parts.append(
             f'<g class="data-point" data-row="{index}"><desc>{_xml(_point_caption(row))}</desc>'
-            f'<text x="90" y="{y + 31}" fill="{COLORS["ink"]}" '
-            f'font-family="Arial,Helvetica,sans-serif" font-size="16">{_xml(_label(row))}</text>'
+            f'<text class="config-label" x="90" y="{y + 21}" fill="{COLORS["ink"]}" '
+            f'font-family="Arial,Helvetica,sans-serif" font-size="14">'
+            f'<tspan x="90">{_xml(first_line)}</tspan>'
+            f'<tspan x="90" dy="22">{_xml(second_line)}</tspan></text>'
         )
         if figure.kind == "actions":
             for metric_index, metric in enumerate(figure.metrics):
@@ -548,7 +558,16 @@ def _draw_png(figure: Figure, rows: list[dict[str, str]]) -> _Canvas:
         )
         for index, row in enumerate(rows):
             y = chart_top + index * row_height
-            canvas.text(90, y + 18, _label(row)[:46], _rgb(COLORS["ink"]), 2)
+            first_line, second_line = _visible_label_lines(row)
+            label_scale = 2 if max(len(first_line), len(second_line)) <= 42 else 1
+            canvas.text(90, y + 7, first_line, _rgb(COLORS["ink"]), label_scale)
+            canvas.text(
+                90,
+                y + 34,
+                second_line,
+                _rgb(COLORS["muted"]),
+                label_scale,
+            )
             if figure.kind == "actions":
                 for metric_index, metric in enumerate(figure.metrics):
                     width = int(float(row[metric]) / maximum * chart_width)
