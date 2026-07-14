@@ -10,6 +10,10 @@ It is a maintainer tool: long (two full agent builds, concurrent by default —
 `run.parallel_arms`), somewhat costly (provider usage for one builder and
 several judges), and deliberately not part of `just validate`.
 
+[Local Langfuse operations](langfuse/README.md) cover the optional pinned
+observability stack, Claude Code hook, trace check, and teardown. The lab is
+independent of running the benchmark.
+
 ## Run it
 
 ```bash
@@ -148,6 +152,11 @@ agent with a change request and measure that.
 - The builder inherits the host machine's agent-CLI configuration (global
   instruction files, hooks). This is symmetric between arms — the comparison
   stands — but absolute numbers vary across machines.
+- The optional Langfuse Claude Code hook is active for headless Claude builds,
+  not only interactive sessions. Because inherited host settings are
+  symmetric between arms, it does not favor either arm, but its enabled state
+  can affect absolute timing. Keep that state fixed across a campaign (or
+  uninstall it first); see the [operations guide](langfuse/README.md).
 - OpenCode currently merges (rather than replaces) the host's global MCP
   server configuration even when the harness requests none; judge tool
   lockdown and the neutral CWD make this moot for judging, but an OpenCode

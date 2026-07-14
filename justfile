@@ -5,6 +5,10 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 # mirror under .venv instead.
 export PYTHONPYCACHEPREFIX := justfile_directory() / ".venv/pycache"
 
+langfuse_dir := justfile_directory() / "benchmarks/langfuse"
+langfuse_compose := langfuse_dir / "compose.yaml"
+langfuse_env := langfuse_dir / ".env"
+
 default:
     @just --list
 
@@ -37,3 +41,36 @@ benchmark config="benchmarks/config/default.toml" model="" provider="" effort=""
         {{ if model == "" { "" } else { "--builder-model " + model } }} \
         {{ if provider == "" { "" } else { "--builder-provider " + provider } }} \
         {{ if effort == "" { "" } else { "--builder-effort " + effort } }}
+
+# Create the ignored local Langfuse environment with fresh random secrets.
+langfuse-init:
+    python3 "{{langfuse_dir}}/init_env.py"
+
+# Start the optional local Langfuse v3 lab and wait for its containers.
+langfuse-up:
+    test -f "{{langfuse_env}}" || { echo "missing {{langfuse_env}}; run 'just langfuse-init' first" >&2; exit 2; }
+    docker compose --project-directory "{{langfuse_dir}}" --env-file "{{langfuse_env}}" -f "{{langfuse_compose}}" up --detach --wait
+
+# Exit zero only when the local Langfuse public health API responds.
+langfuse-status:
+    curl --fail --silent --show-error --max-time 5 http://127.0.0.1:3000/api/public/health >/dev/null
+
+# Stop and remove the local Langfuse containers (persistent volumes are kept).
+langfuse-down:
+    docker compose --project-directory "{{langfuse_dir}}" --env-file "{{langfuse_env}}" -f "{{langfuse_compose}}" down --remove-orphans
+
+# List traces received by the local Langfuse API in the last N minutes.
+langfuse-traces minutes="60":
+    python3 "{{langfuse_dir}}/recent_traces.py" --minutes "{{minutes}}"
+
+# Install and configure the pinned official Langfuse Claude Code plugin.
+langfuse-hook-install:
+    python3 "{{langfuse_dir}}/claude_hook.py" install
+
+# Verify that the pinned Langfuse Claude Code plugin is enabled.
+langfuse-hook-status:
+    python3 "{{langfuse_dir}}/claude_hook.py" status
+
+# Remove the Langfuse Claude Code plugin and its managed marketplace.
+langfuse-hook-uninstall:
+    python3 "{{langfuse_dir}}/claude_hook.py" uninstall

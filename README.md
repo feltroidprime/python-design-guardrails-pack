@@ -123,10 +123,20 @@ just benchmark benchmarks/config/relay.toml    # event-sourced job queue
 just benchmark benchmarks/config/smoke.toml    # cheap plumbing check
 ```
 
+An optional pinned local Langfuse stack traces interactive Claude Code
+sessions without participating in the benchmark gate:
+
+```bash
+just langfuse-init
+just langfuse-up
+just langfuse-status
+```
+
 On a terminal, the run renders a live two-arm dashboard (probe checklist,
 judge verdicts revealed one by one); `--no-tui` keeps plain logs.
 
-See `benchmarks/README.md` for the methodology and the judge-bias controls.
+See `benchmarks/README.md` for the methodology, judge-bias controls, and the
+linked Langfuse setup/hook/teardown guide.
 It is a maintainer tool built on [`headless_llm`](../../headless_llm) and is
 not part of `just validate`.
 
