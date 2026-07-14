@@ -126,6 +126,7 @@ self-contained report per run.
 just benchmark                                 # full run (long, costs provider usage)
 just benchmark benchmarks/config/relay.toml    # event-sourced job queue
 just benchmark benchmarks/config/smoke.toml    # cheap plumbing check
+just bench-report                              # offline cross-run comparison report
 ```
 
 An optional pinned local Langfuse stack traces interactive Claude Code
