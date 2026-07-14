@@ -655,13 +655,19 @@ def apply_builder_overrides(
         return cfg
     builder = cfg.builder
     new_provider = provider or builder.provider
-    resolved_model = BUILDER_MODEL_ALIASES.get(model, model) if model else builder.model
+    provider_changed = new_provider != builder.provider
+    resolved_model = (
+        BUILDER_MODEL_ALIASES.get(model, model)
+        if model
+        else None if provider_changed else builder.model
+    )
+    resolved_effort = effort if effort is not None else None if provider_changed else builder.effort
     return replace(
         cfg,
         builder=BuilderSettings(
             provider=new_provider,
             model=resolved_model,
-            effort=effort or builder.effort,
+            effort=resolved_effort,
             binary=builder.binary if new_provider == builder.provider else None,
             timeout_seconds=builder.timeout_seconds,
             allowed_tools=builder.allowed_tools if new_provider == "claude" else None,

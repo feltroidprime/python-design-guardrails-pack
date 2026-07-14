@@ -7,10 +7,14 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import ExitStack
 from dataclasses import dataclass, replace
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
+import tarfile
+import tempfile
 import threading
 import tomllib
 from typing import TYPE_CHECKING
@@ -134,7 +138,12 @@ def model_family(role: RoleSettings) -> str:
         return "claude"
     if role.provider == "codex":
         return "gpt"
-    model = (role.model or "opencode-default").lower()
+    if role.model is None:
+        raise ConfigError(
+            "opencode roles must declare a model so the family-disjointness rule "
+            "can be enforced"
+        )
+    model = role.model.lower()
     if "claude" in model or "anthropic" in model:
         return "claude"
     if "gpt" in model or "openai" in model or "codex" in model:
@@ -162,39 +171,136 @@ def _git_output(repo_root: Path, *arguments: str) -> str:
     return completed.stdout.strip()
 
 
+def _template_source_paths(repo_root: Path) -> tuple[str, ...]:
+    listed = _git_output(
+        repo_root,
+        "ls-files",
+        "-z",
+        "--cached",
+        "--others",
+        "--exclude-standard",
+        "--",
+        "copier.yml",
+        "template",
+    )
+    return tuple(sorted(item for item in listed.split("\0") if item))
+
+
+def _template_source_digest(repo_root: Path, paths: tuple[str, ...]) -> str:
+    digest = hashlib.sha256()
+    for relative in paths:
+        source = repo_root / relative
+        if source.is_file():
+            digest.update(relative.encode())
+            digest.update(b"\0")
+            digest.update(source.read_bytes())
+            digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def _resolve_template_identity(repo_root: Path, vcs_ref: str) -> dict[str, object]:
     """Resolve once so planning, execution, and resume share one identity."""
     revision = _git_output(repo_root, "rev-parse", f"{vcs_ref}^{{commit}}")
     version = vcs_ref
     source_digest: str | None = None
+    dirty = False
     if vcs_ref == "HEAD":
-        version = _git_output(repo_root, "describe", "--tags", "--always", "--dirty")
-        listed = _git_output(
-            repo_root,
-            "ls-files",
-            "-z",
-            "--cached",
-            "--others",
-            "--exclude-standard",
-            "--",
-            "copier.yml",
-            "template",
+        dirty = bool(
+            _git_output(
+                repo_root,
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+                "--",
+                "copier.yml",
+                "template",
+            )
         )
-        digest = hashlib.sha256()
-        for relative in sorted(item for item in listed.split("\0") if item):
-            source = repo_root / relative
-            if source.is_file():
-                digest.update(relative.encode())
-                digest.update(b"\0")
-                digest.update(source.read_bytes())
-                digest.update(b"\0")
-        source_digest = digest.hexdigest()
+        version = _git_output(repo_root, "describe", "--tags", "--always")
+        if dirty:
+            version += "-dirty"
+        paths = _template_source_paths(repo_root)
+        source_digest = _template_source_digest(repo_root, paths)
     return {
         "version": version,
         "vcs_ref": vcs_ref,
         "revision": revision,
         "source_digest": source_digest,
+        "dirty": dirty,
     }
+
+
+def _create_template_snapshot(
+    repo_root: Path,
+    snapshot_root: Path,
+    *,
+    identity: dict[str, object],
+) -> str:
+    """Commit the resolved template bytes into an immutable temporary repo."""
+    dirty = identity.get("dirty") is True
+    paths: tuple[str, ...] | None = None
+    if dirty:
+        paths = _template_source_paths(repo_root)
+        try:
+            for relative in paths:
+                source = repo_root / relative
+                if not source.is_file():
+                    continue
+                destination = snapshot_root / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+        except OSError as error:
+            raise ConfigError(f"could not snapshot campaign template: {error}") from error
+    else:
+        revision = identity.get("revision")
+        assert isinstance(revision, str)
+        completed = subprocess.run(
+            (
+                "git",
+                "-C",
+                str(repo_root),
+                "archive",
+                "--format=tar",
+                revision,
+                "copier.yml",
+                "template",
+            ),
+            capture_output=True,
+            env={
+                key: value
+                for key, value in os.environ.items()
+                if not key.startswith("GIT_")
+            },
+            check=False,
+        )
+        if completed.returncode != 0:
+            raise ConfigError(
+                "could not archive pinned campaign template: "
+                + completed.stderr.decode(errors="replace").strip()
+            )
+        with tarfile.open(fileobj=io.BytesIO(completed.stdout), mode="r:") as archive:
+            archive.extractall(snapshot_root, filter="data")
+    expected_digest = identity.get("source_digest")
+    if paths is not None and isinstance(expected_digest, str):
+        actual_digest = _template_source_digest(snapshot_root, paths)
+        if actual_digest != expected_digest:
+            raise ConfigError(
+                "campaign template identity changed while creating its pinned snapshot; "
+                "re-run the matrix"
+            )
+    _git_output(snapshot_root, "init", "--quiet", "--initial-branch=main")
+    _git_output(snapshot_root, "add", "--all")
+    _git_output(
+        snapshot_root,
+        "-c",
+        "user.name=guardrails-benchmark",
+        "-c",
+        "user.email=guardrails-benchmark@localhost",
+        "commit",
+        "--quiet",
+        "--message=pinned campaign template",
+    )
+    return _git_output(snapshot_root, "rev-parse", "HEAD")
 
 
 def _paths(values: object, *, where: str, base: Path) -> tuple[Path, ...]:
@@ -284,9 +390,13 @@ def load_matrix_config(path: Path, *, repo_root: Path) -> MatrixConfig:
     if len({app.project.name for app in apps}) != len(apps):
         raise ConfigError(f"{where}: [matrix]: app project names must be unique")
     seeds = _seeds(raw_matrix.get("seeds"), where=f"{where}: [matrix]")
+    if len(set(seeds)) != len(seeds):
+        raise ConfigError(f"{where}: [matrix]: seeds must be unique")
     variants = _strings(
         raw_matrix.get("variants"), key="variants", where=f"{where}: [matrix]"
     )
+    if len(set(variants)) != len(variants):
+        raise ConfigError(f"{where}: [matrix]: variants must be unique")
     variant_answers = {
         variant: template_variant_answers(
             variant, where=f"{where}: [matrix]", repo_root=repo_root
@@ -315,6 +425,8 @@ def load_matrix_config(path: Path, *, repo_root: Path) -> MatrixConfig:
         _role(item, where=f"{where}: builders[{index}]")
         for index, item in enumerate(raw_builders)
     )
+    if len(set(builders)) != len(builders):
+        raise ConfigError(f"{where}: [[builders]] entries must be unique")
 
     raw_judge = _table(raw, "judge", where=where)
     _reject_unknown(raw_judge, {"panel"}, where=f"{where}: [judge]")
@@ -519,9 +631,8 @@ def run_matrix(
     def capped_factory(role: RoleSettings) -> AgentRunner:
         return _CappedRunner(runner_factory(role), semaphores[role.provider])
 
-    def execute(cell: MatrixCell) -> BenchmarkRun:
-        from benchmarks.e2e.orchestrator import run_benchmark
-
+    runs_by_id: dict[str, BenchmarkRun] = {}
+    with ExitStack() as stack:
         current_identity = _resolve_template_identity(
             repo_root, matrix.template_vcs_ref
         )
@@ -530,17 +641,31 @@ def run_matrix(
                 "campaign template identity changed after planning; "
                 "re-run the matrix so every cell uses one pinned identity"
             )
-        return run_benchmark(
-            cell.config,
-            repo_root=repo_root,
-            runner_factory=capped_factory,
-            metrics_collector=metrics_collector,
-            gate_runner=gate_runner,
-            log=log,
+        snapshot = Path(
+            stack.enter_context(
+                tempfile.TemporaryDirectory(prefix="guardrails-matrix-template-")
+            )
+        )
+        template_source_root = snapshot
+        template_vcs_ref = _create_template_snapshot(
+            repo_root, snapshot, identity=matrix.template_identity
         )
 
-    runs_by_id: dict[str, BenchmarkRun] = {}
-    with ExitStack() as stack:
+        def execute(cell: MatrixCell) -> BenchmarkRun:
+            from benchmarks.e2e.orchestrator import run_benchmark
+
+            return run_benchmark(
+                cell.config,
+                repo_root=repo_root,
+                runner_factory=capped_factory,
+                metrics_collector=metrics_collector,
+                gate_runner=gate_runner,
+                log=log,
+                template_source_root=template_source_root,
+                template_vcs_ref=template_vcs_ref,
+                template_identity=dict(matrix.template_identity),
+            )
+
         executors = {
             provider: stack.enter_context(
                 ThreadPoolExecutor(max_workers=matrix.concurrency_caps[provider])

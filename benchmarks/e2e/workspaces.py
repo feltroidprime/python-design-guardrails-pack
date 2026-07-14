@@ -92,18 +92,26 @@ def _git(arguments: tuple[str, ...], cwd: Path) -> str:
 
 
 def _generate_from_template(
-    cfg: BenchmarkConfig, destination: Path, repo_root: Path
+    cfg: BenchmarkConfig,
+    destination: Path,
+    repo_root: Path,
+    *,
+    template_source_root: Path | None = None,
+    template_vcs_ref: str | None = None,
+    template_identity: dict[str, object] | None = None,
 ) -> dict[str, object]:
     answers = {
         "project_name": cfg.project.name,
         "package": cfg.project.package,
         **cfg.template.answers,
     }
+    source_root = template_source_root or repo_root
+    render_vcs_ref = template_vcs_ref or cfg.template.vcs_ref
     working_tree_version = None
-    if cfg.template.vcs_ref == "HEAD":
+    if template_identity is None and render_vcs_ref == "HEAD":
         described = subprocess.run(
             ("git", "describe", "--tags", "--always", "--dirty"),
-            cwd=repo_root,
+            cwd=source_root,
             env=environment_without_local_git_context(),
             capture_output=True,
             text=True,
@@ -118,10 +126,10 @@ def _generate_from_template(
     try:
         with without_local_git_context():
             run_copy(
-                str(repo_root),
+                str(source_root),
                 destination,
                 data=answers,
-                vcs_ref=cfg.template.vcs_ref,
+                vcs_ref=render_vcs_ref,
                 defaults=True,
                 quiet=True,
                 skip_tasks=True,
@@ -136,28 +144,47 @@ def _generate_from_template(
         raise WorkspaceError(f"could not read Copier answers from {answers_path}: {error}") from error
     if not isinstance(recorded, dict) or not isinstance(recorded.get("_commit"), str):
         raise WorkspaceError(f"Copier answers in {answers_path} have no resolved _commit")
-    return {
+    identity = dict(template_identity) if template_identity is not None else {
         "version": working_tree_version or recorded["_commit"],
         "vcs_ref": cfg.template.vcs_ref,
+    }
+    identity.update({
         "variant": cfg.template.variant,
         "answers": {
             str(key): value
             for key, value in recorded.items()
             if not str(key).startswith("_")
         },
-    }
+    })
+    return identity
 
 
-def prepare_workspace(arm: str, cfg: BenchmarkConfig, arms_dir: Path, *, repo_root: Path) -> Workspace:
+def prepare_workspace(
+    arm: str,
+    cfg: BenchmarkConfig,
+    arms_dir: Path,
+    *,
+    repo_root: Path,
+    template_source_root: Path | None = None,
+    template_vcs_ref: str | None = None,
+    template_identity: dict[str, object] | None = None,
+) -> Workspace:
     """Create the arm's starting repository under `arms_dir/<arm>/workspace`."""
     started = time.monotonic()
     lines: list[str] = []
     destination = arms_dir / arm / "workspace"
     destination.mkdir(parents=True, exist_ok=False)
 
-    template_identity = None
+    resolved_template_identity = None
     if arm == ARM_GUARDRAILS:
-        template_identity = _generate_from_template(cfg, destination, repo_root)
+        resolved_template_identity = _generate_from_template(
+            cfg,
+            destination,
+            repo_root,
+            template_source_root=template_source_root,
+            template_vcs_ref=template_vcs_ref,
+            template_identity=template_identity,
+        )
         lines.append(f"instantiated template as {cfg.project.name} ({cfg.project.package})")
     elif arm != ARM_BARE:
         raise WorkspaceError(f"unknown arm {arm!r}")
@@ -172,7 +199,7 @@ def prepare_workspace(arm: str, cfg: BenchmarkConfig, arms_dir: Path, *, repo_ro
         path=destination,
         setup_seconds=time.monotonic() - started,
         setup_log="\n".join(lines),
-        template_identity=template_identity,
+        template_identity=resolved_template_identity,
     )
 
 

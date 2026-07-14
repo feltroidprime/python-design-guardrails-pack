@@ -77,8 +77,9 @@ repository, not this one.
    LikeC4 CLI version is pinned in exactly one place, `[tool.likec4]` in
    `template/pyproject.toml.jinja`; never introduce a second copy. The Copier
    pin appears in the root `pyproject.toml`, both generating recipes in the root
-   `justfile`, the benchmark bootstrap in `benchmarks/run.py`, and
-   `_min_copier_version` in `copier.yml`; move all together. The root project
+   `justfile`, the benchmark bootstraps in `benchmarks/run.py` and
+   `benchmarks/matrix.py`, and `_min_copier_version` in `copier.yml`; move all
+   together. The root project
    version is the wheel fallback for Copier's `_commit`, so release wheels must
    use the corresponding template tag version.
 5. **No local artifacts in `template/`.** Runtime caches (`.ruff_cache`,

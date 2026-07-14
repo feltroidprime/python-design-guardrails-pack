@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import threading
@@ -420,6 +421,158 @@ model = "claude-test"
     assert str(first_identity["version"]).endswith("-dirty")
     assert second_identity["version"] == first_identity["version"]
     assert second.cell_id != first.cell_id
+
+
+def test_dirty_campaign_uses_one_immutable_template_snapshot(tmp_path: Path) -> None:
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    shutil.copy(REPO_ROOT / "copier.yml", pack / "copier.yml")
+    shutil.copytree(REPO_ROOT / "template", pack / "template")
+    subprocess.run(
+        ("git", "init", "--quiet", "--initial-branch=main"),
+        cwd=pack,
+        env=git_environment(),
+        check=True,
+    )
+    subprocess.run(("git", "add", "--all"), cwd=pack, env=git_environment(), check=True)
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=tests",
+            "-c",
+            "user.email=tests@localhost",
+            "commit",
+            "--quiet",
+            "--message=initial",
+        ),
+        cwd=pack,
+        env=git_environment(),
+        check=True,
+    )
+    readme = pack / "template" / "README.md.jinja"
+    readme.write_text(
+        readme.read_text(encoding="utf-8") + "\nPINNED-CAMPAIGN-MARKER\n",
+        encoding="utf-8",
+    )
+    app = _single_config(tmp_path, "snapshot-app", "SNAPSHOT-SPEC-MARKER")
+    builders = """
+[[builders]]
+provider = "claude"
+model = "claude-test"
+"""
+    matrix = load_matrix_config(
+        _matrix_config(
+            tmp_path,
+            [app],
+            builders=builders,
+            seeds="[11, 22]",
+            concurrency="""
+[concurrency]
+claude = 1
+codex = 1
+opencode = 1
+""",
+        ),
+        repo_root=pack,
+    )
+    concurrency = _Concurrency()
+    mutation_lock = threading.Lock()
+    mutated = False
+
+    class MutatingRunner(_FakeRunner):
+        def run(self, prompt: str, **kwargs: object) -> AgentOutcome:
+            nonlocal mutated
+            if kwargs.get("output_schema") is None:
+                with mutation_lock:
+                    if not mutated:
+                        readme.write_text(
+                            "MUTATED-AFTER-FIRST-CELL\n", encoding="utf-8"
+                        )
+                        mutated = True
+            return super().run(prompt, **kwargs)
+
+    result = run_matrix(
+        matrix,
+        repo_root=pack,
+        runner_factory=lambda role: MutatingRunner(role, concurrency),
+        metrics_collector=lambda workspace, out_dir: {},
+        log=lambda message: None,
+    )
+
+    assert len(result.completed) == 2
+    generated_readmes = list(
+        matrix.run.output_root.glob("*/arms/guardrails/workspace/README.md")
+    )
+    assert len(generated_readmes) == 2
+    assert all(
+        "PINNED-CAMPAIGN-MARKER" in path.read_text(encoding="utf-8")
+        for path in generated_readmes
+    )
+
+
+def test_cross_provider_builder_uses_target_provider_defaults(tmp_path: Path) -> None:
+    app = _single_config(tmp_path, "defaults-app", "DEFAULTS-SPEC-MARKER")
+    builders = """
+[[builders]]
+provider = "codex"
+"""
+    matrix = load_matrix_config(
+        _matrix_config(tmp_path, [app], builders=builders, seeds="[11]"),
+        repo_root=REPO_ROOT,
+    )
+
+    builder = plan_matrix(matrix)[0].config.builder
+
+    assert builder.model is None
+    assert builder.effort is None
+    assert builder.allowed_tools is None
+
+
+def test_opencode_roles_require_a_model_for_family_validation(tmp_path: Path) -> None:
+    app = _single_config(tmp_path, "opencode-app", "OPENCODE-SPEC-MARKER")
+    builders = """
+[[builders]]
+provider = "opencode"
+"""
+
+    with pytest.raises(ConfigError, match="opencode.*model.*family-disjointness rule"):
+        load_matrix_config(
+            _matrix_config(tmp_path, [app], builders=builders),
+            repo_root=REPO_ROOT,
+        )
+
+
+@pytest.mark.parametrize(
+    ("overrides", "match"),
+    [
+        ({"seeds": "[11, 11]"}, "seeds.*unique"),
+        ({"variants": '["baseline", "baseline"]'}, "variants.*unique"),
+        (
+            {
+                "builders": """
+[[builders]]
+provider = "claude"
+model = "claude-test"
+
+[[builders]]
+provider = "claude"
+model = "claude-test"
+"""
+            },
+            "builders.*unique",
+        ),
+    ],
+)
+def test_duplicate_matrix_dimensions_are_rejected(
+    tmp_path: Path, overrides: dict[str, str], match: str
+) -> None:
+    app = _single_config(tmp_path, "duplicate-app", "DUPLICATE-SPEC-MARKER")
+
+    with pytest.raises(ConfigError, match=match):
+        load_matrix_config(
+            _matrix_config(tmp_path, [app], **overrides), repo_root=REPO_ROOT
+        )
 
 
 def test_cli_dry_run_needs_no_provider_checkout_or_bootstrap(tmp_path: Path) -> None:

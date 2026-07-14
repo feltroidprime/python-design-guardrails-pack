@@ -223,6 +223,9 @@ def run_benchmark(
     log: Logger = print,
     events: ev.EventSink = ev.ignore_event,
     exporter: BenchmarkExporter | None = None,
+    template_source_root: Path | None = None,
+    template_vcs_ref: str | None = None,
+    template_identity: dict[str, object] | None = None,
 ) -> BenchmarkRun:
     log_lock = threading.Lock()
 
@@ -398,7 +401,15 @@ def run_benchmark(
         arm_dir = arms_dir / arm
         arm_dir.mkdir(parents=True, exist_ok=True)
         stage(arm, PHASE_BUILD, ev.STAGE_WORKSPACE)
-        workspace = prepare_workspace(arm, cfg, arms_dir, repo_root=repo_root)
+        workspace = prepare_workspace(
+            arm,
+            cfg,
+            arms_dir,
+            repo_root=repo_root,
+            template_source_root=template_source_root,
+            template_vcs_ref=template_vcs_ref,
+            template_identity=template_identity,
+        )
         emit(f"[{arm}/build] workspace ready in {workspace.setup_seconds:.1f}s at {workspace.path}")
         return measure_arm(
             arm,
