@@ -115,6 +115,14 @@ def summarize(rows: list[dict[str, object]]) -> list[dict[str, object]]:
         members = grouped[key]
         summary: dict[str, object] = dict(zip(GROUP_FIELDS, key, strict=True))
         summary["runs"] = len(members)
+        summary["seeds"] = sorted(
+            {
+                seed
+                for row in members
+                if isinstance((seed := row.get("seed")), int)
+                and not isinstance(seed, bool)
+            }
+        )
         for field in MEAN_FIELDS:
             summary[field] = _mean(_field(row, field) for row in members)
         probe = _number(summary["probe_pass_rate"])

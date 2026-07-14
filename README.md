@@ -139,6 +139,7 @@ just benchmark benchmarks/config/smoke.toml    # cheap plumbing check
 just benchmark-matrix-plan                     # validate/list campaign cells, no spend
 just benchmark-matrix                          # execute or resume the campaign
 just bench-report                              # offline cross-run comparison report
+just bench-figures                             # offline article SVG/PNG/CSV export
 ```
 
 An optional pinned local Langfuse stack traces interactive Claude Code
@@ -153,8 +154,8 @@ just langfuse-status
 On a terminal, the run renders a live two-arm dashboard (probe checklist,
 judge verdicts revealed one by one); `--no-tui` keeps plain logs.
 
-See `benchmarks/README.md` for the methodology, judge-bias controls, and the
-linked Langfuse setup/hook/teardown guide.
+See `benchmarks/README.md` for the methodology, judge-bias controls, publication
+figure inventory, and the linked Langfuse setup/hook/teardown guide.
 It is a maintainer tool built on [`headless_llm`](../../headless_llm) and is
 not part of `just validate`.
 

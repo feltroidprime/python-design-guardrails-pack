@@ -63,6 +63,10 @@ benchmark-matrix config="benchmarks/matrices/flagship.example.toml":
 bench-report registry="~/.local/share/guardrails-benchmark/runs/registry.jsonl" output="~/.local/share/guardrails-benchmark/runs/bench-report.html":
     python3 benchmarks/report.py --registry "{{registry}}" --output "{{output}}"
 
+# Export the curated article figures as SVG, PNG, and exact plotted-data CSVs.
+bench-figures registry="~/.local/share/guardrails-benchmark/runs/registry.jsonl" output="~/.local/share/guardrails-benchmark/runs/publication-figures":
+    python3 benchmarks/figures.py --registry "{{registry}}" --output-dir "{{output}}"
+
 # Create the ignored local Langfuse environment with fresh random secrets.
 langfuse-init:
     python3 "{{langfuse_dir}}/init_env.py"

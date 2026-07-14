@@ -25,6 +25,7 @@ just benchmark benchmarks/config/smoke.toml               # tiny app (plumbing c
 just benchmark benchmarks/config/default.toml haiku       # pick the coding model
 just benchmark benchmarks/config/default.toml gpt-5.6-sol codex xhigh
 just bench-report                                         # compare every recorded run
+just bench-figures                                        # export article SVG/PNG/CSV
 python3 benchmarks/run.py --config path/to/your.toml \
     --builder-model sonnet --builder-effort high          # equivalent flags
 just benchmark-matrix-plan                                # validate/list campaign
@@ -81,6 +82,23 @@ just bench-report path/to/registry.jsonl path/to/report.html
 ```
 
 A missing or empty registry prints a next-step message and exits cleanly.
+
+`just bench-figures` reads the same real registry and writes the curated article
+set under `publication-figures/` beside it. Every figure is emitted as a
+standalone SVG and PNG with a sibling CSV containing exactly its plotted rows.
+SVG metadata/descriptions and PNG text metadata carry the CSV hash, template
+versions, models, efforts, variants, and the run/seed provenance behind every
+point. `manifest.json` inventories the output hashes. Rendering uses only the
+Python standard library: it loads no web assets, makes no network requests, and
+does not require a plotting or provider SDK. To use another source or output:
+
+```bash
+just bench-figures path/to/registry.jsonl path/to/publication-figures
+```
+
+The [figure inventory](FIGURES.md) states the claim and registry aggregation
+for every named article asset. A missing or empty registry exits cleanly without
+creating an output directory.
 
 ## Run a matrix campaign
 
