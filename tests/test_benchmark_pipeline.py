@@ -6,8 +6,11 @@ build prompt.
 """
 
 from dataclasses import replace
+import json
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import sys
 
 import pytest
@@ -24,7 +27,9 @@ from benchmarks.e2e.config import (
     ProjectSettings,
     RoleSettings,
     RunSettings,
+    TemplateSettings,
     ToolPins,
+    load_config,
 )
 from benchmarks.e2e.judging import (
     DIMENSIONS,
@@ -47,6 +52,7 @@ from benchmarks.e2e.metrics import (
 from benchmarks.e2e.orchestrator import compose_build_prompt, run_benchmark
 from benchmarks.e2e.probes import pass_rate, run_probes
 from benchmarks.e2e.reporting import render_report
+from benchmarks.e2e.workspaces import git_environment, prepare_workspace
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -293,6 +299,26 @@ class TestJudging:
         assert "agent decision" in bundle.text
         assert "boilerplate" not in bundle.text
 
+    @pytest.mark.parametrize("arm", ARMS)
+    def test_pristine_copier_answers_are_excluded_symmetrically(
+        self, tmp_path: Path, arm: str
+    ) -> None:
+        workspace = tmp_path / arm
+        workspace.mkdir()
+        (workspace / ".copier-answers.yml").write_text(
+            "_commit: v1.2.3\nproject_name: demo\n", encoding="utf-8"
+        )
+        (workspace / "app.py").write_text("answer = 42\n", encoding="utf-8")
+        settings = JudgeSettings(
+            panel=(RoleSettings(provider="codex"),),
+            exclude=(".copier-answers.yml",),
+        )
+
+        bundle = bundle_workspace(workspace, settings)
+
+        assert ".copier-answers.yml" not in bundle.text
+        assert "app.py" in bundle.text
+
     def test_bundle_excludes_are_applied_and_order_is_deterministic(
         self, tmp_path: Path
     ) -> None:
@@ -462,6 +488,7 @@ def _pipeline_config(tmp_path: Path) -> BenchmarkConfig:
             run_native_gate=False,
         ),
         project=ProjectSettings(name="demo", package="demo"),
+        template=TemplateSettings(answers={}),
         builder=BuilderSettings(provider="claude", timeout_seconds=10.0),
         judge=JudgeSettings(
             panel=(
@@ -480,6 +507,220 @@ def _pipeline_config(tmp_path: Path) -> BenchmarkConfig:
 
 
 class TestOrchestration:
+    def test_shipped_smoke_config_runs_with_fake_agents_without_prompting(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from benchmarks.e2e import workspaces
+
+        cfg = load_config(
+            REPO_ROOT / "benchmarks" / "config" / "smoke.toml",
+            repo_root=REPO_ROOT,
+        )
+        cfg = replace(
+            cfg,
+            run=replace(
+                cfg.run,
+                output_root=tmp_path / "runs",
+                keep_workspaces=True,
+                run_native_gate=False,
+            ),
+            probes=(
+                ProbeSpec(
+                    name="fake-marker",
+                    argv=(sys.executable, "{ws}/built_by_fake.py"),
+                ),
+            ),
+        )
+        real_run_copy = workspaces.run_copy
+        copier_calls = 0
+
+        def run_copy_without_prompts(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            nonlocal copier_calls
+            copier_calls += 1
+            assert kwargs.get("defaults") is True
+            return real_run_copy(*args, **kwargs)
+
+        class PromptTrap:
+            def isatty(self) -> bool:
+                return True
+
+            def read(self, *_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+                raise AssertionError("Copier attempted to read from stdin")
+
+            def readline(self, *_args, **_kwargs):  # noqa: ANN002, ANN003, ANN202
+                raise AssertionError("Copier attempted to prompt on stdin")
+
+        monkeypatch.setattr(workspaces, "run_copy", run_copy_without_prompts)
+        monkeypatch.setattr(sys, "stdin", PromptTrap())
+        journal: list[tuple[str, str, str | None]] = []
+
+        run = run_benchmark(
+            cfg,
+            repo_root=REPO_ROOT,
+            runner_factory=lambda role: _FakeRunner(role, journal),
+            metrics_collector=lambda workspace, out_dir: {},
+            log=lambda message: None,
+        )
+
+        assert copier_calls == 1
+        assert all(
+            arm["probes"]["pass_rate"] == 1.0
+            for arm in run.results["arms"].values()
+        )
+
+    def test_bare_workspace_ignores_all_template_settings(self, tmp_path: Path) -> None:
+        cfg = _pipeline_config(tmp_path)
+        first = replace(
+            cfg,
+            template=TemplateSettings(
+                vcs_ref="HEAD", variant="baseline", answers={}
+            ),
+        )
+        second = replace(
+            cfg,
+            template=TemplateSettings(
+                vcs_ref="ref-that-does-not-exist",
+                variant="baseline",
+                answers={"project_name": "different", "package": "different"},
+            ),
+        )
+
+        first_workspace = prepare_workspace(
+            ARM_BARE, first, tmp_path / "first", repo_root=REPO_ROOT
+        )
+        second_workspace = prepare_workspace(
+            ARM_BARE, second, tmp_path / "second", repo_root=REPO_ROOT
+        )
+
+        tree_ids = [
+            subprocess.run(
+                ("git", "rev-parse", "HEAD^{tree}"),
+                cwd=workspace.path,
+                env=git_environment(),
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+            for workspace in (first_workspace, second_workspace)
+        ]
+        assert tree_ids[0] == tree_ids[1]
+        assert first_workspace.template_identity is None
+        assert second_workspace.template_identity is None
+
+    def test_copier_identity_and_answers_are_recorded(self, tmp_path: Path) -> None:
+        journal: list[tuple[str, str, str | None]] = []
+        cfg = _pipeline_config(tmp_path)
+        cfg = replace(
+            cfg,
+            template=TemplateSettings(
+                vcs_ref="HEAD",
+                variant="baseline",
+                answers={"package": "configured_demo"},
+            ),
+        )
+        expected_version = subprocess.run(
+            ("git", "describe", "--tags", "--always", "--dirty"),
+            cwd=REPO_ROOT,
+            env=git_environment(),
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+        run = run_benchmark(
+            cfg,
+            repo_root=REPO_ROOT,
+            runner_factory=lambda role: _FakeRunner(role, journal),
+            metrics_collector=lambda workspace, out_dir: {},
+            log=lambda message: None,
+        )
+
+        expected_identity = {
+            "version": expected_version,
+            "vcs_ref": "HEAD",
+            "variant": "baseline",
+            "answers": {
+                "project_name": "demo",
+                "package": "configured_demo",
+            },
+        }
+        manifest = json.loads(
+            (run.run_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+        serialized_results = json.loads(
+            (run.run_dir / "results.json").read_text(encoding="utf-8")
+        )
+        assert manifest["template"] == expected_identity
+        assert run.results["meta"]["template"] == expected_identity
+        assert serialized_results["meta"]["template"] == expected_identity
+        report = (run.run_dir / "report.md").read_text(encoding="utf-8")
+        assert expected_version in report
+        assert "project_name=demo" in report
+        assert "package=configured_demo" in report
+        workspace = run.run_dir / "arms" / ARM_GUARDRAILS / "workspace"
+        assert (workspace / "src" / "configured_demo").is_dir()
+
+    def test_dirty_template_identity_is_flagged_in_fake_agent_pipeline(
+        self, tmp_path: Path
+    ) -> None:
+        template_repo = tmp_path / "template-repo"
+        template_repo.mkdir()
+        shutil.copy(REPO_ROOT / "copier.yml", template_repo / "copier.yml")
+        shutil.copytree(REPO_ROOT / "template", template_repo / "template")
+        subprocess.run(
+            ("git", "init", "--quiet", "--initial-branch=main"),
+            cwd=template_repo,
+            env=git_environment(),
+            check=True,
+        )
+        subprocess.run(
+            ("git", "add", "--all"),
+            cwd=template_repo,
+            env=git_environment(),
+            check=True,
+        )
+        subprocess.run(
+            (
+                "git",
+                "-c",
+                "user.name=tests",
+                "-c",
+                "user.email=tests@localhost",
+                "commit",
+                "--quiet",
+                "--message=tagged template",
+            ),
+            cwd=template_repo,
+            env=git_environment(),
+            check=True,
+        )
+        subprocess.run(
+            ("git", "tag", "v0.1.0"),
+            cwd=template_repo,
+            env=git_environment(),
+            check=True,
+        )
+        readme = template_repo / "template" / "README.md.jinja"
+        readme.write_text(readme.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        pipeline_dir = tmp_path / "pipeline"
+        pipeline_dir.mkdir()
+        cfg = _pipeline_config(pipeline_dir)
+        journal: list[tuple[str, str, str | None]] = []
+
+        run = run_benchmark(
+            cfg,
+            repo_root=template_repo,
+            runner_factory=lambda role: _FakeRunner(role, journal),
+            metrics_collector=lambda workspace, out_dir: {},
+            log=lambda message: None,
+        )
+
+        assert run.results["meta"]["template"]["version"] == "v0.1.0-dirty"
+        serialized = json.loads(
+            (run.run_dir / "results.json").read_text(encoding="utf-8")
+        )
+        assert serialized["meta"]["template"]["version"] == "v0.1.0-dirty"
+
     def test_full_pipeline_with_fake_agents(self, tmp_path: Path) -> None:
         journal: list[tuple[str, str, str | None]] = []
         cfg = _pipeline_config(tmp_path)

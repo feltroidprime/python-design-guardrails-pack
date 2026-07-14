@@ -10,10 +10,14 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import subprocess
-import sys
 import time
 
+from copier import run_copy
+from copier.errors import CopierError
+from yaml import safe_load
+
 from benchmarks.e2e.config import ARM_BARE, ARM_GUARDRAILS, BenchmarkConfig
+from instantiate import environment_without_local_git_context, without_local_git_context
 
 _GIT_IDENTITY = (
     "-c",
@@ -66,6 +70,7 @@ class Workspace:
     path: Path
     setup_seconds: float
     setup_log: str
+    template_identity: dict[str, object] | None = None
 
 
 def _git(arguments: tuple[str, ...], cwd: Path) -> str:
@@ -86,14 +91,61 @@ def _git(arguments: tuple[str, ...], cwd: Path) -> str:
     return completed.stdout
 
 
-def _generate_from_template(cfg: BenchmarkConfig, destination: Path, repo_root: Path) -> None:
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
-    from instantiate import generate
+def _generate_from_template(
+    cfg: BenchmarkConfig, destination: Path, repo_root: Path
+) -> dict[str, object]:
+    answers = {
+        "project_name": cfg.project.name,
+        "package": cfg.project.package,
+        **cfg.template.answers,
+    }
+    working_tree_version = None
+    if cfg.template.vcs_ref == "HEAD":
+        described = subprocess.run(
+            ("git", "describe", "--tags", "--always", "--dirty"),
+            cwd=repo_root,
+            env=environment_without_local_git_context(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if described.returncode != 0 or not described.stdout.strip():
+            raise WorkspaceError(
+                "could not resolve current template working-tree identity: "
+                + described.stderr.strip()
+            )
+        working_tree_version = described.stdout.strip()
+    try:
+        with without_local_git_context():
+            run_copy(
+                str(repo_root),
+                destination,
+                data=answers,
+                vcs_ref=cfg.template.vcs_ref,
+                defaults=True,
+                quiet=True,
+                skip_tasks=True,
+            )
+    except (CopierError, ValueError) as error:
+        raise WorkspaceError(f"template instantiation failed: {error}") from error
 
-    error = generate(cfg.project.name, cfg.project.package, destination)
-    if error is not None:
-        raise WorkspaceError(f"template instantiation failed: {error}")
+    answers_path = destination / ".copier-answers.yml"
+    try:
+        recorded = safe_load(answers_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise WorkspaceError(f"could not read Copier answers from {answers_path}: {error}") from error
+    if not isinstance(recorded, dict) or not isinstance(recorded.get("_commit"), str):
+        raise WorkspaceError(f"Copier answers in {answers_path} have no resolved _commit")
+    return {
+        "version": working_tree_version or recorded["_commit"],
+        "vcs_ref": cfg.template.vcs_ref,
+        "variant": cfg.template.variant,
+        "answers": {
+            str(key): value
+            for key, value in recorded.items()
+            if not str(key).startswith("_")
+        },
+    }
 
 
 def prepare_workspace(arm: str, cfg: BenchmarkConfig, arms_dir: Path, *, repo_root: Path) -> Workspace:
@@ -103,8 +155,9 @@ def prepare_workspace(arm: str, cfg: BenchmarkConfig, arms_dir: Path, *, repo_ro
     destination = arms_dir / arm / "workspace"
     destination.mkdir(parents=True, exist_ok=False)
 
+    template_identity = None
     if arm == ARM_GUARDRAILS:
-        _generate_from_template(cfg, destination, repo_root)
+        template_identity = _generate_from_template(cfg, destination, repo_root)
         lines.append(f"instantiated template as {cfg.project.name} ({cfg.project.package})")
     elif arm != ARM_BARE:
         raise WorkspaceError(f"unknown arm {arm!r}")
@@ -119,6 +172,7 @@ def prepare_workspace(arm: str, cfg: BenchmarkConfig, arms_dir: Path, *, repo_ro
         path=destination,
         setup_seconds=time.monotonic() - started,
         setup_log="\n".join(lines),
+        template_identity=template_identity,
     )
 
 

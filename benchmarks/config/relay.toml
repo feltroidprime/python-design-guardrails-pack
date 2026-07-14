@@ -18,6 +18,10 @@ gate_timeout_seconds = 1200.0
 name = "relay"
 package = "relay"
 
+[template]
+vcs_ref = "HEAD"
+variant = "baseline"
+
 [builder]
 provider = "claude"
 model = "claude-opus-4-8"
@@ -51,6 +55,7 @@ exclude = [
   ".pre-commit-config.yaml",
   ".python-version",
   ".gitignore",
+  ".copier-answers.yml",
   ".github/*",
   ".vscode/*",
   "docs/*",

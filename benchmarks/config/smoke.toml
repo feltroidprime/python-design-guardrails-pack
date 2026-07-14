@@ -18,6 +18,10 @@ gate_timeout_seconds = 600.0
 name = "greet"
 package = "greet"
 
+[template]
+vcs_ref = "HEAD"
+variant = "baseline"
+
 [builder]
 provider = "claude"
 model = "claude-haiku-4-5-20251001"

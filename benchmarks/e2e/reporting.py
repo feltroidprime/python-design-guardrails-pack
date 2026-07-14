@@ -261,6 +261,14 @@ def _meta_section(results: dict[str, object]) -> str:
         return ""
     judges = meta.get("judges")
     judge_text = ", ".join(str(judge) for judge in judges) if isinstance(judges, list) else "—"
+    template = meta.get("template")
+    template = template if isinstance(template, dict) else {}
+    answers = template.get("answers")
+    answer_text = (
+        ", ".join(f"{key}={value}" for key, value in sorted(answers.items()))
+        if isinstance(answers, dict)
+        else "—"
+    )
     lines = [
         f"- Run: `{_fmt(meta.get('run_id'))}` started {_fmt(meta.get('started_utc'))}",
         f"- Builder: `{_fmt(meta.get('builder'))}` (same agent, same prompt for both arms)",
@@ -268,6 +276,9 @@ def _meta_section(results: dict[str, object]) -> str:
         f"- Seed: {_fmt(meta.get('seed'))}; config: `{_fmt(meta.get('config_path'))}`",
         f"- Pack revision: `{_fmt(meta.get('pack_revision'))}`; "
         f"headless_llm revision: `{_fmt(meta.get('headless_llm_revision'))}`",
+        f"- Copier template: `{_fmt(template.get('version'))}` "
+        f"(requested `{_fmt(template.get('vcs_ref'))}`, variant "
+        f"`{_fmt(template.get('variant'))}`); answers: {answer_text}",
         f"- Analyzer pins: {_fmt(meta.get('tool_pins'))}",
     ]
     return "\n".join(lines)

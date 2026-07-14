@@ -25,7 +25,7 @@ import tempfile
 import threading
 
 from benchmarks.e2e.agents import AgentRunner, RunnerFactory
-from benchmarks.e2e.config import ARMS, BenchmarkConfig
+from benchmarks.e2e.config import ARM_GUARDRAILS, ARMS, BenchmarkConfig
 from benchmarks.e2e import events as ev
 from benchmarks.e2e.judging import (
     Bundle,
@@ -130,6 +130,7 @@ def _manifest(cfg: BenchmarkConfig, run_id: str, started: str, repo_root: Path) 
 class _ArmOutcome:
     results: dict[str, object]
     bundle: Bundle
+    template_identity: dict[str, object] | None
 
 
 def _build_arm(
@@ -288,6 +289,7 @@ def run_benchmark(
         return _ArmOutcome(
             results=results,
             bundle=bundle_workspace(workspace.path, cfg.judge, authored),
+            template_identity=workspace.template_identity,
         )
 
     if cfg.run.parallel_arms:
@@ -298,6 +300,11 @@ def run_benchmark(
         outcomes = {arm: run_arm(arm) for arm in ARMS}
     arms = {arm: outcome.results for arm, outcome in outcomes.items()}
     bundles = {arm: outcome.bundle for arm, outcome in outcomes.items()}
+    template_identity = outcomes[ARM_GUARDRAILS].template_identity
+    if template_identity is None:
+        raise RuntimeError("template arm completed without a Copier identity")
+    manifest["template"] = template_identity
+    _write_json(run_dir / "manifest.json", manifest)
 
     emit(
         "judging bundles: "

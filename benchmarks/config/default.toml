@@ -25,6 +25,12 @@ gate_timeout_seconds = 1200.0
 name = "ledger"
 package = "ledger"
 
+[template]
+# HEAD benchmarks the current working tree (including a dirty suffix when
+# modified); pin a release tag such as "v1.2.3" for release comparisons.
+vcs_ref = "HEAD"
+variant = "baseline"
+
 [builder]
 provider = "claude"
 model = "claude-opus-4-8"

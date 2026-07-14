@@ -156,6 +156,13 @@ class ProjectSettings:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class TemplateSettings:
+    vcs_ref: str = "HEAD"
+    variant: str = "baseline"
+    answers: dict[str, object]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class RunSettings:
     # Out-of-tree by default: the pack forbids generated repositories inside
     # its own working tree.
@@ -178,6 +185,7 @@ class BenchmarkConfig:
     source_path: Path
     run: RunSettings
     project: ProjectSettings
+    template: TemplateSettings
     builder: BuilderSettings
     judge: JudgeSettings
     probes: tuple[ProbeSpec, ...]
@@ -421,6 +429,24 @@ def _project(section: dict[str, object], *, where: str) -> ProjectSettings:
     return ProjectSettings(name=name, package=package)
 
 
+def _template(section: dict[str, object], *, where: str) -> TemplateSettings:
+    _reject_unknown(section, frozenset({"vcs_ref", "variant", "answers"}), where=where)
+    answers = section.get("answers", {})
+    if not isinstance(answers, dict):
+        raise ConfigError(f"{where}: 'answers' must be a table")
+    variant = _string(section, "variant", where=where, default="baseline")
+    if variant != "baseline":
+        raise ConfigError(
+            f"{where}: template variant {variant!r} is unavailable; only 'baseline' "
+            "is supported until feature-toggle questions ship"
+        )
+    return TemplateSettings(
+        vcs_ref=_string(section, "vcs_ref", where=where, default="HEAD"),
+        variant=variant,
+        answers=dict(answers),
+    )
+
+
 def _prompt_text(section: dict[str, object], key: str, *, where: str, config_dir: Path) -> str:
     path = Path(_string(section, key, where=where))
     if not path.is_absolute():
@@ -486,7 +512,9 @@ def load_config(path: Path, *, repo_root: Path) -> BenchmarkConfig:
     where = str(path)
     _reject_unknown(
         raw,
-        frozenset({"run", "project", "builder", "judge", "prompt", "probes", "tools"}),
+        frozenset(
+            {"run", "project", "template", "builder", "judge", "prompt", "probes", "tools"}
+        ),
         where=where,
     )
     prompt_section = _table(raw, "prompt", where=where)
@@ -505,6 +533,9 @@ def load_config(path: Path, *, repo_root: Path) -> BenchmarkConfig:
         source_path=path.resolve(),
         run=_run(_table(raw, "run", where=where), where=f"{where}: [run]", repo_root=repo_root),
         project=_project(_table(raw, "project", where=where), where=f"{where}: [project]"),
+        template=_template(
+            _table(raw, "template", where=where), where=f"{where}: [template]"
+        ),
         builder=_builder(_table(raw, "builder", where=where), where=f"{where}: [builder]"),
         judge=_judge(_table(raw, "judge", where=where), where=f"{where}: [judge]"),
         probes=tuple(probes),

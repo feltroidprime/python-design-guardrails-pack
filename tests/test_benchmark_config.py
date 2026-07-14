@@ -34,6 +34,9 @@ label = "test"
 [project]
 name = "demo"
 
+[template]
+{template}
+
 [builder]
 provider = "claude"
 
@@ -58,9 +61,18 @@ argv = ["true"]
 """
 
 
-def _minimal(tmp_path: Path, *, output_root: str | None = None, extra: str = "") -> Path:
+def _minimal(
+    tmp_path: Path,
+    *,
+    output_root: str | None = None,
+    template: str = "",
+    extra: str = "",
+) -> Path:
     root = output_root or str(tmp_path / "runs")
-    return _write_config(tmp_path, _MINIMAL.format(output_root=root, extra=extra))
+    return _write_config(
+        tmp_path,
+        _MINIMAL.format(output_root=root, template=template, extra=extra),
+    )
 
 
 class TestShippedConfigs:
@@ -88,12 +100,48 @@ class TestShippedConfigs:
         cfg = load_config(CONFIG_DIR / "default.toml", repo_root=REPO_ROOT)
         assert not cfg.run.output_root.is_relative_to(REPO_ROOT)
 
+    @pytest.mark.parametrize("path", sorted(CONFIG_DIR.glob("*.toml")), ids=lambda path: path.name)
+    def test_every_shipped_judge_excludes_copier_answers(self, path: Path) -> None:
+        cfg = load_config(path, repo_root=REPO_ROOT)
+        assert ".copier-answers.yml" in cfg.judge.exclude
+
 
 class TestValidation:
     def test_minimal_config_loads(self, tmp_path: Path) -> None:
         cfg = load_config(_minimal(tmp_path), repo_root=REPO_ROOT)
         assert cfg.project.package == "demo"
         assert cfg.builder.allowed_tools is None
+
+    def test_template_settings_and_answer_overrides_are_parsed(
+        self, tmp_path: Path
+    ) -> None:
+        path = _minimal(
+            tmp_path,
+            template='vcs_ref = "v1.2.3"\nvariant = "baseline"\nanswers = { feature = true }',
+        )
+
+        cfg = load_config(path, repo_root=REPO_ROOT)
+
+        assert cfg.template.vcs_ref == "v1.2.3"
+        assert cfg.template.variant == "baseline"
+        assert cfg.template.answers == {"feature": True}
+
+    def test_unknown_template_key_is_rejected(self, tmp_path: Path) -> None:
+        path = _minimal(tmp_path, template="version_typo = 'v1.2.3'")
+
+        with pytest.raises(ConfigError, match="version_typo"):
+            load_config(path, repo_root=REPO_ROOT)
+
+    def test_non_baseline_variant_is_rejected_until_toggles_ship(
+        self, tmp_path: Path
+    ) -> None:
+        path = _minimal(tmp_path, template="variant = 'no-precommit'")
+
+        with pytest.raises(
+            ConfigError,
+            match="variant 'no-precommit'.*only 'baseline'.*feature-toggle",
+        ):
+            load_config(path, repo_root=REPO_ROOT)
 
     def test_unknown_key_is_rejected(self, tmp_path: Path) -> None:
         path = _minimal(tmp_path, extra="\n[typo_section]\nx = 1\n")
@@ -106,7 +154,9 @@ class TestValidation:
             load_config(path, repo_root=REPO_ROOT)
 
     def test_unknown_provider_is_rejected(self, tmp_path: Path) -> None:
-        body = _MINIMAL.format(output_root=str(tmp_path / "runs"), extra="").replace(
+        body = _MINIMAL.format(
+            output_root=str(tmp_path / "runs"), template="", extra=""
+        ).replace(
             'provider = "claude"', 'provider = "gpt4all"'
         )
         with pytest.raises(ConfigError, match="unknown provider"):
