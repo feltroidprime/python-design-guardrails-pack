@@ -1,8 +1,18 @@
 # Validation record
 
-Last executed: 2026-07-13, macOS (arm64), CPython 3.14.6, uv 0.11.28,
-bun 1.3.9, via `just validate` — after adding the end-to-end value benchmark
-(`benchmarks/`): a maintainer harness where one LLM (via `headless_llm`)
+Last executed: 2026-07-14, macOS 26.5 (arm64), CPython 3.14.6, uv 0.11.28,
+bun 1.3.9, via `just validate` — after adding the optional local Langfuse lab:
+six exactly pinned Compose services, ignored generated credentials, health and
+lifecycle recipes, an authenticated recent-traces CLI, and Langfuse's Claude
+Code plugin v1.0.0 pinned to commit
+`3f301f3840c975bdbd16b8140140d139f27aa99b`. Seven deterministic lab tests
+cover the configuration and scripts without Docker, a network, or provider
+SDKs. Live acceptance on Docker 29.6.1 / Compose 5.3.1 brought all services
+healthy, ingested an independent interactive Claude Code turn, retrieved its
+trace through the public API, and removed every project container.
+
+Previously, the end-to-end value benchmark (`benchmarks/`) added a maintainer
+harness where one LLM (via `headless_llm`)
 builds the same specified application in an empty repository and in a
 template-generated repository, compared by functional probes, pinned neutral
 analyzers (ruff/basedpyright/radon/coverage via `uvx`), build-effort
@@ -113,7 +123,7 @@ import-linter layers contract and the derived diagrams.
 - Generator test suite (`tests/test_instantiate.py` +
   `tests/test_none_discipline.py` + `tests/test_path_discipline.py` +
   `tests/test_docs_guard.py` + `tests/test_benchmark_config.py` +
-  `tests/test_benchmark_pipeline.py`): 117 passed — name
+  `tests/test_benchmark_pipeline.py` + `tests/test_langfuse_lab.py`): 124 passed — name
   validation, non-empty-directory refusal, package renaming, full placeholder
   replacement, cache-artifact exclusion, expected-file preservation
   (including `__main__.py`, the SQLite adapter, `application/errors.py`,
