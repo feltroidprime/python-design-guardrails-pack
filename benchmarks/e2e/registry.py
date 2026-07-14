@@ -8,10 +8,12 @@ and completed result dictionaries. Provider clients remain isolated in
 from collections.abc import Iterable
 import json
 from pathlib import Path
+import threading
 
 from benchmarks.e2e.config import ARMS, PHASE_BUILD, BenchmarkConfig
 
 REGISTRY_FILENAME = "registry.jsonl"
+_APPEND_LOCK = threading.Lock()
 
 
 def _get(mapping: object, *keys: str) -> object:
@@ -117,6 +119,8 @@ def registry_rows(
                 "tool_calls": agent.get("tool_calls"),
                 "turns": agent.get("turns"),
             })
+            if cfg.matrix_dimensions is not None:
+                rows[-1]["matrix"] = dict(cfg.matrix_dimensions)
     return rows
 
 
@@ -127,5 +131,8 @@ def append_registry_rows(path: Path, rows: Iterable[dict[str, object]]) -> None:
         for row in rows
     )
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8", newline="") as registry:
-        registry.write(serialized)
+    # Campaign cells complete concurrently. Keep each cell's two rows as one
+    # append operation so JSONL never interleaves inside this process.
+    with _APPEND_LOCK:
+        with path.open("a", encoding="utf-8", newline="") as registry:
+            registry.write(serialized)

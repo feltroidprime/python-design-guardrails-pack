@@ -117,13 +117,21 @@ def _uv_version() -> str | None:
 
 
 def _manifest(cfg: BenchmarkConfig, run_id: str, started: str, repo_root: Path) -> dict[str, object]:
-    return {
+    manifest: dict[str, object] = {
         "run_id": run_id,
         "started_utc": started,
         "config_path": str(cfg.source_path),
         "seed": cfg.run.seed,
         "builder": cfg.builder.identity,
         "builder_effort": cfg.builder.effort,
+        "builder_settings": {
+            "provider": cfg.builder.provider,
+            "model": cfg.builder.model,
+            "effort": cfg.builder.effort,
+            "binary": cfg.builder.binary,
+            "timeout_seconds": cfg.builder.timeout_seconds,
+            "allowed_tools": cfg.builder.allowed_tools,
+        },
         "judges": [member.identity for member in cfg.judge.panel],
         "tool_pins": {
             "ruff": cfg.tools.ruff,
@@ -138,6 +146,9 @@ def _manifest(cfg: BenchmarkConfig, run_id: str, started: str, repo_root: Path) 
         "uv_version": _uv_version(),
         "platform": f"{platform.system()} {platform.release()} / {platform.python_version()}",
     }
+    if cfg.matrix_dimensions is not None:
+        manifest["matrix"] = dict(cfg.matrix_dimensions)
+    return manifest
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

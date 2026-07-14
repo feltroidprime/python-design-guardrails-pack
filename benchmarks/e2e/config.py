@@ -228,6 +228,10 @@ class BenchmarkConfig:
     charter_text: str
     langfuse: LangfuseSettings = field(default_factory=LangfuseSettings)
     maintenance: ScenarioPhase | None = None
+    # Populated only by the campaign runner. The single-run config format and
+    # pipeline stay unchanged, while manifests and registry rows can retain
+    # the complete cell identity needed for resume.
+    matrix_dimensions: dict[str, object] | None = None
 
     def __post_init__(self) -> None:
         if len(self.spec_text.strip()) < _MIN_SPEC_CHARS:
@@ -480,6 +484,20 @@ def _template_variants(repo_root: Path) -> dict[str, dict[str, object]]:
             raise ConfigError(f"{path}: variant {name!r} must be a table of Copier answers")
         variants[name] = dict(answers)
     return variants
+
+
+def template_variant_answers(
+    name: str, *, where: str, repo_root: Path
+) -> dict[str, object]:
+    """Return a copy of a named Copier answer set, or reject it eagerly."""
+    variants = _template_variants(repo_root)
+    try:
+        return dict(variants[name])
+    except KeyError as error:
+        known = ", ".join(sorted(variants))
+        raise ConfigError(
+            f"{where}: unknown template variant {name!r}; known variants: {known}"
+        ) from error
 
 
 def _template(
