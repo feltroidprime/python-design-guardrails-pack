@@ -91,6 +91,7 @@ def _build_section(results: dict[str, object]) -> str:
         _arm_row(results, "Input tokens (non-cached)", "build", "input_tokens"),
         _arm_row(results, "Cached input tokens (context reads)", "build", "cached_input_tokens"),
         _arm_row(results, "Output tokens", "build", "output_tokens"),
+        _arm_row(results, "Reasoning tokens", "build", "reasoning_tokens"),
         _arm_row(results, "Cost (USD, cache included)", "build", "cost_usd"),
         _arm_row(results, "Cost provenance", "build", "cost_provenance"),
         _arm_row(results, "Build error", "build", "error"),

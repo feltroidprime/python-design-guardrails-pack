@@ -6,9 +6,11 @@ provider SDKs installed.
 """
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol, cast
 
 from benchmarks.e2e.config import BuilderSettings, RoleSettings
+
+type CostProvenanceLabel = Literal["reported", "computed"]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -23,9 +25,10 @@ class AgentOutcome:
     tool_calls: int
     input_tokens: int | None
     output_tokens: int | None
+    reasoning_tokens: int | None
     cached_input_tokens: int | None
     cost_usd: float | None
-    cost_provenance: str | None
+    cost_provenance: CostProvenanceLabel | None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -35,6 +38,7 @@ class AgentOutcome:
             "tool_calls": self.tool_calls,
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
+            "reasoning_tokens": self.reasoning_tokens,
             "cached_input_tokens": self.cached_input_tokens,
             "cost_usd": self.cost_usd,
             "cost_provenance": self.cost_provenance,
@@ -114,10 +118,13 @@ class _HeadlessRunner:
             tool_calls=result.stats.tool_count,
             input_tokens=usage.input_tokens,
             output_tokens=usage.output_tokens,
+            reasoning_tokens=usage.reasoning_tokens,
             cached_input_tokens=usage.cached_input_tokens,
             cost_usd=usage.cost_usd,
             cost_provenance=(
-                usage.cost_provenance.value if usage.cost_provenance is not None else None
+                cast("CostProvenanceLabel", usage.cost_provenance.value)
+                if usage.cost_provenance is not None
+                else None
             ),
         )
 

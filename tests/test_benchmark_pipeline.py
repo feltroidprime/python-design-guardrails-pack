@@ -61,6 +61,7 @@ def _outcome(structured: object = None, text: str = "done") -> AgentOutcome:
         tool_calls=5,
         input_tokens=100,
         output_tokens=50,
+        reasoning_tokens=25,
         cached_input_tokens=0,
         cost_usd=0.01,
         cost_provenance="computed",
@@ -513,6 +514,7 @@ class TestOrchestration:
         for arm in ARMS:
             assert arms[arm]["probes"]["pass_rate"] == 1.0
             assert arms[arm]["build"]["cost_provenance"] == "computed"
+            assert arms[arm]["build"]["reasoning_tokens"] == 25
         aggregate = run.results["judging"]["aggregate"]
         assert aggregate["judgment_count"] == 4
         preference_total = sum(aggregate["preferences"].values())
@@ -642,7 +644,13 @@ class TestReporting:
         results = {
             "meta": {"run_id": "x"},
             "arms": {
-                ARM_BARE: {"build": {"cost_usd": 0.01, "cost_provenance": "computed"}},
+                ARM_BARE: {
+                    "build": {
+                        "cost_usd": 0.01,
+                        "cost_provenance": "computed",
+                        "reasoning_tokens": 25,
+                    }
+                },
                 ARM_GUARDRAILS: {
                     "build": {"cost_usd": 0.02, "cost_provenance": "reported"}
                 },
@@ -654,4 +662,5 @@ class TestReporting:
 
         assert "| Cost (USD, cache included) | 0.01 | 0.02 |" in report
         assert "| Cost provenance | computed | reported |" in report
+        assert "| Reasoning tokens | 25 | — |" in report
         assert "Token counts are comparable only within a provider" in report
