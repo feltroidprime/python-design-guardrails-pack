@@ -116,7 +116,10 @@ whose resolved `git describe` identity will carry `-dirty` when appropriate.
 Planning captures that resolved revision plus a source digest once; it becomes
 part of every cell ID, and execution stops if the template changes mid-campaign.
 Named variants are Copier answer sets; unknown names fail during matrix load,
-before any cell starts.
+before any cell starts. The matrix-selected answer set replaces the app
+config's named variant while preserving its explicit non-ablation
+`[template.answers]`, so one declared variant cannot silently combine two
+ablations.
 
 `[concurrency]` sets independent provider caps. The shared limiter covers
 builders and judges, while separate provider queues prevent one provider's
@@ -130,9 +133,11 @@ pairings are rejected before execution. OpenCode roles must declare an explicit
 
 Completed cells append their full dimensions and resolved template identity
 to the normal registry. Re-running the same matrix reads those rows and skips
-a cell only when both arm rows are present; partial cells run again. Cell IDs
-also include the prompt digest and fixed panel, so changing either creates a
-new campaign cell rather than silently resuming incompatible evidence.
+a cell only when every expected arm/phase row is present; partial maintenance
+or build evidence runs again. Cell IDs include a digest of the complete
+outcome-affecting configuration (prompts, probes, tools, builder, and fixed
+judge panel/settings), so changing any of it creates a new campaign cell
+rather than silently resuming incompatible evidence.
 
 ## Configure it
 

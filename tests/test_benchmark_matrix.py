@@ -88,6 +88,28 @@ coverage = "1"
     return path
 
 
+def _add_maintenance(root: Path, app: Path, marker: str) -> Path:
+    spec = root / f"{app.stem}-maintenance.md"
+    spec.write_text(
+        f"{marker}\n" + "Change this deterministic demo application. " * 12,
+        encoding="utf-8",
+    )
+    app.write_text(
+        app.read_text(encoding="utf-8")
+        + f"""
+
+[scenario.maintenance]
+spec_file = {json.dumps(spec.name)}
+
+[[scenario.maintenance.probes]]
+name = "fake-maintained"
+argv = ["python3", "{{ws}}/built_by_fake.py"]
+""",
+        encoding="utf-8",
+    )
+    return app
+
+
 def _matrix_config(
     root: Path,
     apps: list[Path],
@@ -380,6 +402,30 @@ model = "claude-test"
     assert len({cell.cell_id for cell in cells}) == 2
 
 
+def test_maintenance_request_is_part_of_cell_identity(tmp_path: Path) -> None:
+    app = _add_maintenance(
+        tmp_path,
+        _single_config(tmp_path, "maintenance-app", "BUILD-SPEC-MARKER"),
+        "FIRST-MAINTENANCE-MARKER",
+    )
+    builders = """
+[[builders]]
+provider = "claude"
+model = "claude-test"
+"""
+    matrix_path = _matrix_config(tmp_path, [app], builders=builders, seeds="[11]")
+    first = plan_matrix(load_matrix_config(matrix_path, repo_root=REPO_ROOT))[0]
+    maintenance_spec = tmp_path / "maintenance-app-maintenance.md"
+    maintenance_spec.write_text(
+        "SECOND-MAINTENANCE-MARKER\n"
+        + "Change this deterministic demo application differently. " * 12,
+        encoding="utf-8",
+    )
+    second = plan_matrix(load_matrix_config(matrix_path, repo_root=REPO_ROOT))[0]
+
+    assert second.cell_id != first.cell_id
+
+
 def test_dirty_working_tree_content_is_part_of_the_resume_identity(
     tmp_path: Path,
 ) -> None:
@@ -434,6 +480,49 @@ model = "claude-test"
     assert str(first_identity["version"]).endswith("-dirty")
     assert second_identity["version"] == first_identity["version"]
     assert second.cell_id != first.cell_id
+
+
+def test_template_symlinks_are_rejected_before_campaign_execution(
+    tmp_path: Path,
+) -> None:
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    (pack / "copier.yml").write_text("_subdirectory: template\n", encoding="utf-8")
+    (pack / "template").mkdir()
+    external = tmp_path / "outside-secret.txt"
+    external.write_text("must not enter a provider workspace\n", encoding="utf-8")
+    (pack / "template" / "linked-secret.txt").symlink_to(external)
+    _copy_variant_answers(pack)
+    subprocess.run(
+        ("git", "init", "--quiet", "--initial-branch=main"),
+        cwd=pack,
+        env=git_environment(),
+        check=True,
+    )
+    subprocess.run(
+        ("git", "add", "--all"), cwd=pack, env=git_environment(), check=True
+    )
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=tests",
+            "-c",
+            "user.email=tests@localhost",
+            "commit",
+            "--quiet",
+            "--message=initial",
+        ),
+        cwd=pack,
+        env=git_environment(),
+        check=True,
+    )
+    app = _single_config(tmp_path, "symlink-app", "SYMLINK-SPEC-MARKER")
+
+    with pytest.raises(ConfigError, match="unsupported symlink.*linked-secret"):
+        load_matrix_config(
+            _matrix_config(tmp_path, [app], seeds="[11]"), repo_root=pack
+        )
 
 
 def test_dirty_campaign_uses_one_immutable_template_snapshot(tmp_path: Path) -> None:
@@ -721,6 +810,50 @@ model = "claude-test"
     assert concurrency.build_calls == 2
 
 
+def test_resume_does_not_skip_cell_missing_maintenance_rows(tmp_path: Path) -> None:
+    app = _add_maintenance(
+        tmp_path,
+        _single_config(tmp_path, "resume-maintenance-app", "BUILD-SPEC-MARKER"),
+        "MAINTENANCE-SPEC-MARKER",
+    )
+    builders = """
+[[builders]]
+provider = "claude"
+model = "claude-test"
+"""
+    matrix = load_matrix_config(
+        _matrix_config(
+            tmp_path,
+            [app],
+            builders=builders,
+            seeds="[11]",
+        ),
+        repo_root=REPO_ROOT,
+    )
+    cell = plan_matrix(matrix)[0]
+    matrix.run.output_root.mkdir(parents=True)
+    (matrix.run.output_root / "registry.jsonl").write_text(
+        "".join(
+            json.dumps({"arm": arm, "phase": "build", "matrix": cell.dimensions}) + "\n"
+            for arm in ARMS
+        ),
+        encoding="utf-8",
+    )
+    concurrency = _Concurrency()
+
+    result = run_matrix(
+        matrix,
+        repo_root=REPO_ROOT,
+        runner_factory=lambda role: _FakeRunner(role, concurrency),
+        metrics_collector=lambda workspace, out_dir: {},
+        log=lambda message: None,
+    )
+
+    assert result.skipped == ()
+    assert result.completed == (cell,)
+    assert concurrency.build_calls == 4
+
+
 def test_builder_and_judge_must_obey_family_disjointness_rule(tmp_path: Path) -> None:
     app = _single_config(tmp_path, "family-app", "FAMILY-SPEC-MARKER")
     builders = """
@@ -751,3 +884,33 @@ def test_unknown_variant_is_rejected_before_output_is_created(tmp_path: Path) ->
         load_matrix_config(matrix_path, repo_root=REPO_ROOT)
 
     assert not (tmp_path / "campaign-runs").exists()
+
+
+def test_matrix_variant_replaces_app_named_variant_answers(tmp_path: Path) -> None:
+    app = _single_config(tmp_path, "variant-app", "VARIANT-SPEC-MARKER")
+    app.write_text(
+        app.read_text(encoding="utf-8").replace(
+            'variant = "baseline"', 'variant = "no-precommit"'
+        ),
+        encoding="utf-8",
+    )
+    builders = """
+[[builders]]
+provider = "claude"
+model = "claude-test"
+"""
+    matrix = load_matrix_config(
+        _matrix_config(
+            tmp_path,
+            [app],
+            builders=builders,
+            variants='["no-agents-md"]',
+            seeds="[11]",
+        ),
+        repo_root=REPO_ROOT,
+    )
+
+    template = plan_matrix(matrix)[0].config.template
+
+    assert template.variant == "no-agents-md"
+    assert template.answers == {"agents_contract": "none"}

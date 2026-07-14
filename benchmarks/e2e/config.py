@@ -178,6 +178,10 @@ class TemplateSettings:
     vcs_ref: str = "HEAD"
     variant: str = "baseline"
     answers: dict[str, object]
+    # Keep app-authored overrides separate from the selected named answer set.
+    # Matrix campaigns replace the app's variant while preserving only these
+    # explicit, non-ablation answers.
+    explicit_answers: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -545,6 +549,7 @@ def _template(
         vcs_ref=_string(section, "vcs_ref", where=where, default="HEAD"),
         variant=variant,
         answers=resolved_answers,
+        explicit_answers=dict(answers),
     )
 
 

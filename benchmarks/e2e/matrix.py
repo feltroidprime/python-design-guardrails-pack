@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import ExitStack
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 import hashlib
 import io
 import json
@@ -22,6 +22,8 @@ from typing import TYPE_CHECKING
 from benchmarks.e2e.agents import AgentRunner, RunnerFactory
 from benchmarks.e2e.config import (
     ARMS,
+    PHASE_BUILD,
+    PHASE_MAINTENANCE,
     PROVIDERS,
     BenchmarkConfig,
     ConfigError,
@@ -197,6 +199,10 @@ def _template_source_digest(repo_root: Path, paths: tuple[str, ...]) -> str:
     digest = hashlib.sha256()
     for relative in paths:
         source = repo_root / relative
+        if source.is_symlink():
+            raise ConfigError(
+                f"campaign template contains unsupported symlink: {relative}"
+            )
         if source.is_file():
             digest.update(relative.encode())
             digest.update(b"\0")
@@ -251,13 +257,19 @@ def _create_template_snapshot(
         try:
             for relative in paths:
                 source = repo_root / relative
+                if source.is_symlink():
+                    raise ConfigError(
+                        f"campaign template contains unsupported symlink: {relative}"
+                    )
                 if not source.is_file():
                     continue
                 destination = snapshot_root / relative
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, destination)
+                shutil.copy2(source, destination, follow_symlinks=False)
         except OSError as error:
-            raise ConfigError(f"could not snapshot campaign template: {error}") from error
+            raise ConfigError(
+                f"could not snapshot campaign template: {error}"
+            ) from error
     else:
         revision = identity.get("revision")
         assert isinstance(revision, str)
@@ -286,6 +298,16 @@ def _create_template_snapshot(
                 + completed.stderr.decode(errors="replace").strip()
             )
         with tarfile.open(fileobj=io.BytesIO(completed.stdout), mode="r:") as archive:
+            symlinks = [
+                member.name
+                for member in archive.getmembers()
+                if member.issym() or member.islnk()
+            ]
+            if symlinks:
+                raise ConfigError(
+                    "campaign template archive contains unsupported symlinks: "
+                    + ", ".join(symlinks)
+                )
             archive.extractall(snapshot_root, filter="data")
     expected_digest = identity.get("source_digest")
     if paths is not None and isinstance(expected_digest, str):
@@ -511,16 +533,46 @@ def _cell_dimensions(
     repetition: int,
 ) -> dict[str, object]:
     prompt = f"{cfg.charter_text.strip()}\n\n{cfg.spec_text.strip()}\n".encode()
+    maintenance = (
+        None
+        if cfg.maintenance is None
+        else {
+            "spec_text": cfg.maintenance.spec_text,
+            "probes": [asdict(probe) for probe in cfg.maintenance.probes],
+        }
+    )
+    evidence = {
+        "project": asdict(cfg.project),
+        "build": {
+            "charter_text": cfg.charter_text,
+            "spec_text": cfg.spec_text,
+            "probes": [asdict(probe) for probe in cfg.probes],
+        },
+        "maintenance": maintenance,
+        "builder": asdict(cfg.builder),
+        "judge": asdict(cfg.judge),
+        "tools": asdict(cfg.tools),
+        "run": {
+            "run_native_gate": cfg.run.run_native_gate,
+            "parallel_arms": cfg.run.parallel_arms,
+            "install_timeout_seconds": cfg.run.install_timeout_seconds,
+            "tests_timeout_seconds": cfg.run.tests_timeout_seconds,
+            "gate_timeout_seconds": cfg.run.gate_timeout_seconds,
+        },
+        "template": {
+            "variant": cfg.template.variant,
+            "answers": cfg.template.answers,
+        },
+    }
+    evidence_json = json.dumps(
+        evidence, sort_keys=True, separators=(",", ":"), default=str
+    )
+    builder = asdict(cfg.builder)
+    builder["family"] = model_family(cfg.builder)
     identity: dict[str, object] = {
         "campaign": matrix.run.label,
         "app": cfg.project.name,
-        "builder": {
-            "provider": cfg.builder.provider,
-            "model": cfg.builder.model,
-            "effort": cfg.builder.effort,
-            "binary": cfg.builder.binary,
-            "family": model_family(cfg.builder),
-        },
+        "builder": builder,
         "seed": cfg.run.seed,
         "variant": cfg.template.variant,
         "repetition": repetition,
@@ -528,10 +580,15 @@ def _cell_dimensions(
         "template_identity": dict(matrix.template_identity),
         "template_answers": dict(cfg.template.answers),
         "judges": [
-            {"identity": member.identity, "family": model_family(member)}
+            {
+                **asdict(member),
+                "identity": member.identity,
+                "family": model_family(member),
+            }
             for member in cfg.judge.panel
         ],
         "prompt_sha256": hashlib.sha256(prompt).hexdigest(),
+        "evidence_sha256": hashlib.sha256(evidence_json.encode()).hexdigest(),
     }
     canonical = json.dumps(identity, sort_keys=True, separators=(",", ":"), default=str)
     identity["cell_id"] = hashlib.sha256(canonical.encode()).hexdigest()[:20]
@@ -574,7 +631,10 @@ def plan_matrix(matrix: MatrixConfig) -> tuple[MatrixCell, ...]:
                                 cfg.template,
                                 vcs_ref=matrix.template_vcs_ref,
                                 variant=variant,
-                                answers={**named_answers, **app.template.answers},
+                                answers={
+                                    **named_answers,
+                                    **app.template.explicit_answers,
+                                },
                             ),
                             judge=JudgeSettings(
                                 panel=matrix.judge_panel,
@@ -600,10 +660,10 @@ def plan_matrix(matrix: MatrixConfig) -> tuple[MatrixCell, ...]:
     return tuple(cells)
 
 
-def _completed_cell_ids(path: Path) -> frozenset[str]:
+def _completed_cell_ids(path: Path, cells: tuple[MatrixCell, ...]) -> frozenset[str]:
     if not path.is_file():
         return frozenset()
-    arms_by_cell: defaultdict[str, set[str]] = defaultdict(set)
+    evidence_by_cell: defaultdict[str, set[tuple[str, str]]] = defaultdict(set)
     for line_number, line in enumerate(
         path.read_text(encoding="utf-8").splitlines(), start=1
     ):
@@ -617,12 +677,26 @@ def _completed_cell_ids(path: Path) -> frozenset[str]:
             ) from error
         matrix = row.get("matrix") if isinstance(row, dict) else None
         arm = row.get("arm") if isinstance(row, dict) else None
+        phase = row.get("phase", PHASE_BUILD) if isinstance(row, dict) else None
         cell_id = matrix.get("cell_id") if isinstance(matrix, dict) else None
-        if isinstance(cell_id, str) and isinstance(arm, str):
-            arms_by_cell[cell_id].add(arm)
-    required = set(ARMS)
+        if isinstance(cell_id, str) and isinstance(arm, str) and isinstance(phase, str):
+            evidence_by_cell[cell_id].add((arm, phase))
+    required_by_cell = {
+        cell.cell_id: {
+            (arm, phase)
+            for arm in ARMS
+            for phase in (
+                (PHASE_BUILD, PHASE_MAINTENANCE)
+                if cell.config.maintenance is not None
+                else (PHASE_BUILD,)
+            )
+        }
+        for cell in cells
+    }
     return frozenset(
-        cell_id for cell_id, arms in arms_by_cell.items() if required <= arms
+        cell_id
+        for cell_id, required in required_by_cell.items()
+        if required <= evidence_by_cell[cell_id]
     )
 
 
@@ -654,7 +728,9 @@ def run_matrix(
     if dry_run:
         return MatrixResult(planned=cells, completed=(), skipped=(), runs=())
 
-    complete_ids = _completed_cell_ids(matrix.run.output_root / REGISTRY_FILENAME)
+    complete_ids = _completed_cell_ids(
+        matrix.run.output_root / REGISTRY_FILENAME, cells
+    )
     skipped = tuple(cell for cell in cells if cell.cell_id in complete_ids)
     pending = tuple(cell for cell in cells if cell.cell_id not in complete_ids)
     if skipped:
