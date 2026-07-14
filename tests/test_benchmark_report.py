@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -45,7 +46,7 @@ def _row(
         "pack_revision": "abc1234",
         "headless_llm_revision": "def5678",
         "probe_pass_rate": probe,
-        "judge_primary_votes": 1 if arm == "guardrails" else 0,
+        "judge_primary_endpoint": {"bare": 0, "guardrails": 1, "tie": 0},
         "judge_dimension_means": {
             "spec_fidelity": 8.0 if arm == "guardrails" else 6.0,
             "test_quality": 7.0 if arm == "guardrails" else 5.0,
@@ -87,6 +88,7 @@ def test_report_cli_renders_grouped_offline_comparisons(tmp_path: Path) -> None:
 
     assert completed.returncode == 0, completed.stderr
     assert "Wrote cross-run benchmark report" in completed.stdout
+    assert "(5 registry rows)" in completed.stdout
     html = output.read_text(encoding="utf-8")
     for expected in (
         "Benchmark Lab — cross-run comparison",
@@ -107,12 +109,25 @@ def test_report_cli_renders_grouped_offline_comparisons(tmp_path: Path) -> None:
         "Quality vs dollars",
         "Effort metrics",
         "Probe pass rate",
+        "Primary win rate",
         "Judge dimension mean",
+        "Token effort",
+        "Agent actions",
+        "Tool calls",
+        "Turns",
         "Cached input tokens",
     ):
         assert expected in html
     assert 'data-template-version="v1.0.0"' in html
     assert 'data-template-version="v1.1.0-dirty"' in html
+    grouped_guardrails = re.search(
+        r'data-template-version="v1\.0\.0"[^>]+data-arm="guardrails">'
+        r".*?<td>2</td><td>90\.0%</td><td>100\.0%</td>",
+        html,
+    )
+    assert grouped_guardrails is not None, (
+        "repeated runs must render as one averaged group"
+    )
     assert "<style>" in html and "<script>" in html
     assert "<script src=" not in html
     assert "<link " not in html

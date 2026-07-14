@@ -67,8 +67,10 @@ def registry_rows(
                 "pack_revision": meta.get("pack_revision"),
                 "headless_llm_revision": meta.get("headless_llm_revision"),
                 "probe_pass_rate": _get(results, "arms", arm, "probes", "pass_rate"),
-                "judge_primary_votes": (
-                    primary.get(arm) if isinstance(primary, dict) else None
+                # The complete primary endpoint is repeated per arm so ties
+                # and the eligible-judge denominator are never lost.
+                "judge_primary_endpoint": (
+                    dict(primary) if isinstance(primary, dict) else {}
                 ),
                 "judge_dimension_means": (
                     dict(arm_dimensions) if isinstance(arm_dimensions, dict) else {}

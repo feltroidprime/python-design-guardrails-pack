@@ -23,7 +23,7 @@ GROUP_FIELDS = (
 )
 MEAN_FIELDS = (
     "probe_pass_rate",
-    "judge_primary_votes",
+    "judge_primary_rate",
     "judge_dimension_mean",
     "coverage_percent",
     "wall_time_seconds",
@@ -83,6 +83,17 @@ def _field(row: dict[str, object], name: str) -> object:
     if name == "judge_dimension_mean":
         dimensions = row.get("judge_dimension_means")
         return _mean(dimensions.values()) if isinstance(dimensions, dict) else None
+    if name == "judge_primary_rate":
+        endpoint = row.get("judge_primary_endpoint")
+        arm = row.get("arm")
+        if not isinstance(endpoint, dict) or not isinstance(arm, str):
+            return None
+        votes = [_number(value) for value in endpoint.values()]
+        denominator = sum(vote for vote in votes if vote is not None)
+        numerator = _number(endpoint.get(arm))
+        return (
+            numerator / denominator if numerator is not None and denominator else None
+        )
     if name == "ruff_violations_per_kloc":
         densities = row.get("analyzer_densities")
         return densities.get(name) if isinstance(densities, dict) else None
@@ -165,7 +176,7 @@ def _comparison_rows(summaries: list[dict[str, object]]) -> str:
             f"{html.escape(str(summary['arm']))}</span></td>"
             f"<td>{summary['runs']}</td>"
             f"<td>{_format(summary['probe_pass_rate'], percent=True)}</td>"
-            f"<td>{_format(summary['judge_primary_votes'])}</td>"
+            f"<td>{_format(summary['judge_primary_rate'], percent=True)}</td>"
             f"<td>{_format(summary['judge_dimension_mean'])}</td>"
             f"<td>{coverage}</td>"
             f"<td>{_format(summary['wall_time_seconds'])}</td>"
@@ -214,7 +225,7 @@ h1 {{ max-width:850px; margin:.35rem 0 0; font:600 clamp(32px,5vw,72px)/.98 syst
 label {{ color:var(--muted); font-size:11px; letter-spacing:.08em; text-transform:uppercase; }}
 select {{ width:100%; margin-top:5px; padding:9px; color:var(--ink); background:var(--panel);
   border:1px solid var(--line); font:inherit; }}
-.charts {{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:20px 0 30px; }}
+.charts {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; margin:20px 0 30px; }}
 .chart {{ min-width:0; padding:16px; border:1px solid var(--line); background:var(--panel); }}
 h2 {{ margin:36px 0 12px; font:600 22px system-ui; letter-spacing:-.02em; }}
 h3 {{ margin:0 0 6px; font:600 15px system-ui; }}
@@ -223,6 +234,8 @@ svg {{ display:block; width:100%; height:270px; margin-top:10px; overflow:visibl
 .axis {{ stroke:#55584e; stroke-width:1 }} .grid {{ stroke:#292b26; stroke-width:1 }}
 .dot {{ stroke:#0d0e0c; stroke-width:2 }} .bare {{ fill:var(--bare) }}
 .guardrails {{ fill:var(--guard) }} .label {{ fill:var(--muted); font-size:10px }}
+.token-input {{ fill:#d8ff65 }} .token-cache {{ fill:#967cff }} .token-output {{ fill:#ffcf70 }}
+.token-reasoning {{ fill:#ff769b }} .action-tools {{ fill:#76c7ff }} .action-turns {{ fill:#ff9c70 }}
 .table-wrap {{ overflow:auto; border:1px solid var(--line); }}
 table {{ width:100%; border-collapse:collapse; white-space:nowrap; }}
 th,td {{ padding:10px 12px; text-align:right; border-bottom:1px solid var(--line); }}
@@ -255,12 +268,13 @@ without losing the raw identity of the model, application, variant, or phase.</p
 <section class="charts">
 <article class="chart"><h3>Quality vs wall-clock</h3><div class="note">Composite quality (probe + judge) against seconds</div><svg id="quality-time" role="img"></svg></article>
 <article class="chart"><h3>Quality vs dollars</h3><div class="note">Composite quality (probe + judge) against USD</div><svg id="quality-cost" role="img"></svg></article>
-<article class="chart"><h3>Effort metrics</h3><div class="note">Non-cached + cached + output + reasoning tokens</div><svg id="effort" role="img"></svg></article>
+<article class="chart"><h3>Token effort</h3><div class="note">Effort metrics · Input · Cached input · Output · Reasoning</div><svg id="token-effort" role="img"></svg></article>
+<article class="chart"><h3>Agent actions</h3><div class="note">Tool calls · Turns</div><svg id="agent-actions" role="img"></svg></article>
 </section>
 <h2>Grouped comparisons</h2>
 <div class="table-wrap"><table><thead><tr>
 <th>Template version</th><th>Provider</th><th>Model</th><th>Effort</th><th>Application</th><th>Variant</th><th>Phase</th>
-<th>Arm</th><th>Runs</th><th>Probe pass rate</th><th>Primary votes / run</th><th>Judge dimension mean</th>
+<th>Arm</th><th>Runs</th><th>Probe pass rate</th><th>Primary win rate</th><th>Judge dimension mean</th>
 <th>Coverage %</th><th>Wall-clock s</th><th>Cost</th><th>Input tokens</th><th>Cached input tokens</th>
 <th>Output tokens</th><th>Reasoning tokens</th><th>Tool calls</th><th>Turns</th>
 <th>Ruff / KLOC</th><th>Type errors / KLOC</th></tr></thead><tbody>{_comparison_rows(summaries)}</tbody></table></div>
@@ -284,15 +298,21 @@ function scatter(id,rows,xKey,xLabel){{const svg=document.getElementById(id);svg
   const c=node('circle',{{cx:x,cy:y,r:7,class:`dot ${{r.arm}}`}});c.append(node('title',{{}},title));svg.append(c);}}
  svg.append(node('text',{{x:W/2,y:H-4,'text-anchor':'middle',class:'label'}},xLabel),node('text',{{x:8,y:15,class:'label'}},'quality'));
 }}
-function effort(rows){{const svg=document.getElementById('effort');svg.replaceChildren();const W=420,H=250,p=34;svg.setAttribute('viewBox',`0 0 ${{W}} ${{H}}`);
- const totals=rows.map(r=>({{...r,total:['input_tokens','cached_input_tokens','output_tokens','reasoning_tokens'].reduce((n,k)=>n+(r[k]||0),0)}}));
+function tokenEffort(rows){{const svg=document.getElementById('token-effort');svg.replaceChildren();const W=420,H=250,p=34;svg.setAttribute('viewBox',`0 0 ${{W}} ${{H}}`);
+ const parts=[['input_tokens','input'],['cached_input_tokens','cache'],['output_tokens','output'],['reasoning_tokens','reasoning']];
+ const totals=rows.map(r=>({{...r,total:parts.reduce((n,[k])=>n+(r[k]||0),0)}}));
  const max=Math.max(...totals.map(r=>r.total),1),bw=(W-p*2)/Math.max(totals.length,1);
- totals.forEach((r,i)=>{{const h=(r.total/max)*(H-p*2),bar=node('rect',{{x:p+i*bw+3,y:H-p-h,width:Math.max(bw-6,2),height:h,class:r.arm}});bar.append(node('title',{{}},`${{r.model}} · ${{r.app}} · ${{r.arm}} · ${{Math.round(r.total)}} tokens`));svg.append(bar);}});
+ totals.forEach((r,i)=>{{let y=H-p;parts.forEach(([key,label])=>{{const h=((r[key]||0)/max)*(H-p*2);y-=h;const bar=node('rect',{{x:p+i*bw+3,y,width:Math.max(bw-6,2),height:h,class:`token-${{label}}`}});bar.append(node('title',{{}},`${{r.model}} · ${{r.app}} · ${{r.arm}} · ${{label}}: ${{Math.round(r[key]||0)}}`));svg.append(bar);}});}});
  svg.append(node('line',{{x1:p,y1:H-p,x2:W-p,y2:H-p,class:'axis'}}),node('text',{{x:W/2,y:H-4,'text-anchor':'middle',class:'label'}},'grouped arm summaries'));
+}}
+function agentActions(rows){{const svg=document.getElementById('agent-actions');svg.replaceChildren();const W=420,H=250,p=34;svg.setAttribute('viewBox',`0 0 ${{W}} ${{H}}`);
+ const max=Math.max(...rows.flatMap(r=>[r.tool_calls||0,r.turns||0]),1),gw=(W-p*2)/Math.max(rows.length,1),bw=Math.max((gw-8)/2,2);
+ rows.forEach((r,i)=>[['tool_calls','tools'],['turns','turns']].forEach(([key,label],j)=>{{const h=((r[key]||0)/max)*(H-p*2),bar=node('rect',{{x:p+i*gw+3+j*bw,y:H-p-h,width:bw-2,height:h,class:`action-${{label}}`}});bar.append(node('title',{{}},`${{r.model}} · ${{r.app}} · ${{r.arm}} · ${{label}}: ${{r[key]||0}}`));svg.append(bar);}}));
+ svg.append(node('line',{{x1:p,y1:H-p,x2:W-p,y2:H-p,class:'axis'}}),node('text',{{x:W/2,y:H-4,'text-anchor':'middle',class:'label'}},'Tool calls / turns'));
 }}
 function update(){{const rows=selectedRows();document.getElementById('visible-count').textContent=rows.length;
  document.querySelectorAll('tbody tr').forEach(tr=>{{tr.hidden=!filters.every(f=>{{const key=f.dataset.filter.replace(/_([a-z])/g,(_,c)=>c.toUpperCase());return !f.value||tr.dataset[key]===f.value;}});}});
- scatter('quality-time',rows,'wall_time_seconds','wall-clock seconds');scatter('quality-cost',rows,'cost_usd','cost USD');effort(rows);
+ scatter('quality-time',rows,'wall_time_seconds','wall-clock seconds');scatter('quality-cost',rows,'cost_usd','cost USD');tokenEffort(rows);agentActions(rows);
 }}
 filters.forEach(filter=>filter.addEventListener('change',update));update();
 </script>

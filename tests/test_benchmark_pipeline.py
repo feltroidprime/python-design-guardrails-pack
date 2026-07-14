@@ -831,9 +831,9 @@ class TestOrchestration:
                 "pack_revision": first.results["meta"]["pack_revision"],
                 "headless_llm_revision": first.results["meta"]["headless_llm_revision"],
                 "probe_pass_rate": 1.0,
-                "judge_primary_votes": first.results["judging"]["aggregate"][
+                "judge_primary_endpoint": first.results["judging"]["aggregate"][
                     "primary_preferences"
-                ][row["arm"]],
+                ],
                 "judge_dimension_means": first.results["judging"]["aggregate"][
                     "dimension_means"
                 ][row["arm"]],
