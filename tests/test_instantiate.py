@@ -76,9 +76,11 @@ def run_instantiate(
     *,
     script: Path = INSTANTIATE,
     env: dict[str, str] | None = None,
+    cwd: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(script), project, package, str(output)],
+        cwd=cwd,
         capture_output=True,
         text=True,
         check=False,
@@ -212,6 +214,18 @@ def copy_pack(destination: Path) -> Path:
     shutil.copy(COPIER_CONFIG, destination / "copier.yml")
     shutil.copytree(TEMPLATE, destination / "template")
     return destination
+
+
+def snapshot_working_tree(repository: Path) -> dict[str, bytes]:
+    """Capture every working-tree file without traversing Git's metadata."""
+    snapshot: dict[str, bytes] = {}
+    for directory, names, files in os.walk(repository):
+        names[:] = [name for name in names if name != ".git"]
+        root = Path(directory)
+        for filename in files:
+            path = root / filename
+            snapshot[path.relative_to(repository).as_posix()] = path.read_bytes()
+    return snapshot
 
 
 def test_init_creates_project_and_git_repository(tmp_path: Path) -> None:
@@ -436,6 +450,104 @@ def test_generation_uses_current_dirty_worktree_instead_of_latest_tag(
         check=True,
     )
     assert staged.stdout.splitlines() == ["template/current-worktree.txt"]
+
+
+def test_generation_from_linked_worktree_does_not_modify_primary_checkout(
+    tmp_path: Path,
+) -> None:
+    primary = copy_pack(tmp_path / "primary")
+    linked = tmp_path / "linked"
+    git_env = instantiate.environment_without_local_git_context()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=primary,
+        env=git_env,
+        check=True,
+    )
+    subprocess.run(["git", "add", "--all"], cwd=primary, env=git_env, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=tests",
+            "-c",
+            "user.email=tests@localhost",
+            "commit",
+            "--quiet",
+            "--message=initial template",
+        ],
+        cwd=primary,
+        env=git_env,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "worktree", "add", "--quiet", "--detach", str(linked)],
+        cwd=primary,
+        env=git_env,
+        check=True,
+    )
+    marker = "linked-worktree-only\n"
+    (linked / "template" / "linked-worktree.txt").write_text(marker, encoding="utf-8")
+    subprocess.run(["git", "add", "--all"], cwd=linked, env=git_env, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=tests",
+            "-c",
+            "user.email=tests@localhost",
+            "commit",
+            "--quiet",
+            "--message=linked template change",
+        ],
+        cwd=linked,
+        env=git_env,
+        check=True,
+    )
+    dirty_marker = "dirty-linked-worktree-only\n"
+    (linked / "template" / "dirty-linked-worktree.txt").write_text(
+        dirty_marker, encoding="utf-8"
+    )
+
+    before = snapshot_working_tree(primary)
+    assert subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=primary,
+        env=git_env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout == ""
+
+    output = tmp_path / "out"
+    inherited_git_env = dict(git_env)
+    inherited_git_env["GIT_DIR"] = str(primary / ".git")
+    inherited_git_env["GIT_INDEX_FILE"] = str(
+        primary / ".git" / "worktrees" / linked.name / "index"
+    )
+    result = run_instantiate(
+        PROJECT_NAME,
+        PACKAGE_NAME,
+        output,
+        script=linked / "instantiate.py",
+        env=inherited_git_env,
+        cwd=linked,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert snapshot_working_tree(primary) == before
+    assert subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=primary,
+        env=git_env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout == ""
+    assert (output / "linked-worktree.txt").read_text(encoding="utf-8") == marker
+    assert (output / "dirty-linked-worktree.txt").read_text(
+        encoding="utf-8"
+    ) == dirty_marker
 
 
 def test_packaged_template_records_distribution_version_without_git_metadata(
