@@ -16,19 +16,17 @@ Missing or empty registries exit cleanly with a next-step message.
 ## Commands and results
 
 - `just validate`: passed.
-  - Root suite: 155 passed in 43.58s. The single `DirtyLocalWarning` is expected
+  - Root suite: 155 passed in 40.53s. The single `DirtyLocalWarning` is expected
     from the test that deliberately creates a dirty temporary template repo.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
     `.jinja` suffix survived.
   - Generated dependency resolution: passed.
   - Generated quality gate: all steps passed.
-- `just test`: 155 passed in 45.80s. Its 13 `DirtyLocalWarning` messages were
-  expected because that inner-loop run exercised Copier while review fixes
-  were still uncommitted; the final clean `just validate` run had only the
-  deliberate dirty-template warning above.
-- Ticket-specific report and append tests: 5 passed; inline report JavaScript
-  also passed `node --check`.
+- `just test`: 155 passed in 43.63s with the same single expected
+  `DirtyLocalWarning`.
+- `tests/test_benchmark_report.py::test_just_bench_report_renders_fixture_registry`:
+  1 passed in 0.26s, confirming the `just bench-report` integration directly.
 
 ## Generated repository gate
 
