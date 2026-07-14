@@ -31,26 +31,28 @@ declared per-provider concurrency caps. Resume now hashes the complete
 outcome-affecting build and maintenance configuration and skips only cells with
 every expected arm/phase row. Matrix-selected named variants replace, rather
 than combine with, the app's named variant; template symlinks are rejected
-before any provider workspace can be created.
+before any provider workspace can be created. Template file modes and the
+configured provider-runner checkout are also part of the immutable cell
+identity.
 
 ## Commands and results
 
 - Focused maintenance regression command: 3 passed in 2.40s after first
   demonstrating that the mixed-schema Relay import was incorrectly accepted.
-- Focused benchmark configuration, matrix, and pipeline suites: 107 passed in
-  27.36s; the 18 `DirtyLocalWarning` instances reflected the intentionally
+- Focused benchmark configuration, matrix, and pipeline suites: 109 passed in
+  25.97s; the 18 `DirtyLocalWarning` instances reflected the intentionally
   uncommitted template-sensitive review fixes at that point.
-- `just test`: passed; 209 passed in 63.14s. Its 24 `DirtyLocalWarning`
+- `just test`: passed; 211 passed in 63.94s. Its 24 `DirtyLocalWarning`
   instances likewise reflected the then-uncommitted review fixes.
 - `just validate`: passed.
-  - Root suite: 209 passed in 67.08s. The single `DirtyLocalWarning` is expected
+  - Root suite: 211 passed in 65.36s. The single `DirtyLocalWarning` is expected
     from the test that deliberately creates a dirty temporary template repo.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
     `.jinja` suffix survived.
   - Generated dependency resolution: 32 packages resolved; 31 installed.
   - Generated quality gate: all steps passed.
-  - Offline update round trip: 1 passed in 13.76s after the current generated
+  - Offline update round trip: 1 passed in 14.15s after the current generated
     gate warmed the pinned tool caches.
 
 ## Generated repository gate
