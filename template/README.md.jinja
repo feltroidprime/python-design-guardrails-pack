@@ -31,6 +31,32 @@ just diagrams   # browse live architecture diagrams (LikeC4 viewer)
 just update     # update dependencies and hook revisions intentionally
 ```
 
+## Scaffold updates
+
+Copier owns `.copier-answers.yml`; do not edit that provenance file by hand.
+From a clean branch, check whether the scaffold source has a newer tagged release:
+
+```bash
+copier check-update --quiet
+```
+
+Exit status `0` means the repository is current, while exit status `2` means
+an update is available. Any other status is an error. Apply the update with
+Copier's three-way merge and explicit inline conflicts:
+
+```bash
+copier update --conflict inline
+```
+
+If Copier cannot merge a local customization automatically, it leaves standard
+inline conflict markers. Resolve every marker, then run the generated
+repository's existing guard and full gate before committing:
+
+```bash
+uv run pre-commit run check-merge-conflict --all-files
+uv run python scripts/quality_gate.py
+```
+
 ## Try the example application
 
 ```bash

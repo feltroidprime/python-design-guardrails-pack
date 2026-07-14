@@ -1,5 +1,6 @@
 _min_copier_version: "9.17.0"
 _subdirectory: template
+_migrations: []
 _envops:
   undefined: jinja2.StrictUndefined
 _exclude:

@@ -27,7 +27,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-PRE_COPIER_TREE_SHA256 = "b12ef82a4c6b2958ef8147d8f4bcc4ee11f8908c9bf30e5bb8670bb08dd31956"
+EXPECTED_GENERATED_TREE_SHA256 = "21cc02c89be70383e3ca368f8445d5b6791ad28234fcdb31d4df71a332ecda96"
 INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", "")
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
 
@@ -116,7 +116,22 @@ def test_generation_records_copier_template_and_answers(generated: Path) -> None
     assert re.search(rf"(?m)^package: ['\"]?{PACKAGE_NAME}['\"]?$", answers)
 
 
-def test_default_generation_matches_recorded_pre_copier_output(generated: Path) -> None:
+def test_generated_readme_documents_copier_update_workflow(generated: Path) -> None:
+    readme = (generated / "README.md").read_text(encoding="utf-8")
+
+    assert "copier check-update --quiet" in readme
+    assert "exit status `2`" in readme
+    assert "copier update --conflict inline" in readme
+    assert "check-merge-conflict" in readme
+
+
+def test_copier_migrations_are_wired() -> None:
+    config = COPIER_CONFIG.read_text(encoding="utf-8")
+
+    assert "_migrations: []" in config
+
+
+def test_default_generation_matches_recorded_output(generated: Path) -> None:
     digest = hashlib.sha256()
     files = sorted(
         path
@@ -128,7 +143,7 @@ def test_default_generation_matches_recorded_pre_copier_output(generated: Path) 
         digest.update(relative.encode("utf-8") + b"\0")
         digest.update(path.read_bytes() + b"\0")
 
-    assert digest.hexdigest() == PRE_COPIER_TREE_SHA256
+    assert digest.hexdigest() == EXPECTED_GENERATED_TREE_SHA256
 
 
 def test_copier_derives_package_default_from_project_name(tmp_path: Path) -> None:
