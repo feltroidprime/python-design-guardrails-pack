@@ -23,6 +23,7 @@ from benchmarks.e2e.config import (
     BenchmarkConfig,
     BuilderSettings,
     JudgeSettings,
+    LangfuseSettings,
     ProbeSpec,
     ProjectSettings,
     RoleSettings,
@@ -31,6 +32,7 @@ from benchmarks.e2e.config import (
     ToolPins,
     load_config,
 )
+from benchmarks.e2e.exporting import ArmTrace
 from benchmarks.e2e.judging import (
     DIMENSIONS,
     JudgingError,
@@ -475,6 +477,24 @@ class _FakeRunner:
         return _outcome(structured=_judge_payload(preference="a"))
 
 
+class _RecordingExporter:
+    def __init__(self) -> None:
+        self.traces: list[ArmTrace] = []
+
+    def export(self, trace: ArmTrace) -> None:
+        self.traces.append(trace)
+
+
+class _FailingExporter:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def export(self, trace: ArmTrace) -> None:
+        del trace
+        self.calls += 1
+        raise ConnectionRefusedError("local Langfuse is unavailable")
+
+
 def _pipeline_config(tmp_path: Path) -> BenchmarkConfig:
     source = tmp_path / "config.toml"
     source.write_text("# synthetic config (constructed in code)\n", encoding="utf-8")
@@ -507,6 +527,225 @@ def _pipeline_config(tmp_path: Path) -> BenchmarkConfig:
 
 
 class TestOrchestration:
+    def test_default_config_performs_zero_exporter_calls(self, tmp_path: Path) -> None:
+        journal: list[tuple[str, str, str | None]] = []
+        exporter = _RecordingExporter()
+
+        run = run_benchmark(
+            _pipeline_config(tmp_path),
+            repo_root=REPO_ROOT,
+            runner_factory=lambda role: _FakeRunner(role, journal),
+            metrics_collector=lambda workspace, out_dir: {},
+            exporter=exporter,
+            log=lambda message: None,
+        )
+
+        assert set(run.results["arms"]) == set(ARMS)
+        assert exporter.traces == []
+
+    def test_export_failure_warns_without_changing_completed_results(
+        self, tmp_path: Path
+    ) -> None:
+        journal: list[tuple[str, str, str | None]] = []
+        exporter = _FailingExporter()
+        messages: list[str] = []
+        cfg = replace(
+            _pipeline_config(tmp_path),
+            langfuse=LangfuseSettings(enabled=True),
+        )
+
+        run = run_benchmark(
+            cfg,
+            repo_root=REPO_ROOT,
+            runner_factory=lambda role: _FakeRunner(role, journal),
+            metrics_collector=lambda workspace, out_dir: {},
+            exporter=exporter,
+            log=messages.append,
+        )
+
+        assert set(run.results["arms"]) == set(ARMS)
+        assert all(
+            arm["probes"]["pass_rate"] == 1.0
+            for arm in run.results["arms"].values()
+        )
+        assert exporter.calls == len(ARMS)
+        assert any(
+            "warning: Langfuse export failed" in message
+            and "ConnectionRefusedError" in message
+            for message in messages
+        )
+
+    def test_enabled_export_with_missing_credentials_warns_after_run(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("MISSING_LANGFUSE_PUBLIC_KEY", raising=False)
+        monkeypatch.delenv("MISSING_LANGFUSE_SECRET_KEY", raising=False)
+        journal: list[tuple[str, str, str | None]] = []
+        messages: list[str] = []
+        cfg = replace(
+            _pipeline_config(tmp_path),
+            langfuse=LangfuseSettings(
+                enabled=True,
+                public_key_env="MISSING_LANGFUSE_PUBLIC_KEY",
+                secret_key_env="MISSING_LANGFUSE_SECRET_KEY",
+            ),
+        )
+
+        run = run_benchmark(
+            cfg,
+            repo_root=REPO_ROOT,
+            runner_factory=lambda role: _FakeRunner(role, journal),
+            metrics_collector=lambda workspace, out_dir: {},
+            log=messages.append,
+        )
+
+        assert set(run.results["arms"]) == set(ARMS)
+        assert any(
+            "warning: Langfuse export unavailable" in message
+            and "MISSING_LANGFUSE_PUBLIC_KEY" in message
+            for message in messages
+        )
+
+    def test_enabled_export_receives_one_complete_trace_per_arm(
+        self, tmp_path: Path
+    ) -> None:
+        journal: list[tuple[str, str, str | None]] = []
+        exporter = _RecordingExporter()
+        cfg = replace(
+            _pipeline_config(tmp_path),
+            langfuse=LangfuseSettings(enabled=True),
+        )
+
+        run = run_benchmark(
+            cfg,
+            repo_root=REPO_ROOT,
+            runner_factory=lambda role: _FakeRunner(role, journal),
+            metrics_collector=lambda workspace, out_dir: {
+                "install": {"succeeded": True, "duration_seconds": 2.0},
+                "own_tests": {
+                    "exit_code": 0,
+                    "counts": {"passed": 4},
+                    "duration_seconds": 3.0,
+                },
+                "loc": {
+                    "source_files": 2,
+                    "source_loc": 800,
+                    "test_files": 1,
+                    "test_loc": 200,
+                },
+                "coverage": {"percent": 87.5},
+                "ruff": {"violations": 1, "per_kloc": 1.25},
+                "basedpyright": {"errors": 2, "errors_per_kloc": 2.5},
+                "radon": {"average_complexity": 3.0, "max_complexity": 5},
+            },
+            exporter=exporter,
+            log=lambda message: None,
+        )
+
+        assert [trace.arm for trace in exporter.traces] == list(ARMS)
+        manifest = run.results["meta"]
+        for trace in exporter.traces:
+            assert trace.run_id == manifest["run_id"]
+            assert trace.name == f"benchmark:demo:{trace.arm}"
+            assert trace.tags == (
+                f"arm:{trace.arm}",
+                f"template:{manifest['template']['version']}",
+                "variant:baseline",
+                "app:demo",
+                "phase:build",
+                "provider:claude",
+                "model:default",
+                "effort:default",
+                "seed:7",
+                "run:fake",
+                f"pack:{manifest['pack_revision'] or 'unknown'}",
+                f"headless_llm:{manifest['headless_llm_revision'] or 'unknown'}",
+            )
+            assert trace.metadata == {
+                "arm": trace.arm,
+                "template": manifest["template"],
+                "app": "demo",
+                "phase": "build",
+                "provider": "claude",
+                "model": None,
+                "effort": None,
+                "seed": 7,
+                "run_label": "fake",
+                "pack_revision": manifest["pack_revision"],
+                "headless_llm_revision": manifest["headless_llm_revision"],
+            }
+            assert tuple(span.name for span in trace.spans) == (
+                "instantiate",
+                "build",
+                "install",
+                "self-tests",
+                "probes",
+                "analyzers",
+                "judging",
+            )
+            spans = {span.name: span.output for span in trace.spans}
+            arm_results = run.results["arms"][trace.arm]
+            assert spans["instantiate"] == arm_results["setup"]
+            assert spans["build"] == arm_results["build"]
+            assert spans["install"] == {
+                "succeeded": True,
+                "duration_seconds": 2.0,
+            }
+            assert spans["self-tests"] == {
+                "exit_code": 0,
+                "counts": {"passed": 4},
+                "duration_seconds": 3.0,
+            }
+            assert spans["probes"] == arm_results["probes"]
+            assert spans["analyzers"] == {
+                "loc": {
+                    "source_files": 2,
+                    "source_loc": 800,
+                    "test_files": 1,
+                    "test_loc": 200,
+                },
+                "coverage": {"percent": 87.5},
+                "ruff": {"violations": 1, "per_kloc": 1.25},
+                "basedpyright": {
+                    "errors": 2,
+                    "errors_per_kloc": 2.5,
+                },
+                "radon": {"average_complexity": 3.0, "max_complexity": 5},
+            }
+            assert spans["judging"] == {
+                "primary_preference": 0,
+                "dimensions": {
+                    "spec_fidelity": 7.0,
+                    "domain_and_invariants": 6.0,
+                    "error_handling": 7.0,
+                    "test_quality": 7.0,
+                    "readability_simplicity": 7.0,
+                    "change_safety": 7.0,
+                },
+            }
+            assert dict(trace.scores) == {
+                "probe_pass_rate": 1.0,
+                "judge_primary_preference": 0.0,
+                "judge_spec_fidelity": 7.0,
+                "judge_domain_and_invariants": 6.0,
+                "judge_error_handling": 7.0,
+                "judge_test_quality": 7.0,
+                "judge_readability_simplicity": 7.0,
+                "judge_change_safety": 7.0,
+                "ruff_violations_per_kloc": 1.25,
+                "basedpyright_errors_per_kloc": 2.5,
+                "coverage_percent": 87.5,
+                "wall_time_seconds": 1.2,
+                "cost_usd": 0.01,
+                "input_tokens": 100.0,
+                "output_tokens": 50.0,
+                "reasoning_tokens": 25.0,
+                "cached_input_tokens": 0.0,
+                "total_tokens": 175.0,
+                "tool_calls": 5.0,
+                "turns": 3.0,
+            }
+
     def test_shipped_smoke_config_runs_with_fake_agents_without_prompting(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

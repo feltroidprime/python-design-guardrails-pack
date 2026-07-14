@@ -31,6 +31,15 @@ package = "ledger"
 vcs_ref = "HEAD"
 variant = "baseline"
 
+[langfuse]
+# Post-run export is deliberately opt-in and never affects measured outcomes.
+# Credentials are read from these environment variable names, not from TOML.
+enabled = false
+base_url = "http://127.0.0.1:3000"
+public_key_env = "LANGFUSE_PUBLIC_KEY"
+secret_key_env = "LANGFUSE_SECRET_KEY"
+timeout_seconds = 5.0
+
 [builder]
 provider = "claude"
 model = "claude-opus-4-8"

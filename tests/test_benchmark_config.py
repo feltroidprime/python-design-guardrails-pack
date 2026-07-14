@@ -126,6 +126,45 @@ class TestValidation:
         assert cfg.template.variant == "baseline"
         assert cfg.template.answers == {"feature": True}
 
+    def test_langfuse_export_settings_are_parsed(self, tmp_path: Path) -> None:
+        path = _minimal(
+            tmp_path,
+            extra="""
+[langfuse]
+enabled = true
+base_url = "http://127.0.0.1:3000"
+public_key_env = "BENCHMARK_LANGFUSE_PUBLIC_KEY"
+secret_key_env = "BENCHMARK_LANGFUSE_SECRET_KEY"
+timeout_seconds = 2.5
+""",
+        )
+
+        cfg = load_config(path, repo_root=REPO_ROOT)
+
+        assert cfg.langfuse.enabled is True
+        assert cfg.langfuse.base_url == "http://127.0.0.1:3000"
+        assert cfg.langfuse.public_key_env == "BENCHMARK_LANGFUSE_PUBLIC_KEY"
+        assert cfg.langfuse.secret_key_env == "BENCHMARK_LANGFUSE_SECRET_KEY"
+        assert cfg.langfuse.timeout_seconds == 2.5
+
+    def test_unknown_langfuse_key_is_rejected(self, tmp_path: Path) -> None:
+        path = _minimal(
+            tmp_path,
+            extra="\n[langfuse]\nenabled = true\nendpoint_typo = 'nope'\n",
+        )
+
+        with pytest.raises(ConfigError, match="endpoint_typo"):
+            load_config(path, repo_root=REPO_ROOT)
+
+    def test_langfuse_must_be_a_table(self, tmp_path: Path) -> None:
+        body = _MINIMAL.format(
+            output_root=str(tmp_path / "runs"), template="", extra=""
+        ).replace("[run]", "langfuse = true\n\n[run]", 1)
+        path = _write_config(tmp_path, body)
+
+        with pytest.raises(ConfigError, match="langfuse.*table"):
+            load_config(path, repo_root=REPO_ROOT)
+
     def test_unknown_template_key_is_rejected(self, tmp_path: Path) -> None:
         path = _minimal(tmp_path, template="version_typo = 'v1.2.3'")
 
