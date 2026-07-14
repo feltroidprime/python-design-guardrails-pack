@@ -15,6 +15,8 @@ import tomllib
 ARM_BARE = "bare"
 ARM_GUARDRAILS = "guardrails"
 ARMS = (ARM_BARE, ARM_GUARDRAILS)
+PHASE_BUILD = "build"
+PHASE_MAINTENANCE = "maintenance"
 
 
 def matches_exclude(relative_posix: str, patterns: tuple[str, ...]) -> bool:
@@ -131,6 +133,20 @@ class ProbeSpec:
                 )
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ScenarioPhase:
+    """One post-build scenario phase with its own request and probe battery."""
+
+    spec_text: str
+    probes: tuple[ProbeSpec, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.spec_text.strip()) < _MIN_SPEC_CHARS:
+            raise ConfigError("maintenance spec text is suspiciously short")
+        if not self.probes:
+            raise ConfigError("maintenance phase requires at least one functional probe")
+
+
 def _compile(pattern: str, *, probe: str) -> re.Pattern[str]:
     try:
         return re.compile(pattern)
@@ -211,6 +227,7 @@ class BenchmarkConfig:
     spec_text: str
     charter_text: str
     langfuse: LangfuseSettings = field(default_factory=LangfuseSettings)
+    maintenance: ScenarioPhase | None = None
 
     def __post_init__(self) -> None:
         if len(self.spec_text.strip()) < _MIN_SPEC_CHARS:
@@ -550,6 +567,46 @@ def _prompt_text(section: dict[str, object], key: str, *, where: str, config_dir
     return path.read_text(encoding="utf-8")
 
 
+def _scenario(
+    section: object,
+    *,
+    where: str,
+    config_dir: Path,
+) -> ScenarioPhase | None:
+    if section is None:
+        return None
+    if not isinstance(section, dict):
+        raise ConfigError(f"{where}: [scenario] must be a table")
+    _reject_unknown(section, frozenset({"maintenance"}), where=where)
+    maintenance = _table(section, "maintenance", where=where)
+    maintenance_where = f"{where}.maintenance"
+    _reject_unknown(
+        maintenance,
+        frozenset({"spec_file", "probes"}),
+        where=maintenance_where,
+    )
+    raw_probes = maintenance.get("probes")
+    if not isinstance(raw_probes, list):
+        raise ConfigError(
+            f"{maintenance_where}: [[scenario.maintenance.probes]] must be an array of tables"
+        )
+    probes: list[ProbeSpec] = []
+    for index, entry in enumerate(raw_probes):
+        probe_where = f"{maintenance_where}.probes[{index}]"
+        if not isinstance(entry, dict):
+            raise ConfigError(f"{probe_where}: must be a table")
+        probes.append(_probe(entry, where=probe_where))
+    return ScenarioPhase(
+        spec_text=_prompt_text(
+            maintenance,
+            "spec_file",
+            where=maintenance_where,
+            config_dir=config_dir,
+        ),
+        probes=tuple(probes),
+    )
+
+
 # Convenience aliases for the builder-model override; anything not listed is
 # passed through verbatim (full model ids, provider-native names).
 BUILDER_MODEL_ALIASES = {
@@ -617,6 +674,7 @@ def load_config(path: Path, *, repo_root: Path) -> BenchmarkConfig:
                 "probes",
                 "tools",
                 "langfuse",
+                "scenario",
             }
         ),
         where=where,
@@ -657,4 +715,9 @@ def load_config(path: Path, *, repo_root: Path) -> BenchmarkConfig:
             prompt_section, "charter_file", where=f"{where}: [prompt]", config_dir=path.parent
         ),
         langfuse=_langfuse(raw_langfuse, where=f"{where}: [langfuse]"),
+        maintenance=_scenario(
+            raw.get("scenario"),
+            where=f"{where}: [scenario]",
+            config_dir=path.parent,
+        ),
     )

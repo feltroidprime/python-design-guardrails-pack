@@ -352,3 +352,101 @@ name = "report-orders-categories-by-total"
 argv = ["uv", "run", "ledger", "--db", "{db}", "report", "--month", "2026-01"]
 expect_exit = 0
 stdout_regex = '(?s)food\s+95\.00\s*.*transport\s+20\.00\s*.*(?m:^total\s+115\.00\s*$)'
+
+[scenario.maintenance]
+spec_file = "prompts/ledger_change_spec.md"
+
+[[scenario.maintenance.probes]]
+name = "add-month-end-recurring-rule"
+argv = ["uv", "run", "ledger", "--db", "{db}", "recurring", "add", "--amount", "30.00", "--category", "food", "--start", "2026-01-31", "--note", "subscription"]
+expect_exit = 0
+stdout_regex = '\Arecurring_id=\d+\n?\Z'
+capture = [["recurring_id", 'recurring_id=(\d+)']]
+
+[[scenario.maintenance.probes]]
+name = "set-budget-before-category-rename"
+argv = ["uv", "run", "ledger", "--db", "{db}", "budget", "set", "--category", "food", "--month", "2026-02", "--limit", "100.00"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "materialize-recurring-history"
+argv = ["uv", "run", "ledger", "--db", "{db}", "recurring", "apply", "--through", "2026-03-31"]
+expect_exit = 0
+stdout_regex = '\Acreated=3\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "recurrence-clamps-february-date"
+argv = ["uv", "run", "ledger", "--db", "{db}", "list", "--month", "2026-02"]
+expect_exit = 0
+stdout_regex = '2026-02-28\s+30\.00\s+food\s+subscription'
+
+[[scenario.maintenance.probes]]
+name = "rename-category-across-history"
+argv = ["uv", "run", "ledger", "--db", "{db}", "category", "rename", "--from", "food", "--to", "groceries"]
+expect_exit = 0
+stdout_regex = '\Aexpenses=3 budgets=1 recurring=1\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "historical-list-reflects-category-rename"
+argv = ["uv", "run", "ledger", "--db", "{db}", "list", "--month", "2026-01"]
+expect_exit = 0
+stdout_regex = '\A\d+\s+2026-01-31\s+30\.00\s+groceries\s+subscription\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "budget-reflects-category-rename"
+argv = ["uv", "run", "ledger", "--db", "{db}", "budget", "status", "--month", "2026-02"]
+expect_exit = 0
+stdout_regex = '\Agroceries\s+spent=30\.00\s+limit=100\.00\s+remaining=70\.00\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "future-occurrence-uses-renamed-category"
+argv = ["uv", "run", "ledger", "--db", "{db}", "recurring", "apply", "--through", "2026-04-30"]
+expect_exit = 0
+stdout_regex = '\Acreated=1\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "renamed-rule-materializes-on-original-day"
+argv = ["uv", "run", "ledger", "--db", "{db}", "list", "--month", "2026-04"]
+expect_exit = 0
+stdout_regex = '2026-04-30\s+30\.00\s+groceries\s+subscription'
+
+[[scenario.maintenance.probes]]
+name = "recurring-apply-is-idempotent"
+argv = ["uv", "run", "ledger", "--db", "{db}", "recurring", "apply", "--through", "2026-04-30"]
+expect_exit = 0
+stdout_regex = '\Acreated=0\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "unknown-category-rename-has-dedicated-exit"
+argv = ["uv", "run", "ledger", "--db", "{db}", "category", "rename", "--from", "missing", "--to", "other"]
+expect_exit = 3
+stderr_regex = '\S'
+
+[[scenario.maintenance.probes]]
+name = "create-colliding-budget"
+argv = ["uv", "run", "ledger", "--db", "{db}", "budget", "set", "--category", "food", "--month", "2026-02", "--limit", "50.00"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "rename-budget-collision-is-atomic"
+argv = ["uv", "run", "ledger", "--db", "{db}", "category", "rename", "--from", "groceries", "--to", "food"]
+expect_exit = 2
+stderr_regex = '\S'
+
+[[scenario.maintenance.probes]]
+name = "failed-rename-leaves-history-unchanged"
+argv = ["uv", "run", "ledger", "--db", "{db}", "report", "--month", "2026-02"]
+expect_exit = 0
+stdout_regex = '(?m)^groceries\s+30\.00$'
+
+[[scenario.maintenance.probes]]
+name = "regression-invalid-expense-still-exits-two"
+argv = ["uv", "run", "ledger", "--db", "{db}", "add", "--amount", "-1", "--category", "food", "--date", "2026-04-01"]
+expect_exit = 2
+stderr_regex = '\S'
+
+[[scenario.maintenance.probes]]
+name = "regression-unknown-expense-still-exits-three"
+argv = ["uv", "run", "ledger", "--db", "{db}", "remove", "--id", "999999"]
+expect_exit = 3
+stderr_regex = '\S'

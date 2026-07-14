@@ -71,6 +71,10 @@ class _Dashboard:
         self._judging = False
         self._aggregate: dict[str, object] = {}
         self._run_id = ""
+        self._phase = "build"
+        self._probe_totals: dict[str, int] = {"build": len(cfg.probes)}
+        if cfg.maintenance is not None:
+            self._probe_totals["maintenance"] = len(cfg.maintenance.probes)
         self._report = ""
         self._log_lines: list[str] = []
         self._started = time.monotonic()
@@ -93,6 +97,15 @@ class _Dashboard:
                 self._workspaces[arm] = run_dir / "arms" / arm / "workspace"
                 self._arms[arm].probe_total = len(self._cfg.probes)
         elif event.kind == ev.ARM_STAGE and event.arm in self._arms:
+            if event.phase and event.phase != self._phase:
+                self._phase = event.phase
+                self._arms = {
+                    arm: _ArmView(probe_total=self._probe_totals.get(event.phase, 0))
+                    for arm in ARMS
+                }
+                self._verdicts = {}
+                self._judging = False
+                self._aggregate = {}
             view = self._arms[event.arm]
             view.stage = str(payload.get("stage", ""))
             view.stage_started = time.monotonic()
@@ -301,7 +314,11 @@ class _Dashboard:
         elapsed = _mmss(time.monotonic() - self._started)
         line = Text()
         line.append("⚔ TEMPLATE VALUE BENCHMARK", style="bold bright_white")
-        line.append("  ·  same agent, same spec, with vs without guardrails\n", style="dim")
+        line.append(
+            f"  ·  {self._phase.upper()} PHASE  ·  same agent settings, "
+            "with vs without guardrails\n",
+            style="dim",
+        )
         line.append(f"builder {self._cfg.builder.identity}", style="yellow")
         line.append(f"  ·  run {self._run_id or '…'}", style="dim")
         line.append(f"  ·  ⏱ {elapsed}", style="bold")

@@ -40,6 +40,7 @@ ARM_STAGES = (
 class Event:
     kind: str
     arm: str | None = None
+    phase: str | None = None
     payload: dict[str, object] = field(default_factory=dict)
 
 

@@ -20,6 +20,7 @@ CONFIG_DIR = REPO_ROOT / "benchmarks" / "config"
 
 def _write_config(tmp_path: Path, body: str) -> Path:
     (tmp_path / "spec.md").write_text("spec " * 60, encoding="utf-8")
+    (tmp_path / "change.md").write_text("change request " * 40, encoding="utf-8")
     (tmp_path / "charter.md").write_text("charter", encoding="utf-8")
     path = tmp_path / "config.toml"
     path.write_text(body, encoding="utf-8")
@@ -85,6 +86,14 @@ class TestShippedConfigs:
     def test_real_app_configs_include_relay(self) -> None:
         assert (CONFIG_DIR / "relay.toml").is_file()
 
+    @pytest.mark.parametrize("name", ("default.toml", "relay.toml"))
+    def test_real_app_configs_define_a_maintenance_phase(self, name: str) -> None:
+        cfg = load_config(CONFIG_DIR / name, repo_root=REPO_ROOT)
+
+        assert cfg.maintenance is not None
+        assert len(cfg.maintenance.spec_text) >= 200
+        assert cfg.maintenance.probes
+
     def test_default_probes_cover_error_paths_too(self) -> None:
         cfg = load_config(CONFIG_DIR / "default.toml", repo_root=REPO_ROOT)
         assert len(cfg.probes) >= 10
@@ -111,6 +120,28 @@ class TestValidation:
         cfg = load_config(_minimal(tmp_path), repo_root=REPO_ROOT)
         assert cfg.project.package == "demo"
         assert cfg.builder.allowed_tools is None
+        assert cfg.maintenance is None
+
+    def test_maintenance_phase_is_typed_and_unknown_keys_are_rejected(
+        self, tmp_path: Path
+    ) -> None:
+        scenario = '''
+[scenario.maintenance]
+spec_file = "change.md"
+
+[[scenario.maintenance.probes]]
+name = "changed"
+argv = ["true"]
+'''
+        cfg = load_config(_minimal(tmp_path, extra=scenario), repo_root=REPO_ROOT)
+
+        assert cfg.maintenance is not None
+        assert cfg.maintenance.spec_text == "change request " * 40
+        assert [probe.name for probe in cfg.maintenance.probes] == ["changed"]
+
+        bad = scenario.replace('argv = ["true"]', 'argv = ["true"]\nunknown = 1')
+        with pytest.raises(ConfigError, match=r"maintenance.*probes.*unknown"):
+            load_config(_minimal(tmp_path, extra=bad), repo_root=REPO_ROOT)
 
     def test_template_settings_and_answer_overrides_are_parsed(
         self, tmp_path: Path

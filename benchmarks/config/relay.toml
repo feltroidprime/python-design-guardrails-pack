@@ -387,3 +387,107 @@ name = "stats-after-streaming-import"
 argv = ["uv", "run", "relay", "--log", "{db}.bulk.log", "--now", "2026-04-01T13:01:00Z", "stats"]
 expect_exit = 0
 stdout_regex = '\Aqueued=50000 running=0 done=0 failed=0 overdue=0\n?\Z'
+
+[scenario.maintenance]
+spec_file = "prompts/relay_change_spec.md"
+
+[[scenario.maintenance.probes]]
+name = "enqueue-low-priority-ready-job"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T09:00:00Z", "enqueue", "--title", "low ready", "--priority", "low", "--deadline", "2026-05-01T11:00:00Z"]
+expect_exit = 0
+capture = [["low_id", 'id=(\d+)']]
+
+[[scenario.maintenance.probes]]
+name = "enqueue-high-priority-future-job"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T09:00:00Z", "enqueue", "--title", "future high", "--priority", "high", "--scheduled-at", "2026-05-01T12:00:00Z", "--deadline", "2026-05-01T08:00:00Z"]
+expect_exit = 0
+capture = [["future_id", 'id=(\d+)']]
+
+[[scenario.maintenance.probes]]
+name = "enqueue-high-priority-overdue-job"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T09:00:00Z", "enqueue", "--title", "overdue high", "--priority", "high", "--deadline", "2026-05-01T08:30:00Z"]
+expect_exit = 0
+capture = [["overdue_id", 'id=(\d+)']]
+
+[[scenario.maintenance.probes]]
+name = "enqueue-normal-priority-ready-job"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T09:00:00Z", "enqueue", "--title", "normal ready", "--priority", "normal"]
+expect_exit = 0
+capture = [["normal_id", 'id=(\d+)']]
+
+[[scenario.maintenance.probes]]
+name = "list-hides-future-and-orders-priorities"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T09:30:00Z", "list"]
+expect_exit = 0
+stdout_regex = '(?s)\A3\tqueued\thigh\t-\t2026-05-01T08:30:00Z\t"overdue high"\t""\n4\tqueued\tnormal\t-\t-\t"normal ready"\t""\n1\tqueued\tlow\t-\t2026-05-01T11:00:00Z\t"low ready"\t""\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "list-all-includes-future-with-priority-order"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T09:30:00Z", "list", "--all"]
+expect_exit = 0
+stdout_regex = '(?s)\A2\tqueued\thigh\t2026-05-01T12:00:00Z.*\n3\tqueued\thigh\t-.*\n4\tqueued\tnormal\t-.*\n1\tqueued\tlow\t-.*\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "future-scheduled-job-is-not-overdue"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T09:30:00Z", "list", "--overdue"]
+expect_exit = 0
+stdout_regex = '\A3\tqueued\thigh\t-\t2026-05-01T08:30:00Z\t"overdue high"\t""\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "stats-counts-scheduled-separately"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T09:30:00Z", "stats"]
+expect_exit = 0
+stdout_regex = '\Aqueued=4 running=0 done=0 failed=0 scheduled=1 overdue=1\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "start-before-schedule-is-illegal"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T11:59:59Z", "start", "--id", "{future_id}"]
+expect_exit = 4
+stderr_regex = '\S'
+
+[[scenario.maintenance.probes]]
+name = "start-at-schedule-succeeds"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:00:00Z", "start", "--id", "{future_id}"]
+expect_exit = 0
+stdout_regex = '\A\s*\Z'
+
+[[scenario.maintenance.probes]]
+name = "eligible-running-job-can-be-overdue"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:00:00Z", "list", "--overdue"]
+expect_exit = 0
+stdout_regex = '(?s)\A2\trunning\thigh.*\n3\tqueued\thigh.*\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "regression-complete-running-job"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:01:00Z", "done", "--id", "{future_id}"]
+expect_exit = 0
+stdout_regex = '\A\s*\Z'
+
+[[scenario.maintenance.probes]]
+name = "history-preserves-transition-format"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:02:00Z", "history", "--id", "{future_id}"]
+expect_exit = 0
+stdout_regex = '(?s)\A2\t2026-05-01T09:00:00Z\tenqueued\tqueued\n5\t2026-05-01T12:00:00Z\tstarted\trunning\n6\t2026-05-01T12:01:00Z\tcompleted\tdone\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "extended-event-data-has-exact-fields"
+argv = ["uv", "run", "python", "-c", "import json,pathlib,sys; events=[json.loads(line) for line in pathlib.Path(sys.argv[1]).read_text(encoding='utf-8').splitlines()]; data=events[1]['data']; ok=list(data)==['title','note','deadline','priority','scheduled_at'] and list(data.values())==['future high','','2026-05-01T08:00:00Z','high','2026-05-01T12:00:00Z']; raise SystemExit(0 if ok else 1)", "{db}"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "invalid-schedule-appends-nothing"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:02:00Z", "enqueue", "--title", "bad", "--scheduled-at", "not-a-time"]
+expect_exit = 2
+stderr_regex = '\S'
+
+[[scenario.maintenance.probes]]
+name = "regression-unknown-id-still-exits-three"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:02:00Z", "start", "--id", "999999"]
+expect_exit = 3
+stderr_regex = '\S'
+
+[[scenario.maintenance.probes]]
+name = "regression-illegal-transition-still-exits-four"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:02:00Z", "done", "--id", "{normal_id}"]
+expect_exit = 4
+stderr_regex = '\S'

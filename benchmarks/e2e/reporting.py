@@ -44,9 +44,9 @@ _LIMITATIONS = """\
   `computed` means headless_llm applied its pinned per-model pricing table.
   Computed API-equivalent cost can differ from subscription credits or
   negotiated pricing; a missing value means neither path was available.
-- This design measures one greenfield build of one small application by one
-  model. It cannot measure maintenance-phase value (the template's core
-  claim); `change_safety` is judged from reading, not from performing changes.
+- Each maintenance result is one immediate change to the build produced in
+  the same run. It observes change safety directly, but does not represent a
+  long-lived codebase with months of accumulated production pressure.
 """
 
 
@@ -285,6 +285,49 @@ def _meta_section(results: dict[str, object]) -> str:
 
 
 def render_report(results: dict[str, object]) -> str:
+    raw_phases = results.get("phases")
+    if isinstance(raw_phases, dict):
+        sections = [
+            "# Template value benchmark — one LLM, same app, with vs. without the template",
+            "",
+            _meta_section(results),
+            "",
+            "Both arms received byte-identical instructions and agent configuration "
+            "within each phase. Maintenance used fresh agent sessions over the finished "
+            "build workspaces.",
+        ]
+        for phase, phase_results in raw_phases.items():
+            if not isinstance(phase_results, dict):
+                continue
+            title = str(phase).replace("_", " ").title()
+            sections.extend(
+                [
+                    "",
+                    f"## {title} phase",
+                    "",
+                    "### Agent effort",
+                    "",
+                    _build_section(phase_results),
+                    "",
+                    "### Functional acceptance (objective, scripted)",
+                    "",
+                    _probe_section(phase_results),
+                    "",
+                    "_Probes form one stateful scenario (shared database, captured ids): "
+                    "a single early failure can cascade into several later rows._",
+                    "",
+                    "### Quantitative quality metrics (pinned neutral analyzers)",
+                    "",
+                    _metrics_section(phase_results),
+                    "",
+                    "### Qualitative judgment (blind LLM panel)",
+                    "",
+                    _judging_section(phase_results),
+                ]
+            )
+        sections.extend(["", "## Limitations", "", _LIMITATIONS])
+        return "\n".join(sections) + "\n"
+
     sections = [
         "# Template value benchmark — one LLM, same app, with vs. without the template",
         "",

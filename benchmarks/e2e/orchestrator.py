@@ -1,11 +1,11 @@
-"""Benchmark orchestration: workspaces → builds → probes → metrics → judging → report.
+"""Benchmark orchestration: build and maintenance → measurement → report.
 
 Fairness invariants owned here:
 
 - `compose_build_prompt` takes no arm parameter, so the two arms cannot
   receive different instructions by construction;
-- both arms run through identically configured builder runners, the same
-  probe scenario, and the same metric collector;
+- both arms run through identically configured fresh runners, the same
+  phase-specific probe scenario, and the same metric collector;
 - the arms are independent until judging and run concurrently by default
   (`run.parallel_arms`), one runner per arm so no client state is shared;
 - every stage failure is recorded and reported instead of aborting the run,
@@ -25,7 +25,14 @@ import tempfile
 import threading
 
 from benchmarks.e2e.agents import AgentRunner, RunnerFactory
-from benchmarks.e2e.config import ARM_GUARDRAILS, ARMS, BenchmarkConfig
+from benchmarks.e2e.config import (
+    ARM_GUARDRAILS,
+    ARMS,
+    PHASE_BUILD,
+    PHASE_MAINTENANCE,
+    BenchmarkConfig,
+    ProbeSpec,
+)
 from benchmarks.e2e import events as ev
 from benchmarks.e2e.exporting import BenchmarkExporter, LangfuseExporter, arm_traces
 from benchmarks.e2e.judging import (
@@ -59,6 +66,11 @@ class BenchmarkRun:
 def compose_build_prompt(charter_text: str, spec_text: str) -> str:
     """The single build prompt. By design there is no per-arm variant."""
     return f"{charter_text.strip()}\n\n{spec_text.strip()}\n"
+
+
+def compose_maintenance_prompt(spec_text: str) -> str:
+    """The byte-identical change request sent to each arm's fresh agent."""
+    return f"{spec_text.strip()}\n"
 
 
 def _git_revision(path: Path) -> str | None:
@@ -133,6 +145,7 @@ class _ArmOutcome:
     results: dict[str, object]
     bundle: Bundle
     template_identity: dict[str, object] | None
+    workspace: Workspace
 
 
 def _build_arm(
@@ -145,8 +158,10 @@ def _build_arm(
     arm_dir: Path,
     log: Logger,
     events: ev.EventSink,
+    phase: str,
 ) -> dict[str, object]:
-    log(f"[{arm}] building with {cfg.builder.identity} "
+    action = "building" if phase == PHASE_BUILD else "applying maintenance change"
+    log(f"[{arm}/{phase}] {action} with {cfg.builder.identity} "
         f"(timeout {cfg.builder.timeout_seconds:g}s)")
     try:
         outcome = builder.run(
@@ -155,21 +170,35 @@ def _build_arm(
             timeout_seconds=cfg.builder.timeout_seconds,
         )
     except Exception as error:  # noqa: BLE001 - the run must record, not crash
-        log(f"[{arm}] build FAILED: {type(error).__name__}: {error}")
+        log(f"[{arm}/{phase}] agent FAILED: {type(error).__name__}: {error}")
         record: dict[str, object] = {"error": f"{type(error).__name__}: {error}"}
-        events(ev.Event(kind=ev.BUILD_FINISHED, arm=arm, payload=dict(record)))
+        events(
+            ev.Event(
+                kind=ev.BUILD_FINISHED,
+                arm=arm,
+                phase=phase,
+                payload=dict(record),
+            )
+        )
         return record
-    (arm_dir / "build_answer.md").write_text(outcome.text, encoding="utf-8")
+    (arm_dir / "agent_answer.md").write_text(outcome.text, encoding="utf-8")
     record = outcome.as_dict()
     record["duration_seconds"] = round(outcome.duration_ms / 1000, 1)
     record["error"] = None
     del record["text"]
     log(
-        f"[{arm}] build finished in {record['duration_seconds']}s, "
+        f"[{arm}/{phase}] agent finished in {record['duration_seconds']}s, "
         f"{outcome.tool_calls} tool calls, cost {outcome.cost_usd} "
         f"({outcome.cost_provenance or 'unavailable'})"
     )
-    events(ev.Event(kind=ev.BUILD_FINISHED, arm=arm, payload=dict(record)))
+    events(
+        ev.Event(
+            kind=ev.BUILD_FINISHED,
+            arm=arm,
+            phase=phase,
+            payload=dict(record),
+        )
+    )
     return record
 
 
@@ -208,8 +237,13 @@ def run_benchmark(
     gate = gate_runner or (lambda workspace, out_dir: run_native_gate(workspace, out_dir, run=cfg.run))
 
     shutil.copy2(cfg.source_path, run_dir / "config.toml")
-    prompt = compose_build_prompt(cfg.charter_text, cfg.spec_text)
-    (run_dir / "build_prompt.md").write_text(prompt, encoding="utf-8")
+    build_prompt = compose_build_prompt(cfg.charter_text, cfg.spec_text)
+    (run_dir / "build_prompt.md").write_text(build_prompt, encoding="utf-8")
+    if cfg.maintenance is not None:
+        (run_dir / "maintenance_prompt.md").write_text(
+            compose_maintenance_prompt(cfg.maintenance.spec_text),
+            encoding="utf-8",
+        )
 
     manifest = _manifest(cfg, run_id, started_at.isoformat(), repo_root)
     _write_json(run_dir / "manifest.json", manifest)
@@ -221,42 +255,66 @@ def run_benchmark(
                 "run_id": run_id,
                 "builder": cfg.builder.identity,
                 "judges": [member.identity for member in cfg.judge.panel],
-                "probe_names": [probe.name for probe in cfg.probes],
+                "phases": [
+                    PHASE_BUILD,
+                    *([PHASE_MAINTENANCE] if cfg.maintenance is not None else []),
+                ],
+                "probe_names": {
+                    PHASE_BUILD: [probe.name for probe in cfg.probes],
+                    **(
+                        {
+                            PHASE_MAINTENANCE: [
+                                probe.name for probe in cfg.maintenance.probes
+                            ]
+                        }
+                        if cfg.maintenance is not None
+                        else {}
+                    ),
+                },
                 "run_dir": str(run_dir),
             },
         )
     )
 
-    def stage(arm: str, name: str) -> None:
-        emit_event(ev.Event(kind=ev.ARM_STAGE, arm=arm, payload={"stage": name}))
+    def stage(arm: str, phase: str, name: str) -> None:
+        emit_event(
+            ev.Event(kind=ev.ARM_STAGE, arm=arm, phase=phase, payload={"stage": name})
+        )
 
-    def run_arm(arm: str) -> _ArmOutcome:
-        arm_dir = arms_dir / arm
-        arm_dir.mkdir(parents=True, exist_ok=True)
-        stage(arm, ev.STAGE_WORKSPACE)
-        workspace = prepare_workspace(arm, cfg, arms_dir, repo_root=repo_root)
-        emit(f"[{arm}] workspace ready in {workspace.setup_seconds:.1f}s at {workspace.path}")
-        stage(arm, ev.STAGE_BUILDING)
-        build = _build_arm(
+    def measure_arm(
+        arm: str,
+        phase: str,
+        workspace: Workspace,
+        *,
+        agent_prompt: str,
+        probes: tuple[ProbeSpec, ...],
+        phase_dir: Path,
+        include_setup: bool,
+    ) -> _ArmOutcome:
+        phase_dir.mkdir(parents=True, exist_ok=True)
+        stage(arm, phase, ev.STAGE_BUILDING)
+        agent = _build_arm(
             arm,
             cfg=cfg,
-            prompt=prompt,
+            prompt=agent_prompt,
             builder=runner_factory(cfg.builder),
             workspace=workspace,
-            arm_dir=arm_dir,
+            arm_dir=phase_dir,
             log=emit,
             events=emit_event,
+            phase=phase,
         )
-        emit(f"[{arm}] running {len(cfg.probes)} functional probes")
-        stage(arm, ev.STAGE_PROBES)
+        emit(f"[{arm}/{phase}] running {len(probes)} functional probes")
+        stage(arm, phase, ev.STAGE_PROBES)
         probe_results = run_probes(
-            cfg.probes,
+            probes,
             workspace.path,
-            arm_dir / "probe-scratch",
+            phase_dir / "probe-scratch",
             on_result=lambda result, index, total: emit_event(
                 ev.Event(
                     kind=ev.PROBE_RESULT,
                     arm=arm,
+                    phase=phase,
                     payload={
                         "name": result.name,
                         "passed": result.passed,
@@ -266,20 +324,37 @@ def run_benchmark(
                 )
             ),
         )
-        emit(f"[{arm}] probe pass rate: {pass_rate(probe_results):.0%}")
-        emit(f"[{arm}] collecting quantitative metrics")
-        stage(arm, ev.STAGE_METRICS)
-        metric_summary = collect(workspace.path, arm_dir / "metrics")
-        emit_event(ev.Event(kind=ev.METRICS_READY, arm=arm, payload=dict(metric_summary)))
-        stage(arm, ev.STAGE_GATE)
-        native_gate = gate(workspace.path, arm_dir / "metrics") if cfg.run.run_native_gate else {
-            "present": False
-        }
-        emit_event(ev.Event(kind=ev.GATE_RESULT, arm=arm, payload=dict(native_gate)))
-        stage(arm, ev.STAGE_DONE)
-        results: dict[str, object] = {
-            "setup": {"seconds": round(workspace.setup_seconds, 1), "log": workspace.setup_log},
-            "build": build,
+        emit(f"[{arm}/{phase}] probe pass rate: {pass_rate(probe_results):.0%}")
+        emit(f"[{arm}/{phase}] collecting quantitative metrics")
+        stage(arm, phase, ev.STAGE_METRICS)
+        metric_summary = collect(workspace.path, phase_dir / "metrics")
+        emit_event(
+            ev.Event(
+                kind=ev.METRICS_READY,
+                arm=arm,
+                phase=phase,
+                payload=dict(metric_summary),
+            )
+        )
+        stage(arm, phase, ev.STAGE_GATE)
+        native_gate = (
+            gate(workspace.path, phase_dir / "metrics")
+            if cfg.run.run_native_gate
+            else {"present": False}
+        )
+        emit_event(
+            ev.Event(
+                kind=ev.GATE_RESULT,
+                arm=arm,
+                phase=phase,
+                payload=dict(native_gate),
+            )
+        )
+        stage(arm, phase, ev.STAGE_DONE)
+        arm_results: dict[str, object] = {
+            "agent": agent,
+            # Kept as a compatibility alias for existing result readers.
+            "build": agent,
             "probes": {
                 "results": [result.as_dict() for result in probe_results],
                 "pass_rate": round(pass_rate(probe_results), 3),
@@ -287,77 +362,113 @@ def run_benchmark(
             "metrics": metric_summary,
             "native_gate": native_gate,
         }
-        _write_json(arm_dir / "arm_results.json", results)
+        if include_setup:
+            arm_results["setup"] = {
+                "seconds": round(workspace.setup_seconds, 1),
+                "log": workspace.setup_log,
+            }
+        _write_json(phase_dir / "arm_results.json", arm_results)
         authored = changed_since_start(workspace.path)
         return _ArmOutcome(
-            results=results,
+            results=arm_results,
             bundle=bundle_workspace(workspace.path, cfg.judge, authored),
             template_identity=workspace.template_identity,
+            workspace=workspace,
         )
 
-    if cfg.run.parallel_arms:
-        with ThreadPoolExecutor(max_workers=len(ARMS)) as pool:
-            futures = {arm: pool.submit(run_arm, arm) for arm in ARMS}
-            outcomes = {arm: future.result() for arm, future in futures.items()}
-    else:
-        outcomes = {arm: run_arm(arm) for arm in ARMS}
-    arms = {arm: outcome.results for arm, outcome in outcomes.items()}
-    bundles = {arm: outcome.bundle for arm, outcome in outcomes.items()}
-    template_identity = outcomes[ARM_GUARDRAILS].template_identity
+    def run_pair(function: Callable[[str], _ArmOutcome]) -> dict[str, _ArmOutcome]:
+        if cfg.run.parallel_arms:
+            with ThreadPoolExecutor(max_workers=len(ARMS)) as pool:
+                futures = {arm: pool.submit(function, arm) for arm in ARMS}
+                return {arm: future.result() for arm, future in futures.items()}
+        return {arm: function(arm) for arm in ARMS}
+
+    def run_build(arm: str) -> _ArmOutcome:
+        arm_dir = arms_dir / arm
+        arm_dir.mkdir(parents=True, exist_ok=True)
+        stage(arm, PHASE_BUILD, ev.STAGE_WORKSPACE)
+        workspace = prepare_workspace(arm, cfg, arms_dir, repo_root=repo_root)
+        emit(f"[{arm}/build] workspace ready in {workspace.setup_seconds:.1f}s at {workspace.path}")
+        return measure_arm(
+            arm,
+            PHASE_BUILD,
+            workspace,
+            agent_prompt=build_prompt,
+            probes=cfg.probes,
+            phase_dir=arm_dir,
+            include_setup=True,
+        )
+
+    build_outcomes = run_pair(run_build)
+    template_identity = build_outcomes[ARM_GUARDRAILS].template_identity
     if template_identity is None:
         raise RuntimeError("template arm completed without a Copier identity")
     manifest["template"] = template_identity
     _write_json(run_dir / "manifest.json", manifest)
 
-    emit(
-        "judging bundles: "
-        + ", ".join(f"{arm}: {bundle.file_count} files" for arm, bundle in bundles.items())
-    )
-    emit_event(
-        ev.Event(
-            kind=ev.JUDGING_STARTED,
-            payload={
-                "bundles": {arm: bundle.file_count for arm, bundle in bundles.items()},
-                "expected_judgments": len(cfg.judge.panel) * 2,
-            },
+    def judge_phase(
+        phase: str,
+        spec_text: str,
+        outcomes: dict[str, _ArmOutcome],
+    ) -> dict[str, object]:
+        bundles = {arm: outcome.bundle for arm, outcome in outcomes.items()}
+        emit(
+            f"[{phase}] judging bundles: "
+            + ", ".join(
+                f"{arm}: {bundle.file_count} files" for arm, bundle in bundles.items()
+            )
         )
-    )
-    judge_runners = {member.identity: runner_factory(member) for member in cfg.judge.panel}
-    # A neutral, empty CWD outside any repository: judge CLIs ingest
-    # instruction files from — and reveal the path of — their working
-    # directory, so inheriting the harness CWD (this pack!) would unblind
-    # every judge. The prefix is deliberately generic.
-    panel_cwd = Path(tempfile.mkdtemp(prefix="code-review-"))
-    judgments, judge_failures = run_panel(
-        spec_text=cfg.spec_text,
-        bundles=bundles,
-        settings=cfg.judge,
-        seed=cfg.run.seed,
-        runners=judge_runners,
-        working_directory=str(panel_cwd),
-        on_judgment=lambda judgment: emit_event(
+        emit_event(
             ev.Event(
-                kind=ev.JUDGMENT,
+                kind=ev.JUDGING_STARTED,
+                phase=phase,
                 payload={
-                    "judge": judgment.judge,
-                    "order_index": judgment.order_index,
-                    "preference_arm": judgment.preference_arm,
-                    "preference_strength": judgment.preference_strength,
+                    "bundles": {
+                        arm: bundle.file_count for arm, bundle in bundles.items()
+                    },
+                    "expected_judgments": len(cfg.judge.panel) * 2,
                 },
             )
-        ),
-        on_failure=lambda failure: emit_event(
-            ev.Event(kind=ev.JUDGE_FAILED, payload=dict(failure))
-        ),
-    )
-    shutil.rmtree(panel_cwd, ignore_errors=True)
-    emit(f"collected {len(judgments)} judgments, {len(judge_failures)} judge failures")
-    aggregate = aggregate_judgments(judgments, (ARMS[0], ARMS[1]))
-
-    results: dict[str, object] = {
-        "meta": manifest,
-        "arms": arms,
-        "judging": {
+        )
+        judge_runners = {
+            member.identity: runner_factory(member) for member in cfg.judge.panel
+        }
+        panel_cwd = Path(tempfile.mkdtemp(prefix="code-review-"))
+        try:
+            judgments, judge_failures = run_panel(
+                spec_text=spec_text,
+                bundles=bundles,
+                settings=cfg.judge,
+                seed=cfg.run.seed,
+                runners=judge_runners,
+                working_directory=str(panel_cwd),
+                on_judgment=lambda judgment: emit_event(
+                    ev.Event(
+                        kind=ev.JUDGMENT,
+                        phase=phase,
+                        payload={
+                            "judge": judgment.judge,
+                            "order_index": judgment.order_index,
+                            "preference_arm": judgment.preference_arm,
+                            "preference_strength": judgment.preference_strength,
+                        },
+                    )
+                ),
+                on_failure=lambda failure: emit_event(
+                    ev.Event(
+                        kind=ev.JUDGE_FAILED,
+                        phase=phase,
+                        payload=dict(failure),
+                    )
+                ),
+            )
+        finally:
+            shutil.rmtree(panel_cwd, ignore_errors=True)
+        emit(
+            f"[{phase}] collected {len(judgments)} judgments, "
+            f"{len(judge_failures)} judge failures"
+        )
+        return {
             "bundles": {
                 arm: {
                     "file_count": bundle.file_count,
@@ -368,8 +479,55 @@ def run_benchmark(
             },
             "judgments": [judgment.as_dict() for judgment in judgments],
             "failures": judge_failures,
-            "aggregate": aggregate,
-        },
+            "aggregate": aggregate_judgments(judgments, (ARMS[0], ARMS[1])),
+        }
+
+    build_arms = {arm: outcome.results for arm, outcome in build_outcomes.items()}
+    build_judging = judge_phase(PHASE_BUILD, cfg.spec_text, build_outcomes)
+    phases: dict[str, dict[str, object]] = {
+        PHASE_BUILD: {
+            "phase": PHASE_BUILD,
+            "arms": build_arms,
+            "judging": build_judging,
+        }
+    }
+
+    if cfg.maintenance is not None:
+        maintenance_prompt = compose_maintenance_prompt(cfg.maintenance.spec_text)
+
+        def run_maintenance(arm: str) -> _ArmOutcome:
+            return measure_arm(
+                arm,
+                PHASE_MAINTENANCE,
+                build_outcomes[arm].workspace,
+                agent_prompt=maintenance_prompt,
+                probes=cfg.maintenance.probes,
+                phase_dir=arms_dir / arm / PHASE_MAINTENANCE,
+                include_setup=False,
+            )
+
+        maintenance_outcomes = run_pair(run_maintenance)
+        maintenance_arms = {
+            arm: outcome.results for arm, outcome in maintenance_outcomes.items()
+        }
+        maintenance_spec = f"{cfg.spec_text.strip()}\n\n{cfg.maintenance.spec_text.strip()}\n"
+        maintenance_judging = judge_phase(
+            PHASE_MAINTENANCE,
+            maintenance_spec,
+            maintenance_outcomes,
+        )
+        phases[PHASE_MAINTENANCE] = {
+            "phase": PHASE_MAINTENANCE,
+            "arms": maintenance_arms,
+            "judging": maintenance_judging,
+        }
+
+    results: dict[str, object] = {
+        "meta": manifest,
+        "phases": phases,
+        # Build aliases preserve compatibility for existing offline consumers.
+        "arms": build_arms,
+        "judging": build_judging,
     }
     _write_json(run_dir / "results.json", results)
     (run_dir / "report.md").write_text(render_report(results), encoding="utf-8")
@@ -384,7 +542,15 @@ def run_benchmark(
     emit_event(
         ev.Event(
             kind=ev.RUN_FINISHED,
-            payload={"report": str(run_dir / "report.md"), "aggregate": aggregate},
+            phase=next(reversed(phases)),
+            payload={
+                "report": str(run_dir / "report.md"),
+                "aggregate": phases[next(reversed(phases))]["judging"]["aggregate"],
+                "phase_aggregates": {
+                    phase: phase_results["judging"]["aggregate"]
+                    for phase, phase_results in phases.items()
+                },
+            },
         )
     )
     active_exporter = exporter

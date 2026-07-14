@@ -221,113 +221,130 @@ def _score(scores: list[tuple[str, float]], name: str, value: object) -> None:
 
 
 def arm_traces(cfg: BenchmarkConfig, results: dict[str, object]) -> tuple[ArmTrace, ...]:
-    """Translate completed structured results into one trace payload per arm."""
+    """Translate completed results into one trace per arm and scenario phase."""
     meta = _mapping(results.get("meta"))
     template = _mapping(meta.get("template"))
-    arms = _mapping(results.get("arms"))
-    judging = _mapping(results.get("judging"))
-    aggregate = _mapping(judging.get("aggregate"))
-    primary = _mapping(aggregate.get("primary_preferences"))
-    dimension_means = _mapping(aggregate.get("dimension_means"))
     run_id = str(meta.get("run_id") or cfg.run.label)
     template_version = str(template.get("version") or "unknown")
     variant = str(template.get("variant") or cfg.template.variant)
     pack_revision = meta.get("pack_revision")
     headless_revision = meta.get("headless_llm_revision")
 
+    raw_phases = results.get("phases")
+    phases = (
+        _mapping(raw_phases)
+        if isinstance(raw_phases, dict)
+        else {"build": {"arms": results.get("arms"), "judging": results.get("judging")}}
+    )
     traces: list[ArmTrace] = []
-    for arm in ARMS:
-        arm_results = _mapping(arms.get(arm))
-        build = _mapping(arm_results.get("build"))
-        probes = _mapping(arm_results.get("probes"))
-        metrics = _mapping(arm_results.get("metrics"))
-        arm_dimensions = _mapping(dimension_means.get(arm))
-        analyzer_output = {
-            name: metrics[name] for name in ("loc", "coverage", "ruff", "basedpyright", "radon") if name in metrics
-        }
-        judging_output = {
-            "primary_preference": primary.get(arm),
-            "dimensions": arm_dimensions,
-        }
-        scores: list[tuple[str, float]] = []
-        _score(scores, "probe_pass_rate", probes.get("pass_rate"))
-        _score(scores, "judge_primary_preference", primary.get(arm))
-        for dimension in DIMENSIONS:
-            _score(scores, f"judge_{dimension}", arm_dimensions.get(dimension))
-        _score(
-            scores,
-            "ruff_violations_per_kloc",
-            _mapping(metrics.get("ruff")).get("per_kloc"),
-        )
-        _score(
-            scores,
-            "basedpyright_errors_per_kloc",
-            _mapping(metrics.get("basedpyright")).get("errors_per_kloc"),
-        )
-        _score(scores, "coverage_percent", _mapping(metrics.get("coverage")).get("percent"))
-        _score(scores, "wall_time_seconds", build.get("duration_seconds"))
-        _score(scores, "cost_usd", build.get("cost_usd"))
-        token_values: list[float] = []
-        for result_key, score_name in (
-            ("input_tokens", "input_tokens"),
-            ("output_tokens", "output_tokens"),
-            ("reasoning_tokens", "reasoning_tokens"),
-            ("cached_input_tokens", "cached_input_tokens"),
-        ):
-            value = _number(build.get(result_key))
-            if value is not None:
-                scores.append((score_name, value))
-                if result_key != "cached_input_tokens":
-                    token_values.append(value)
-        if token_values:
-            scores.append(("total_tokens", sum(token_values)))
-        _score(scores, "tool_calls", build.get("tool_calls"))
-        _score(scores, "turns", build.get("turns"))
-
-        metadata = {
-            "arm": arm,
-            "template": dict(template),
-            "app": cfg.project.name,
-            "phase": "build",
-            "provider": cfg.builder.provider,
-            "model": cfg.builder.model,
-            "effort": cfg.builder.effort,
-            "seed": cfg.run.seed,
-            "run_label": cfg.run.label,
-            "pack_revision": pack_revision,
-            "headless_llm_revision": headless_revision,
-        }
-        tags = (
-            f"arm:{arm}",
-            f"template:{template_version}",
-            f"variant:{variant}",
-            f"app:{cfg.project.name}",
-            "phase:build",
-            f"provider:{cfg.builder.provider}",
-            f"model:{cfg.builder.model or 'default'}",
-            f"effort:{cfg.builder.effort or 'default'}",
-            f"seed:{cfg.run.seed}",
-            f"run:{cfg.run.label}",
-            f"pack:{pack_revision or 'unknown'}",
-            f"headless_llm:{headless_revision or 'unknown'}",
-        )
-        traces.append(
-            ArmTrace(
-                run_id=run_id,
-                arm=arm,
-                name=f"benchmark:{cfg.project.name}:{arm}",
-                tags=tags,
-                metadata=metadata,
-                spans=(
-                    TraceSpan(name="instantiate", output=arm_results.get("setup", {})),
-                    TraceSpan(name="build", output=build),
-                    TraceSpan(name="install", output=metrics.get("install", {})),
-                    TraceSpan(name="self-tests", output=metrics.get("own_tests", {})),
-                    TraceSpan(name="probes", output=probes),
-                    TraceSpan(name="analyzers", output=analyzer_output),
-                    TraceSpan(name="judging", output=judging_output),
-                ),
-                scores=tuple(scores),
+    for phase, raw_phase_results in phases.items():
+        phase_results = _mapping(raw_phase_results)
+        arms = _mapping(phase_results.get("arms"))
+        judging = _mapping(phase_results.get("judging"))
+        aggregate = _mapping(judging.get("aggregate"))
+        primary = _mapping(aggregate.get("primary_preferences"))
+        dimension_means = _mapping(aggregate.get("dimension_means"))
+        for arm in ARMS:
+            arm_results = _mapping(arms.get(arm))
+            agent = _mapping(arm_results.get("agent") or arm_results.get("build"))
+            probes = _mapping(arm_results.get("probes"))
+            metrics = _mapping(arm_results.get("metrics"))
+            arm_dimensions = _mapping(dimension_means.get(arm))
+            analyzer_output = {
+                name: metrics[name]
+                for name in ("loc", "coverage", "ruff", "basedpyright", "radon")
+                if name in metrics
+            }
+            judging_output = {
+                "primary_preference": primary.get(arm),
+                "dimensions": arm_dimensions,
+            }
+            scores: list[tuple[str, float]] = []
+            _score(scores, "probe_pass_rate", probes.get("pass_rate"))
+            _score(scores, "judge_primary_preference", primary.get(arm))
+            for dimension in DIMENSIONS:
+                _score(scores, f"judge_{dimension}", arm_dimensions.get(dimension))
+            _score(
+                scores,
+                "ruff_violations_per_kloc",
+                _mapping(metrics.get("ruff")).get("per_kloc"),
             )
-        )
+            _score(
+                scores,
+                "basedpyright_errors_per_kloc",
+                _mapping(metrics.get("basedpyright")).get("errors_per_kloc"),
+            )
+            _score(
+                scores,
+                "coverage_percent",
+                _mapping(metrics.get("coverage")).get("percent"),
+            )
+            _score(scores, "wall_time_seconds", agent.get("duration_seconds"))
+            _score(scores, "cost_usd", agent.get("cost_usd"))
+            token_values: list[float] = []
+            for result_key, score_name in (
+                ("input_tokens", "input_tokens"),
+                ("output_tokens", "output_tokens"),
+                ("reasoning_tokens", "reasoning_tokens"),
+                ("cached_input_tokens", "cached_input_tokens"),
+            ):
+                value = _number(agent.get(result_key))
+                if value is not None:
+                    scores.append((score_name, value))
+                    if result_key != "cached_input_tokens":
+                        token_values.append(value)
+            if token_values:
+                scores.append(("total_tokens", sum(token_values)))
+            _score(scores, "tool_calls", agent.get("tool_calls"))
+            _score(scores, "turns", agent.get("turns"))
+
+            metadata = {
+                "arm": arm,
+                "template": dict(template),
+                "app": cfg.project.name,
+                "phase": phase,
+                "provider": cfg.builder.provider,
+                "model": cfg.builder.model,
+                "effort": cfg.builder.effort,
+                "seed": cfg.run.seed,
+                "run_label": cfg.run.label,
+                "pack_revision": pack_revision,
+                "headless_llm_revision": headless_revision,
+            }
+            tags = (
+                f"arm:{arm}",
+                f"template:{template_version}",
+                f"variant:{variant}",
+                f"app:{cfg.project.name}",
+                f"phase:{phase}",
+                f"provider:{cfg.builder.provider}",
+                f"model:{cfg.builder.model or 'default'}",
+                f"effort:{cfg.builder.effort or 'default'}",
+                f"seed:{cfg.run.seed}",
+                f"run:{cfg.run.label}",
+                f"pack:{pack_revision or 'unknown'}",
+                f"headless_llm:{headless_revision or 'unknown'}",
+            )
+            trace_name = f"benchmark:{cfg.project.name}:{arm}"
+            if phase != "build":
+                trace_name = f"benchmark:{cfg.project.name}:{phase}:{arm}"
+            traces.append(
+                ArmTrace(
+                    run_id=run_id,
+                    arm=arm,
+                    name=trace_name,
+                    tags=tags,
+                    metadata=metadata,
+                    spans=(
+                        TraceSpan(name="instantiate", output=arm_results.get("setup", {})),
+                        TraceSpan(name="build" if phase == "build" else "change", output=agent),
+                        TraceSpan(name="install", output=metrics.get("install", {})),
+                        TraceSpan(name="self-tests", output=metrics.get("own_tests", {})),
+                        TraceSpan(name="probes", output=probes),
+                        TraceSpan(name="analyzers", output=analyzer_output),
+                        TraceSpan(name="judging", output=judging_output),
+                    ),
+                    scores=tuple(scores),
+                )
+            )
     return tuple(traces)

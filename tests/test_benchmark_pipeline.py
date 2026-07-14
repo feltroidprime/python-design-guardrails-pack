@@ -16,6 +16,7 @@ import sys
 import pytest
 from yaml import safe_load
 
+from benchmarks.e2e import events as ev
 from benchmarks.e2e.agents import AgentOutcome
 from benchmarks.e2e.config import (
     ARM_BARE,
@@ -29,6 +30,7 @@ from benchmarks.e2e.config import (
     ProjectSettings,
     RoleSettings,
     RunSettings,
+    ScenarioPhase,
     TemplateSettings,
     ToolPins,
     load_config,
@@ -528,6 +530,125 @@ def _pipeline_config(tmp_path: Path) -> BenchmarkConfig:
 
 
 class TestOrchestration:
+    def test_build_and_maintenance_use_fresh_agents_and_phase_tagged_results(
+        self, tmp_path: Path
+    ) -> None:
+        journal: list[tuple[str, str, str | None]] = []
+        builder_instances: list[_FakeRunner] = []
+        exporter = _RecordingExporter()
+        cfg = replace(
+            _pipeline_config(tmp_path),
+            langfuse=LangfuseSettings(enabled=True),
+            maintenance=ScenarioPhase(
+                spec_text="maintenance change request " * 20,
+                probes=(
+                    ProbeSpec(
+                        name="regression-marker-exists",
+                        argv=(sys.executable, "{ws}/built_by_fake.py"),
+                    ),
+                ),
+            ),
+        )
+
+        def factory(role: RoleSettings) -> _FakeRunner:
+            runner = _FakeRunner(role, journal)
+            if role.provider == cfg.builder.provider:
+                builder_instances.append(runner)
+            return runner
+
+        run = run_benchmark(
+            cfg,
+            repo_root=REPO_ROOT,
+            runner_factory=factory,
+            metrics_collector=lambda workspace, out_dir: {},
+            exporter=exporter,
+            log=lambda message: None,
+        )
+
+        assert list(run.results["phases"]) == ["build", "maintenance"]
+        for phase in ("build", "maintenance"):
+            assert set(run.results["phases"][phase]["arms"]) == set(ARMS)
+            assert run.results["phases"][phase]["phase"] == phase
+        assert len(builder_instances) == 4
+        assert len({id(runner) for runner in builder_instances}) == 4
+        assert [
+            (trace.metadata["phase"], trace.arm) for trace in exporter.traces
+        ] == [
+            ("build", ARM_BARE),
+            ("build", ARM_GUARDRAILS),
+            ("maintenance", ARM_BARE),
+            ("maintenance", ARM_GUARDRAILS),
+        ]
+
+        agent_prompts = [entry[1] for entry in journal if entry[0] == "build"]
+        assert agent_prompts[:2] == [
+            compose_build_prompt(cfg.charter_text, cfg.spec_text)
+        ] * 2
+        assert agent_prompts[2:] == [cfg.maintenance.spec_text.strip() + "\n"] * 2
+
+        rows = [
+            json.loads(line)
+            for line in (cfg.run.output_root / "registry.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        assert [(row["phase"], row["arm"]) for row in rows] == [
+            ("build", ARM_BARE),
+            ("build", ARM_GUARDRAILS),
+            ("maintenance", ARM_BARE),
+            ("maintenance", ARM_GUARDRAILS),
+        ]
+        report = (run.run_dir / "report.md").read_text(encoding="utf-8")
+        assert "## Build phase" in report
+        assert "## Maintenance phase" in report
+
+    def test_maintenance_fairness_uses_identical_prompt_bytes_and_probe_lists(
+        self, tmp_path: Path
+    ) -> None:
+        journal: list[tuple[str, str, str | None]] = []
+        received: list[ev.Event] = []
+        cfg = replace(
+            _pipeline_config(tmp_path),
+            maintenance=ScenarioPhase(
+                spec_text="make this exact maintenance change " * 20,
+                probes=(
+                    ProbeSpec(
+                        name="new-behavior",
+                        argv=(sys.executable, "{ws}/built_by_fake.py"),
+                    ),
+                    ProbeSpec(
+                        name="build-regression",
+                        argv=(sys.executable, "{ws}/built_by_fake.py"),
+                    ),
+                ),
+            ),
+        )
+
+        run_benchmark(
+            cfg,
+            repo_root=REPO_ROOT,
+            runner_factory=lambda role: _FakeRunner(role, journal),
+            metrics_collector=lambda workspace, out_dir: {},
+            log=lambda message: None,
+            events=received.append,
+        )
+
+        maintenance_prompts = [
+            entry[1]
+            for entry in journal
+            if entry[0] == "build" and entry[1] != compose_build_prompt(cfg.charter_text, cfg.spec_text)
+        ]
+        assert len(maintenance_prompts) == 2
+        assert maintenance_prompts[0].encode() == maintenance_prompts[1].encode()
+        for arm in ARMS:
+            assert [
+                event.payload["name"]
+                for event in received
+                if event.kind == ev.PROBE_RESULT
+                and event.phase == "maintenance"
+                and event.arm == arm
+            ] == ["new-behavior", "build-regression"]
+
     def test_default_config_performs_zero_exporter_calls(self, tmp_path: Path) -> None:
         journal: list[tuple[str, str, str | None]] = []
         exporter = _RecordingExporter()

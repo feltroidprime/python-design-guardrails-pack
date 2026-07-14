@@ -34,21 +34,31 @@ def registry_rows(
     if not isinstance(template, dict):
         raise ValueError("completed benchmark manifest has no Copier template identity")
     variant = template.get("variant")
-    aggregate = _get(results, "judging", "aggregate")
-    primary = (
-        aggregate.get("primary_preferences") if isinstance(aggregate, dict) else None
-    )
-    dimensions = (
-        aggregate.get("dimension_means") if isinstance(aggregate, dict) else None
+    raw_phases = results.get("phases")
+    phases = (
+        raw_phases
+        if isinstance(raw_phases, dict)
+        else {"build": {"arms": results.get("arms"), "judging": results.get("judging")}}
     )
 
     rows: list[dict[str, object]] = []
-    for arm in ARMS:
-        build = _get(results, "arms", arm, "build")
-        build = build if isinstance(build, dict) else {}
-        arm_dimensions = dimensions.get(arm) if isinstance(dimensions, dict) else None
-        rows.append(
-            {
+    for phase, phase_results in phases.items():
+        if not isinstance(phase_results, dict):
+            raise ValueError(f"completed benchmark phase {phase!r} is not an object")
+        aggregate = _get(phase_results, "judging", "aggregate")
+        primary = (
+            aggregate.get("primary_preferences") if isinstance(aggregate, dict) else None
+        )
+        dimensions = (
+            aggregate.get("dimension_means") if isinstance(aggregate, dict) else None
+        )
+        for arm in ARMS:
+            agent = _get(phase_results, "arms", arm, "agent")
+            if not isinstance(agent, dict):
+                agent = _get(phase_results, "arms", arm, "build")
+            agent = agent if isinstance(agent, dict) else {}
+            arm_dimensions = dimensions.get(arm) if isinstance(dimensions, dict) else None
+            rows.append({
                 "schema_version": 1,
                 "run_id": meta.get("run_id"),
                 "started_utc": meta.get("started_utc"),
@@ -59,14 +69,16 @@ def registry_rows(
                 "template": dict(template),
                 "variant": variant,
                 "app": cfg.project.name,
-                "phase": "build",
+                "phase": phase,
                 "provider": cfg.builder.provider,
-                "model": build.get("model") or cfg.builder.model or "default",
+                "model": agent.get("model") or cfg.builder.model or "default",
                 "effort": cfg.builder.effort,
                 "seed": meta.get("seed"),
                 "pack_revision": meta.get("pack_revision"),
                 "headless_llm_revision": meta.get("headless_llm_revision"),
-                "probe_pass_rate": _get(results, "arms", arm, "probes", "pass_rate"),
+                "probe_pass_rate": _get(
+                    phase_results, "arms", arm, "probes", "pass_rate"
+                ),
                 # The complete primary endpoint is repeated per arm so ties
                 # and the eligible-judge denominator are never lost.
                 "judge_primary_endpoint": (
@@ -77,10 +89,10 @@ def registry_rows(
                 ),
                 "analyzer_densities": {
                     "ruff_violations_per_kloc": _get(
-                        results, "arms", arm, "metrics", "ruff", "per_kloc"
+                        phase_results, "arms", arm, "metrics", "ruff", "per_kloc"
                     ),
                     "basedpyright_errors_per_kloc": _get(
-                        results,
+                        phase_results,
                         "arms",
                         arm,
                         "metrics",
@@ -89,18 +101,17 @@ def registry_rows(
                     ),
                 },
                 "coverage_percent": _get(
-                    results, "arms", arm, "metrics", "coverage", "percent"
+                    phase_results, "arms", arm, "metrics", "coverage", "percent"
                 ),
-                "wall_time_seconds": build.get("duration_seconds"),
-                "cost_usd": build.get("cost_usd"),
-                "input_tokens": build.get("input_tokens"),
-                "cached_input_tokens": build.get("cached_input_tokens"),
-                "output_tokens": build.get("output_tokens"),
-                "reasoning_tokens": build.get("reasoning_tokens"),
-                "tool_calls": build.get("tool_calls"),
-                "turns": build.get("turns"),
-            }
-        )
+                "wall_time_seconds": agent.get("duration_seconds"),
+                "cost_usd": agent.get("cost_usd"),
+                "input_tokens": agent.get("input_tokens"),
+                "cached_input_tokens": agent.get("cached_input_tokens"),
+                "output_tokens": agent.get("output_tokens"),
+                "reasoning_tokens": agent.get("reasoning_tokens"),
+                "tool_calls": agent.get("tool_calls"),
+                "turns": agent.get("turns"),
+            })
     return rows
 
 

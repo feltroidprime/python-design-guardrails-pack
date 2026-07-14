@@ -40,3 +40,21 @@ def test_full_relay_probe_scenario_is_satisfiable(tmp_path: Path) -> None:
         if not result.passed
     ]
     assert not failures, "\n".join(failures)
+
+
+def test_relay_maintenance_probe_scenario_is_satisfiable(tmp_path: Path) -> None:
+    config = load_config(RELAY_CONFIG, repo_root=REPO_ROOT)
+    assert config.maintenance is not None
+
+    results = run_probes(
+        config.maintenance.probes,
+        _reference_workspace(tmp_path),
+        tmp_path / "maintenance-probe-state",
+    )
+
+    failures = [
+        f"{result.name}: {result.failure}; stdout={result.stdout!r}; stderr={result.stderr!r}"
+        for result in results
+        if not result.passed
+    ]
+    assert not failures, "\n".join(failures)
