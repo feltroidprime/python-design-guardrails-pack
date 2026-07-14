@@ -99,6 +99,27 @@ class TestShippedConfigs:
         assert len(cfg.probes) >= 10
         assert any(probe.expect_exit != 0 for probe in cfg.probes)
 
+    def test_maintenance_probes_cover_custom_and_invalid_intervals(self) -> None:
+        cfg = load_config(CONFIG_DIR / "default.toml", repo_root=REPO_ROOT)
+        assert cfg.maintenance is not None
+        probes = {probe.name: probe for probe in cfg.maintenance.probes}
+
+        assert probes["invalid-recurring-interval-is-rejected"].expect_exit == 2
+        assert probes["add-two-month-recurring-rule"].argv[-2:] == (
+            "--interval-months",
+            "2",
+        )
+        assert "custom-interval-skips-june" in probes
+        assert "custom-interval-resumes-in-july" in probes
+
+    def test_relay_maintenance_probes_reject_mixed_json_schemas(self) -> None:
+        cfg = load_config(CONFIG_DIR / "relay.toml", repo_root=REPO_ROOT)
+        assert cfg.maintenance is not None
+        probes = {probe.name: probe for probe in cfg.maintenance.probes}
+
+        assert probes["mixed-json-schemas-are-rejected"].expect_exit == 2
+        assert "mixed-json-rejection-appends-nothing" in probes
+
     def test_default_judge_panel_shares_no_family_with_builder(self) -> None:
         """Anti-bias regression: no judge may come from the builder's provider."""
         cfg = load_config(CONFIG_DIR / "default.toml", repo_root=REPO_ROOT)

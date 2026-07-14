@@ -253,7 +253,10 @@ def _read_import(path: Path, input_format: str) -> list[dict[str, object]]:
                 raise RelayError("invalid JSON export envelope")
             if payload["version"] != 1 or not isinstance(payload["jobs"], list):
                 raise RelayError("unsupported JSON export")
-            return [_job_from_export(raw) for raw in payload["jobs"]]
+            jobs = [_job_from_export(raw) for raw in payload["jobs"]]
+            if len({bool(job["_extended"]) for job in jobs}) > 1:
+                raise RelayError("JSON import mixes legacy and extended job schemas")
+            return jobs
         with path.open(encoding="utf-8", newline="") as handle:
             reader = csv.DictReader(handle)
             if tuple(reader.fieldnames or ()) not in (JOB_FIELDS, EXTENDED_JOB_FIELDS):

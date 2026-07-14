@@ -519,6 +519,22 @@ argv = ["uv", "run", "python", "-c", "import pathlib,sys; raise SystemExit(0 if 
 expect_exit = 0
 
 [[scenario.maintenance.probes]]
+name = "write-mixed-json-schema-import"
+argv = ["uv", "run", "python", "-c", "import json,pathlib,sys; source=json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')); fields=['id','title','note','deadline','state','created_at','updated_at']; source['jobs']=[{{field:source['jobs'][0][field] for field in fields}},source['jobs'][1]]; pathlib.Path(sys.argv[2]).write_text(json.dumps(source,separators=(',',':'))+'\\n',encoding='utf-8')", "{db}.extended.json", "{db}.mixed.json"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "mixed-json-schemas-are-rejected"
+argv = ["uv", "run", "relay", "--log", "{db}.mixed.log", "--now", "2026-05-01T12:05:00Z", "import", "--format", "json", "--input", "{db}.mixed.json"]
+expect_exit = 2
+stderr_regex = '\S'
+
+[[scenario.maintenance.probes]]
+name = "mixed-json-rejection-appends-nothing"
+argv = ["uv", "run", "python", "-c", "import pathlib,sys; path=pathlib.Path(sys.argv[1]); raise SystemExit(0 if not path.exists() or not path.read_bytes() else 1)", "{db}.mixed.log"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
 name = "export-extended-csv"
 argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:06:00Z", "export", "--format", "csv", "--output", "{db}.extended.csv"]
 expect_exit = 0

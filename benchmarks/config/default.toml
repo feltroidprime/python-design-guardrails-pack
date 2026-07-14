@@ -417,6 +417,42 @@ expect_exit = 0
 stdout_regex = '\Acreated=0\n?\Z'
 
 [[scenario.maintenance.probes]]
+name = "invalid-recurring-interval-is-rejected"
+argv = ["uv", "run", "ledger", "--db", "{db}", "recurring", "add", "--amount", "9.00", "--category", "invalid", "--start", "2026-05-01", "--note", "invalid interval", "--interval-months", "0"]
+expect_exit = 2
+stderr_regex = '\S'
+
+[[scenario.maintenance.probes]]
+name = "add-two-month-recurring-rule"
+argv = ["uv", "run", "ledger", "--db", "{db}", "recurring", "add", "--amount", "12.00", "--category", "transport", "--start", "2026-05-31", "--note", "alternate months", "--interval-months", "2"]
+expect_exit = 0
+stdout_regex = '\Arecurring_id=\d+\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "materialize-default-and-custom-intervals"
+argv = ["uv", "run", "ledger", "--db", "{db}", "recurring", "apply", "--through", "2026-07-31"]
+expect_exit = 0
+stdout_regex = '\Acreated=5\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "invalid-interval-stored-nothing"
+argv = ["uv", "run", "ledger", "--db", "{db}", "list", "--month", "2026-05"]
+expect_exit = 0
+stdout_regex = '(?s)\A(?!.*invalid interval).+\Z'
+
+[[scenario.maintenance.probes]]
+name = "custom-interval-skips-june"
+argv = ["uv", "run", "ledger", "--db", "{db}", "list", "--month", "2026-06"]
+expect_exit = 0
+stdout_regex = '(?s)\A(?!.*alternate months).+\Z'
+
+[[scenario.maintenance.probes]]
+name = "custom-interval-resumes-in-july"
+argv = ["uv", "run", "ledger", "--db", "{db}", "list", "--month", "2026-07"]
+expect_exit = 0
+stdout_regex = '2026-07-31\s+12\.00\s+transport\s+alternate months'
+
+[[scenario.maintenance.probes]]
 name = "unknown-category-rename-has-dedicated-exit"
 argv = ["uv", "run", "ledger", "--db", "{db}", "category", "rename", "--from", "missing", "--to", "other"]
 expect_exit = 3
