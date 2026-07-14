@@ -129,6 +129,7 @@ def _manifest(cfg: BenchmarkConfig, run_id: str, started: str, repo_root: Path) 
             "model": cfg.builder.model,
             "effort": cfg.builder.effort,
             "binary": cfg.builder.binary,
+            "family": cfg.builder.family,
             "timeout_seconds": cfg.builder.timeout_seconds,
             "allowed_tools": cfg.builder.allowed_tools,
         },

@@ -121,34 +121,41 @@ def _text(section: dict[str, object], key: str, *, where: str) -> str:
 def _role(section: object, *, where: str) -> RoleSettings:
     if not isinstance(section, dict):
         raise ConfigError(f"{where}: must be a table")
-    _reject_unknown(section, {"provider", "model", "effort", "binary"}, where=where)
+    _reject_unknown(
+        section, {"provider", "model", "effort", "binary", "family"}, where=where
+    )
     provider = _text(section, "provider", where=where)
     optional: dict[str, str | None] = {}
-    for key in ("model", "effort", "binary"):
+    for key in ("model", "effort", "binary", "family"):
         value = section.get(key)
         if value is not None and not isinstance(value, str):
             raise ConfigError(f"{where}: {key!r} must be a string when present")
         optional[key] = value.strip() or None if isinstance(value, str) else None
-    return RoleSettings(provider=provider, **optional)
+    role = RoleSettings(provider=provider, **optional)
+    return replace(role, family=model_family(role))
 
 
 def model_family(role: RoleSettings) -> str:
     """Normalize provider/model identities into bias-relevant model families."""
     if role.provider == "claude":
+        if role.family not in (None, "claude"):
+            raise ConfigError("claude roles cannot override their model family")
         return "claude"
     if role.provider == "codex":
+        if role.family not in (None, "gpt"):
+            raise ConfigError("codex roles cannot override their model family")
         return "gpt"
     if role.model is None:
         raise ConfigError(
             "opencode roles must declare a model so the family-disjointness rule "
             "can be enforced"
         )
-    model = role.model.lower()
-    if "claude" in model or "anthropic" in model:
-        return "claude"
-    if "gpt" in model or "openai" in model or "codex" in model:
-        return "gpt"
-    return model.split("/", 1)[0]
+    if role.family is None:
+        raise ConfigError(
+            "opencode roles must declare a canonical family so the "
+            "family-disjointness rule can be enforced"
+        )
+    return role.family.casefold()
 
 
 def _git_output(repo_root: Path, *arguments: str) -> str:
@@ -290,16 +297,38 @@ def _create_template_snapshot(
             )
     _git_output(snapshot_root, "init", "--quiet", "--initial-branch=main")
     _git_output(snapshot_root, "add", "--all")
-    _git_output(
-        snapshot_root,
-        "-c",
-        "user.name=guardrails-benchmark",
-        "-c",
-        "user.email=guardrails-benchmark@localhost",
-        "commit",
-        "--quiet",
-        "--message=pinned campaign template",
+    environment = {
+        key: value for key, value in os.environ.items() if not key.startswith("GIT_")
+    }
+    environment.update(
+        {
+            "GIT_AUTHOR_DATE": "2000-01-01T00:00:00+00:00",
+            "GIT_COMMITTER_DATE": "2000-01-01T00:00:00+00:00",
+        }
     )
+    committed = subprocess.run(
+        (
+            "git",
+            "-C",
+            str(snapshot_root),
+            "-c",
+            "user.name=guardrails-benchmark",
+            "-c",
+            "user.email=guardrails-benchmark@localhost",
+            "commit",
+            "--quiet",
+            "--message=pinned campaign template",
+        ),
+        capture_output=True,
+        text=True,
+        errors="replace",
+        env=environment,
+        check=False,
+    )
+    if committed.returncode != 0:
+        raise ConfigError(
+            f"could not commit pinned campaign template: {committed.stderr.strip()}"
+        )
     return _git_output(snapshot_root, "rev-parse", "HEAD")
 
 
@@ -490,6 +519,7 @@ def _cell_dimensions(
             "model": cfg.builder.model,
             "effort": cfg.builder.effort,
             "binary": cfg.builder.binary,
+            "family": model_family(cfg.builder),
         },
         "seed": cfg.run.seed,
         "variant": cfg.template.variant,
@@ -497,7 +527,10 @@ def _cell_dimensions(
         "template_vcs_ref": cfg.template.vcs_ref,
         "template_identity": dict(matrix.template_identity),
         "template_answers": dict(cfg.template.answers),
-        "judges": [member.identity for member in cfg.judge.panel],
+        "judges": [
+            {"identity": member.identity, "family": model_family(member)}
+            for member in cfg.judge.panel
+        ],
         "prompt_sha256": hashlib.sha256(prompt).hexdigest(),
     }
     canonical = json.dumps(identity, sort_keys=True, separators=(",", ":"), default=str)
@@ -519,12 +552,16 @@ def plan_matrix(matrix: MatrixConfig) -> tuple[MatrixCell, ...]:
                             provider=builder.provider,
                             model=builder.model,
                             effort=builder.effort,
+                            inherit_unspecified=False,
                         )
-                        if builder.binary is not None:
-                            cfg = replace(
-                                cfg,
-                                builder=replace(cfg.builder, binary=builder.binary),
-                            )
+                        cfg = replace(
+                            cfg,
+                            builder=replace(
+                                cfg.builder,
+                                binary=builder.binary,
+                                family=builder.family,
+                            ),
+                        )
                         cfg = replace(
                             cfg,
                             run=replace(

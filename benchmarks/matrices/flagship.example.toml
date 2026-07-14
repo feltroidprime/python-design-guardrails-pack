@@ -30,10 +30,12 @@ effort = "xhigh"
 [[judge.panel]]
 provider = "opencode"
 model = "minimax/MiniMax-M3"
+family = "minimax"
 
 [[judge.panel]]
 provider = "opencode"
 model = "google/gemini-3.1-pro"
+family = "google"
 
 # Caps cover every provider call, including both arms and judge calls.
 [concurrency]

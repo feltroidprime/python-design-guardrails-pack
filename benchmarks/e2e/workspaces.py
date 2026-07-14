@@ -14,7 +14,7 @@ import time
 
 from copier import run_copy
 from copier.errors import CopierError
-from yaml import safe_load
+from yaml import safe_dump, safe_load
 
 from benchmarks.e2e.config import ARM_BARE, ARM_GUARDRAILS, BenchmarkConfig
 from instantiate import environment_without_local_git_context, without_local_git_context
@@ -144,6 +144,14 @@ def _generate_from_template(
         raise WorkspaceError(f"could not read Copier answers from {answers_path}: {error}") from error
     if not isinstance(recorded, dict) or not isinstance(recorded.get("_commit"), str):
         raise WorkspaceError(f"Copier answers in {answers_path} have no resolved _commit")
+    if template_identity is not None:
+        recorded["_src_path"] = str(repo_root)
+        recorded["_commit"] = render_vcs_ref
+        answers_path.write_text(
+            "# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY\n"
+            + safe_dump(recorded, sort_keys=False),
+            encoding="utf-8",
+        )
     identity = dict(template_identity) if template_identity is not None else {
         "version": working_tree_version or recorded["_commit"],
         "vcs_ref": cfg.template.vcs_ref,

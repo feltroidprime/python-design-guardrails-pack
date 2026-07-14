@@ -49,6 +49,7 @@ class RoleSettings:
     model: str | None = None
     effort: str | None = None
     binary: str | None = None
+    family: str | None = None
 
     def __post_init__(self) -> None:
         if self.provider not in PROVIDERS:
@@ -640,6 +641,7 @@ def apply_builder_overrides(
     provider: str | None = None,
     model: str | None = None,
     effort: str | None = None,
+    inherit_unspecified: bool = True,
 ) -> BenchmarkConfig:
     """Command-line builder overrides on top of the loaded config.
 
@@ -656,12 +658,13 @@ def apply_builder_overrides(
     builder = cfg.builder
     new_provider = provider or builder.provider
     provider_changed = new_provider != builder.provider
+    inherit = inherit_unspecified and not provider_changed
     resolved_model = (
         BUILDER_MODEL_ALIASES.get(model, model)
         if model
-        else None if provider_changed else builder.model
+        else builder.model if inherit else None
     )
-    resolved_effort = effort if effort is not None else None if provider_changed else builder.effort
+    resolved_effort = effort if effort is not None else builder.effort if inherit else None
     return replace(
         cfg,
         builder=BuilderSettings(
@@ -669,6 +672,7 @@ def apply_builder_overrides(
             model=resolved_model,
             effort=resolved_effort,
             binary=builder.binary if new_provider == builder.provider else None,
+            family=builder.family if new_provider == builder.provider else None,
             timeout_seconds=builder.timeout_seconds,
             allowed_tools=builder.allowed_tools if new_provider == "claude" else None,
         ),

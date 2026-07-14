@@ -125,7 +125,8 @@ normalized through the single-run configuration path (for example, Codex
 drops Claude's tool allow-list) and the effective settings are recorded in
 each manifest. The one `[[judge.panel]]` list is applied to every app and must
 be model-family-disjoint from every builder; invalid Claude/Claude or GPT/GPT
-pairings are rejected before execution.
+pairings are rejected before execution. OpenCode roles must declare an explicit
+`family` alongside `model`, so gateway prefixes cannot hide a shared family.
 
 Completed cells append their full dimensions and resolved template identity
 to the normal registry. Re-running the same matrix reads those rows and skips

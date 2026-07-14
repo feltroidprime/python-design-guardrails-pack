@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import replace
 import json
 from pathlib import Path
 import shutil
@@ -12,6 +13,7 @@ import threading
 import time
 
 import pytest
+from yaml import safe_load
 
 from benchmarks.e2e.agents import AgentOutcome
 from benchmarks.e2e.config import ARMS, ConfigError, RoleSettings
@@ -119,6 +121,7 @@ binary = "codex-test-bin"
 [[judge.panel]]
 provider = "opencode"
 model = "minimax/MiniMax-M3"
+family = "minimax"
 """
     )
     concurrency = (
@@ -236,6 +239,15 @@ def _apps(root: Path) -> list[Path]:
         _single_config(root, "alpha-app", "ALPHA-SPEC-MARKER"),
         _single_config(root, "beta-app", "BETA-SPEC-MARKER"),
     ]
+
+
+def _copy_variant_answers(pack: Path) -> None:
+    destination = pack / "benchmarks" / "config" / "variants"
+    destination.mkdir(parents=True)
+    shutil.copy(
+        REPO_ROOT / "benchmarks" / "config" / "variants" / "answers.toml",
+        destination / "answers.toml",
+    )
 
 
 def test_small_matrix_completes_with_full_identity_and_fair_prompts(
@@ -375,6 +387,7 @@ def test_dirty_working_tree_content_is_part_of_the_resume_identity(
     pack.mkdir()
     (pack / "copier.yml").write_text("_subdirectory: template\n", encoding="utf-8")
     (pack / "template").mkdir()
+    _copy_variant_answers(pack)
     marker = pack / "template" / "marker.txt"
     marker.write_text("committed\n", encoding="utf-8")
     subprocess.run(
@@ -428,6 +441,7 @@ def test_dirty_campaign_uses_one_immutable_template_snapshot(tmp_path: Path) -> 
     pack.mkdir()
     shutil.copy(REPO_ROOT / "copier.yml", pack / "copier.yml")
     shutil.copytree(REPO_ROOT / "template", pack / "template")
+    _copy_variant_answers(pack)
     subprocess.run(
         ("git", "init", "--quiet", "--initial-branch=main"),
         cwd=pack,
@@ -511,11 +525,59 @@ opencode = 1
     )
 
 
-def test_cross_provider_builder_uses_target_provider_defaults(tmp_path: Path) -> None:
-    app = _single_config(tmp_path, "defaults-app", "DEFAULTS-SPEC-MARKER")
+def test_snapshot_copier_commit_is_stable_across_invocations(tmp_path: Path) -> None:
+    app = _single_config(tmp_path, "stable-app", "STABLE-SPEC-MARKER")
     builders = """
 [[builders]]
-provider = "codex"
+provider = "claude"
+model = "claude-test"
+"""
+    matrix = load_matrix_config(
+        _matrix_config(tmp_path, [app], builders=builders, seeds="[11]"),
+        repo_root=REPO_ROOT,
+    )
+    second = replace(
+        matrix,
+        run=replace(matrix.run, output_root=tmp_path / "second-campaign-runs"),
+    )
+
+    for campaign in (matrix, second):
+        run_matrix(
+            campaign,
+            repo_root=REPO_ROOT,
+            runner_factory=lambda role: _FakeRunner(role, _Concurrency()),
+            metrics_collector=lambda workspace, out_dir: {},
+            log=lambda message: None,
+        )
+
+    answer_documents: list[str] = []
+    for output_root in (matrix.run.output_root, second.run.output_root):
+        answers_path = next(
+            output_root.glob(
+                "*/arms/guardrails/workspace/.copier-answers.yml"
+            )
+        )
+        answer_documents.append(answers_path.read_text(encoding="utf-8"))
+
+    assert answer_documents[0] == answer_documents[1]
+    assert safe_load(answer_documents[0])["_commit"]
+
+
+@pytest.mark.parametrize("provider", ["claude", "codex"])
+def test_matrix_builder_does_not_inherit_app_model_or_effort(
+    tmp_path: Path, provider: str
+) -> None:
+    app = _single_config(tmp_path, "defaults-app", "DEFAULTS-SPEC-MARKER")
+    app.write_text(
+        app.read_text(encoding="utf-8").replace(
+            'model = "base-model"',
+            'model = "base-model"\neffort = "base-effort"',
+        ),
+        encoding="utf-8",
+    )
+    builders = f"""
+[[builders]]
+provider = "{provider}"
 """
     matrix = load_matrix_config(
         _matrix_config(tmp_path, [app], builders=builders, seeds="[11]"),
@@ -526,7 +588,9 @@ provider = "codex"
 
     assert builder.model is None
     assert builder.effort is None
-    assert builder.allowed_tools is None
+    assert builder.allowed_tools == (
+        ("Read", "Write") if provider == "claude" else None
+    )
 
 
 def test_opencode_roles_require_a_model_for_family_validation(tmp_path: Path) -> None:
@@ -539,6 +603,30 @@ provider = "opencode"
     with pytest.raises(ConfigError, match="opencode.*model.*family-disjointness rule"):
         load_matrix_config(
             _matrix_config(tmp_path, [app], builders=builders),
+            repo_root=REPO_ROOT,
+        )
+
+
+def test_explicit_opencode_family_detects_gateway_overlap(tmp_path: Path) -> None:
+    app = _single_config(tmp_path, "gateway-app", "GATEWAY-SPEC-MARKER")
+    builders = """
+[[builders]]
+provider = "opencode"
+model = "openrouter/google/gemini-3.1-pro"
+family = "google"
+"""
+    judge = """
+[judge]
+
+[[judge.panel]]
+provider = "opencode"
+model = "google/gemini-2.5-pro"
+family = "google"
+"""
+
+    with pytest.raises(ConfigError, match="family-disjointness rule.*google"):
+        load_matrix_config(
+            _matrix_config(tmp_path, [app], builders=builders, judge=judge),
             repo_root=REPO_ROOT,
         )
 
