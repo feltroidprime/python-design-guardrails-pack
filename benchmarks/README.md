@@ -16,6 +16,10 @@ maintenance sessions for each real app, with arms concurrent by default —
 observability stack, Claude Code hook, trace check, and teardown. The lab is
 independent of running the benchmark.
 
+The [optimization experiment protocol](EXPERIMENTS.md) registers hypotheses,
+named Copier variants, pinned multi-seed campaigns, reports, and evidence-backed
+adopt/reject decisions.
+
 ## Run it
 
 ```bash
