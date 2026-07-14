@@ -248,6 +248,10 @@ def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> Non
         b"full quality gate before publication.\n"
         b"3. Report the behavior changed, tests added, architecture impact, and remaining risks.\n"
         b"4. Never claim success over a failing or weakened gate; report the failure instead.",
+    ).replace(
+        b"when the gate's `diagram sync` check fails, run `just fix` (or `uv run python -m "
+        b"scripts.sync_architecture_diagrams --write`).",
+        b"when the gate's `diagram sync` check fails, run `just fix`.",
     )
     assert variant["AGENTS.md"] == expected_agents
 

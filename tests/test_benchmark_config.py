@@ -212,6 +212,24 @@ timeout_seconds = 2.5
         ):
             load_config(path, repo_root=REPO_ROOT)
 
+    @pytest.mark.parametrize(
+        "template",
+        (
+            "answers = { precommit = false }",
+            "variant = 'checks-via-commit'\nanswers = { precommit = false }",
+        ),
+    )
+    def test_feature_toggles_require_their_named_variant(
+        self, tmp_path: Path, template: str
+    ) -> None:
+        path = _minimal(tmp_path, template=template)
+
+        with pytest.raises(
+            ConfigError,
+            match="feature-toggle answer 'precommit'.*select its named variant",
+        ):
+            load_config(path, repo_root=REPO_ROOT)
+
     def test_unknown_key_is_rejected(self, tmp_path: Path) -> None:
         path = _minimal(tmp_path, extra="\n[typo_section]\nx = 1\n")
         with pytest.raises(ConfigError, match="typo_section"):

@@ -479,7 +479,20 @@ def _template(
         raise ConfigError(
             f"{where}: unknown template variant {variant!r}; known variants: {known}"
         )
-    for key, value in variants[variant].items():
+    variant_answers = variants[variant]
+    feature_toggles = {
+        key
+        for name, answer_set in variants.items()
+        if name != "baseline"
+        for key in answer_set
+    }
+    for key in answers:
+        if key in feature_toggles and key not in variant_answers:
+            raise ConfigError(
+                f"{where}: feature-toggle answer {key!r} is owned by an ablation; "
+                "select its named variant instead of setting it in [template.answers]"
+            )
+    for key, value in variant_answers.items():
         if key in answers and answers[key] != value:
             declared = str(value).lower() if isinstance(value, bool) else repr(value)
             override = (
@@ -491,7 +504,7 @@ def _template(
                 f"{where}: variant {variant!r} answer {key!r} declares {declared}; "
                 f"[template.answers] cannot override it with {override}"
             )
-    resolved_answers = {**variants[variant], **answers}
+    resolved_answers = {**variant_answers, **answers}
     return TemplateSettings(
         vcs_ref=_string(section, "vcs_ref", where=where, default="HEAD"),
         variant=variant,

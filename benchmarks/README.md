@@ -130,9 +130,10 @@ variants each change one policy:
 | `checks-via-commit` | `agents_contract = "hooks-first"` | `AGENTS.md` uses only justfile commands for verification and says to commit so the hooks run the gate |
 
 Variant answers are merged with `[template.answers]`. A run may add unrelated
-answers, but it cannot override an answer owned by its named variant; a
-conflict fails config loading. Unknown names also fail before workspace
-creation and list every known variant.
+answers, but it cannot introduce a feature toggle not owned by the selected
+variant or override that variant's defining value; either conflict fails
+config loading. Unknown names also fail before workspace creation and list
+every known variant.
 
 To add an ablation:
 

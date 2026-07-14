@@ -96,7 +96,7 @@ A cross-cutting need with no matching brick requires an ADR before the code exis
 
 The LikeC4 model under `docs/architecture/likec4/generated/` is derived from the import-linter contracts and the real import graph (grimp). See `docs/adr/0001-derived-architecture-diagrams.md`.
 
-- Never edit files under `docs/architecture/likec4/generated/`; when the gate's `diagram sync` check fails, run `just fix` (or `uv run python -m scripts.sync_architecture_diagrams --write`).
+- Never edit files under `docs/architecture/likec4/generated/`; when the gate's `diagram sync` check fails, run {% if agents_contract == 'hooks-first' %}`just fix`.{% else %}`just fix` (or `uv run python -m scripts.sync_architecture_diagrams --write`).{% endif %}
 - Declare layers in exactly one place: the import-linter `layers` contract in `pyproject.toml`. Adding a layer there updates the linter and the diagrams simultaneously.
 - Put hand-written views in `docs/architecture/likec4/views.c4` (never regenerated). The gate's `diagram views` check validates them against the generated model, so renaming or deleting a module moves the views in the same commit. Extend `specification.c4` only deliberately.
 - The LikeC4 CLI version is pinned in exactly one place, `[tool.likec4]` in `pyproject.toml`; every invocation goes through `bunx likec4@<version>` (Bun is a toolchain prerequisite). Do not introduce `package.json`, JavaScript lockfiles, or `node_modules`. A version bump moves that single pin and must pass the full gate.
