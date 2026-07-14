@@ -25,14 +25,14 @@ updated repository's full gate offline.
 
 - `just release v0.1.0`: passed; created the annotated template release tag.
 - `just validate`: passed.
-  - Root suite: 154 passed in 44.60s. The single `DirtyLocalWarning` is expected
+  - Root suite: 154 passed in 45.09s. The single `DirtyLocalWarning` is expected
     from the test that deliberately creates a dirty temporary template repo.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
     `.jinja` suffix survived.
   - Generated dependency resolution: 32 packages resolved; 31 installed.
   - Generated quality gate: all steps passed.
-  - Offline update round trip: 1 passed in 15.20s after the current generated
+  - Offline update round trip: 1 passed in 15.59s after the current generated
     gate warmed the pinned tool caches.
 
 ## Generated repository gate
