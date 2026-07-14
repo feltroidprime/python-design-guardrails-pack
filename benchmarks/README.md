@@ -113,6 +113,8 @@ the smoke app with one seed before a new configuration.
 The campaign's `[template].vcs_ref` is forced into every cell. Use a release
 tag for publication campaigns; use `HEAD` only for working-tree experiments,
 whose resolved `git describe` identity will carry `-dirty` when appropriate.
+Planning captures that resolved revision plus a source digest once; it becomes
+part of every cell ID, and execution stops if the template changes mid-campaign.
 Named variants are Copier answer sets; unknown names fail during matrix load,
 before any cell starts.
 

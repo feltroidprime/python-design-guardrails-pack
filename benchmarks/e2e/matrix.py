@@ -8,7 +8,9 @@ from contextlib import ExitStack
 from dataclasses import dataclass, replace
 import hashlib
 import json
+import os
 from pathlib import Path
+import subprocess
 import threading
 import tomllib
 from typing import TYPE_CHECKING
@@ -54,6 +56,7 @@ class MatrixConfig:
     variant_answers: dict[str, dict[str, object]]
     repetitions: int
     template_vcs_ref: str
+    template_identity: dict[str, object]
     judge_panel: tuple[RoleSettings, ...]
     concurrency_caps: dict[str, int]
 
@@ -137,6 +140,61 @@ def model_family(role: RoleSettings) -> str:
     if "gpt" in model or "openai" in model or "codex" in model:
         return "gpt"
     return model.split("/", 1)[0]
+
+
+def _git_output(repo_root: Path, *arguments: str) -> str:
+    environment = {
+        key: value for key, value in os.environ.items() if not key.startswith("GIT_")
+    }
+    completed = subprocess.run(
+        ("git", "-C", str(repo_root), *arguments),
+        capture_output=True,
+        text=True,
+        errors="replace",
+        env=environment,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise ConfigError(
+            f"could not resolve campaign template {arguments!r}: "
+            f"{completed.stderr.strip()}"
+        )
+    return completed.stdout.strip()
+
+
+def _resolve_template_identity(repo_root: Path, vcs_ref: str) -> dict[str, object]:
+    """Resolve once so planning, execution, and resume share one identity."""
+    revision = _git_output(repo_root, "rev-parse", f"{vcs_ref}^{{commit}}")
+    version = vcs_ref
+    source_digest: str | None = None
+    if vcs_ref == "HEAD":
+        version = _git_output(repo_root, "describe", "--tags", "--always", "--dirty")
+        listed = _git_output(
+            repo_root,
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--",
+            "copier.yml",
+            "template",
+        )
+        digest = hashlib.sha256()
+        for relative in sorted(item for item in listed.split("\0") if item):
+            source = repo_root / relative
+            if source.is_file():
+                digest.update(relative.encode())
+                digest.update(b"\0")
+                digest.update(source.read_bytes())
+                digest.update(b"\0")
+        source_digest = digest.hexdigest()
+    return {
+        "version": version,
+        "vcs_ref": vcs_ref,
+        "revision": revision,
+        "source_digest": source_digest,
+    }
 
 
 def _paths(values: object, *, where: str, base: Path) -> tuple[Path, ...]:
@@ -248,6 +306,7 @@ def load_matrix_config(path: Path, *, repo_root: Path) -> MatrixConfig:
     raw_template = _table(raw, "template", where=where)
     _reject_unknown(raw_template, {"vcs_ref"}, where=f"{where}: [template]")
     vcs_ref = _text(raw_template, "vcs_ref", where=f"{where}: [template]")
+    template_identity = _resolve_template_identity(repo_root, vcs_ref)
 
     raw_builders = raw.get("builders")
     if not isinstance(raw_builders, list) or not raw_builders:
@@ -298,6 +357,7 @@ def load_matrix_config(path: Path, *, repo_root: Path) -> MatrixConfig:
         variant_answers=variant_answers,
         repetitions=repetitions,
         template_vcs_ref=vcs_ref,
+        template_identity=template_identity,
         judge_panel=panel,
         concurrency_caps=caps,
     )
@@ -317,11 +377,13 @@ def _cell_dimensions(
             "provider": cfg.builder.provider,
             "model": cfg.builder.model,
             "effort": cfg.builder.effort,
+            "binary": cfg.builder.binary,
         },
         "seed": cfg.run.seed,
         "variant": cfg.template.variant,
         "repetition": repetition,
         "template_vcs_ref": cfg.template.vcs_ref,
+        "template_identity": dict(matrix.template_identity),
         "template_answers": dict(cfg.template.answers),
         "judges": [member.identity for member in cfg.judge.panel],
         "prompt_sha256": hashlib.sha256(prompt).hexdigest(),
@@ -346,6 +408,11 @@ def plan_matrix(matrix: MatrixConfig) -> tuple[MatrixCell, ...]:
                             model=builder.model,
                             effort=builder.effort,
                         )
+                        if builder.binary is not None:
+                            cfg = replace(
+                                cfg,
+                                builder=replace(cfg.builder, binary=builder.binary),
+                            )
                         cfg = replace(
                             cfg,
                             run=replace(
@@ -455,6 +522,14 @@ def run_matrix(
     def execute(cell: MatrixCell) -> BenchmarkRun:
         from benchmarks.e2e.orchestrator import run_benchmark
 
+        current_identity = _resolve_template_identity(
+            repo_root, matrix.template_vcs_ref
+        )
+        if current_identity != matrix.template_identity:
+            raise ConfigError(
+                "campaign template identity changed after planning; "
+                "re-run the matrix so every cell uses one pinned identity"
+            )
         return run_benchmark(
             cell.config,
             repo_root=repo_root,
