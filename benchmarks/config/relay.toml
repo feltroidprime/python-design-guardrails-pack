@@ -573,3 +573,65 @@ name = "regression-illegal-transition-still-exits-four"
 argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-05-01T12:02:00Z", "done", "--id", "{normal_id}"]
 expect_exit = 4
 stderr_regex = '\S'
+
+[[scenario.maintenance.probes]]
+name = "regression-legacy-enqueue-keeps-original-event-shape"
+argv = ["uv", "run", "relay", "--log", "{db}.legacy", "--now", "2026-05-02T09:00:00Z", "enqueue", "--title", "legacy default", "--deadline", "2026-05-02T10:00:00Z"]
+expect_exit = 0
+stdout_regex = '\Aid=1\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "regression-legacy-event-data-has-three-keys"
+argv = ["uv", "run", "python", "-c", "import json,pathlib,sys; event=json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')); data=event['data']; raise SystemExit(0 if list(data)==['title','note','deadline'] and list(data.values())==['legacy default','','2026-05-02T10:00:00Z'] else 1)", "{db}.legacy"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "regression-legacy-list-format-is-unchanged"
+argv = ["uv", "run", "relay", "--log", "{db}.legacy", "--now", "2026-05-02T09:30:00Z", "list"]
+expect_exit = 0
+stdout_regex = '\A1\tqueued\t2026-05-02T10:00:00Z\t"legacy default"\t""\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "regression-legacy-stats-format-is-unchanged"
+argv = ["uv", "run", "relay", "--log", "{db}.legacy", "--now", "2026-05-02T09:30:00Z", "stats"]
+expect_exit = 0
+stdout_regex = '\Aqueued=1 running=0 done=0 failed=0 overdue=0\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "regression-legacy-json-export-schema-is-unchanged"
+argv = ["uv", "run", "relay", "--log", "{db}.legacy", "--now", "2026-05-02T09:30:00Z", "export", "--format", "json", "--output", "{db}.legacy.json"]
+expect_exit = 0
+stdout_regex = '\Aexported=1\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "regression-legacy-json-fields-remain-exact"
+argv = ["uv", "run", "python", "-c", "import json,pathlib,sys; payload=json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')); raise SystemExit(0 if list(payload['jobs'][0])==['id','title','note','deadline','state','created_at','updated_at'] else 1)", "{db}.legacy.json"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "default-priority-becomes-normal-in-extended-view"
+argv = ["uv", "run", "relay", "--log", "{db}.legacy", "--now", "2026-05-02T09:31:00Z", "enqueue", "--title", "new high", "--priority", "high"]
+expect_exit = 0
+stdout_regex = '\Aid=2\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "mixed-log-orders-high-before-default-normal"
+argv = ["uv", "run", "relay", "--log", "{db}.legacy", "--now", "2026-05-02T09:32:00Z", "list", "--all"]
+expect_exit = 0
+stdout_regex = '(?s)\A2\tqueued\thigh\t-\t-\t"new high"\t""\n1\tqueued\tnormal\t-\t2026-05-02T10:00:00Z\t"legacy default"\t""\n?\Z'
+
+[[scenario.maintenance.probes]]
+name = "snapshot-before-invalid-priority"
+argv = ["uv", "run", "python", "-c", "import pathlib,shutil,sys; shutil.copyfile(sys.argv[1],sys.argv[2])", "{db}.legacy", "{db}.legacy.before-invalid"]
+expect_exit = 0
+
+[[scenario.maintenance.probes]]
+name = "invalid-priority-is-rejected"
+argv = ["uv", "run", "relay", "--log", "{db}.legacy", "--now", "2026-05-02T09:33:00Z", "enqueue", "--title", "bad priority", "--priority", "urgent"]
+expect_exit = 2
+stderr_regex = '\S'
+
+[[scenario.maintenance.probes]]
+name = "invalid-priority-appends-nothing"
+argv = ["uv", "run", "python", "-c", "import pathlib,sys; raise SystemExit(0 if pathlib.Path(sys.argv[1]).read_bytes()==pathlib.Path(sys.argv[2]).read_bytes() else 1)", "{db}.legacy.before-invalid", "{db}.legacy"]
+expect_exit = 0
