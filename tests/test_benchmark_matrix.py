@@ -482,6 +482,95 @@ model = "claude-test"
     assert second.cell_id != first.cell_id
 
 
+def test_template_file_mode_is_part_of_the_resume_identity(tmp_path: Path) -> None:
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    (pack / "copier.yml").write_text("_subdirectory: template\n", encoding="utf-8")
+    (pack / "template").mkdir()
+    _copy_variant_answers(pack)
+    script = pack / "template" / "tool.sh"
+    script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    script.chmod(0o644)
+    subprocess.run(
+        ("git", "init", "--quiet", "--initial-branch=main"),
+        cwd=pack,
+        env=git_environment(),
+        check=True,
+    )
+    subprocess.run(
+        ("git", "add", "--all"), cwd=pack, env=git_environment(), check=True
+    )
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=tests",
+            "-c",
+            "user.email=tests@localhost",
+            "commit",
+            "--quiet",
+            "--message=initial",
+        ),
+        cwd=pack,
+        env=git_environment(),
+        check=True,
+    )
+    app = _single_config(tmp_path, "mode-app", "MODE-SPEC-MARKER")
+    matrix_path = _matrix_config(tmp_path, [app], seeds="[11]")
+    first = load_matrix_config(matrix_path, repo_root=pack)
+    script.chmod(0o755)
+    second = load_matrix_config(matrix_path, repo_root=pack)
+
+    assert (
+        second.template_identity["source_digest"]
+        != first.template_identity["source_digest"]
+    )
+    assert plan_matrix(second)[0].cell_id != plan_matrix(first)[0].cell_id
+
+
+def test_runner_checkout_is_part_of_the_resume_identity(tmp_path: Path) -> None:
+    headless = tmp_path / "unused-headless"
+    headless.mkdir()
+    (headless / "pyproject.toml").write_text(
+        "[project]\nname = 'fake-headless'\nversion = '0'\n",
+        encoding="utf-8",
+    )
+    implementation = headless / "runner.py"
+    implementation.write_text("VERSION = 1\n", encoding="utf-8")
+    subprocess.run(
+        ("git", "init", "--quiet", "--initial-branch=main"),
+        cwd=headless,
+        env=git_environment(),
+        check=True,
+    )
+    subprocess.run(
+        ("git", "add", "--all"), cwd=headless, env=git_environment(), check=True
+    )
+    subprocess.run(
+        (
+            "git",
+            "-c",
+            "user.name=tests",
+            "-c",
+            "user.email=tests@localhost",
+            "commit",
+            "--quiet",
+            "--message=initial",
+        ),
+        cwd=headless,
+        env=git_environment(),
+        check=True,
+    )
+    app = _single_config(tmp_path, "runner-app", "RUNNER-SPEC-MARKER")
+    matrix_path = _matrix_config(tmp_path, [app], seeds="[11]")
+    first = load_matrix_config(matrix_path, repo_root=REPO_ROOT)
+    implementation.write_text("VERSION = 2\n", encoding="utf-8")
+    second = load_matrix_config(matrix_path, repo_root=REPO_ROOT)
+
+    assert second.runner_identity != first.runner_identity
+    assert plan_matrix(second)[0].cell_id != plan_matrix(first)[0].cell_id
+
+
 def test_template_symlinks_are_rejected_before_campaign_execution(
     tmp_path: Path,
 ) -> None:
@@ -890,7 +979,8 @@ def test_matrix_variant_replaces_app_named_variant_answers(tmp_path: Path) -> No
     app = _single_config(tmp_path, "variant-app", "VARIANT-SPEC-MARKER")
     app.write_text(
         app.read_text(encoding="utf-8").replace(
-            'variant = "baseline"', 'variant = "no-precommit"'
+            'variant = "baseline"',
+            'variant = "no-precommit"\n\n[template.answers]\nprecommit = false',
         ),
         encoding="utf-8",
     )

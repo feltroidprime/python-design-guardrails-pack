@@ -549,7 +549,9 @@ def _template(
         vcs_ref=_string(section, "vcs_ref", where=where, default="HEAD"),
         variant=variant,
         answers=resolved_answers,
-        explicit_answers=dict(answers),
+        explicit_answers={
+            key: value for key, value in answers.items() if key not in feature_toggles
+        },
     )
 
 

@@ -136,8 +136,9 @@ to the normal registry. Re-running the same matrix reads those rows and skips
 a cell only when every expected arm/phase row is present; partial maintenance
 or build evidence runs again. Cell IDs include a digest of the complete
 outcome-affecting configuration (prompts, probes, tools, builder, and fixed
-judge panel/settings), so changing any of it creates a new campaign cell
-rather than silently resuming incompatible evidence.
+judge panel/settings) plus the configured runner checkout's source identity,
+so changing any of it creates a new campaign cell rather than silently
+resuming incompatible evidence.
 
 ## Configure it
 

@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import tarfile
 import tempfile
@@ -63,6 +64,7 @@ class MatrixConfig:
     repetitions: int
     template_vcs_ref: str
     template_identity: dict[str, object]
+    runner_identity: dict[str, object]
     judge_panel: tuple[RoleSettings, ...]
     concurrency_caps: dict[str, int]
 
@@ -206,6 +208,8 @@ def _template_source_digest(repo_root: Path, paths: tuple[str, ...]) -> str:
         if source.is_file():
             digest.update(relative.encode())
             digest.update(b"\0")
+            digest.update(f"{stat.S_IMODE(source.stat().st_mode):04o}".encode())
+            digest.update(b"\0")
             digest.update(source.read_bytes())
             digest.update(b"\0")
     return digest.hexdigest()
@@ -241,6 +245,83 @@ def _resolve_template_identity(repo_root: Path, vcs_ref: str) -> dict[str, objec
         "source_digest": source_digest,
         "dirty": dirty,
     }
+
+
+def _resolve_runner_identity(path: Path) -> dict[str, object]:
+    """Identify the configured provider runner without requiring it for dry-run."""
+    identity: dict[str, object] = {
+        "path": str(path),
+        "revision": None,
+        "source_digest": None,
+        "dirty": None,
+    }
+    revision = subprocess.run(
+        ("git", "-C", str(path), "rev-parse", "HEAD"),
+        capture_output=True,
+        text=True,
+        errors="replace",
+        env={key: value for key, value in os.environ.items() if not key.startswith("GIT_")},
+        check=False,
+    )
+    if revision.returncode != 0:
+        return identity
+    listed = subprocess.run(
+        (
+            "git",
+            "-C",
+            str(path),
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+        ),
+        capture_output=True,
+        env={key: value for key, value in os.environ.items() if not key.startswith("GIT_")},
+        check=False,
+    )
+    status = subprocess.run(
+        (
+            "git",
+            "-C",
+            str(path),
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ),
+        capture_output=True,
+        env={key: value for key, value in os.environ.items() if not key.startswith("GIT_")},
+        check=False,
+    )
+    if listed.returncode != 0 or status.returncode != 0:
+        raise ConfigError(f"could not identify configured runner checkout: {path}")
+    digest = hashlib.sha256()
+    relative_paths = sorted(
+        item for item in listed.stdout.decode(errors="surrogateescape").split("\0") if item
+    )
+    try:
+        for relative in relative_paths:
+            source = path / relative
+            mode = source.lstat().st_mode
+            digest.update(relative.encode(errors="surrogateescape"))
+            digest.update(b"\0")
+            digest.update(f"{stat.S_IMODE(mode):04o}".encode())
+            digest.update(b"\0")
+            if stat.S_ISLNK(mode):
+                digest.update(os.readlink(source).encode(errors="surrogateescape"))
+            elif source.is_file():
+                digest.update(source.read_bytes())
+            digest.update(b"\0")
+    except OSError as error:
+        raise ConfigError(f"could not identify configured runner checkout: {error}") from error
+    identity.update(
+        {
+            "revision": revision.stdout.strip(),
+            "source_digest": digest.hexdigest(),
+            "dirty": bool(status.stdout),
+        }
+    )
+    return identity
 
 
 def _create_template_snapshot(
@@ -521,6 +602,7 @@ def load_matrix_config(path: Path, *, repo_root: Path) -> MatrixConfig:
         repetitions=repetitions,
         template_vcs_ref=vcs_ref,
         template_identity=template_identity,
+        runner_identity=_resolve_runner_identity(run.headless_llm_path),
         judge_panel=panel,
         concurrency_caps=caps,
     )
@@ -578,6 +660,7 @@ def _cell_dimensions(
         "repetition": repetition,
         "template_vcs_ref": cfg.template.vcs_ref,
         "template_identity": dict(matrix.template_identity),
+        "runner_identity": dict(matrix.runner_identity),
         "template_answers": dict(cfg.template.answers),
         "judges": [
             {
@@ -727,6 +810,12 @@ def run_matrix(
         log(f"[{index}/{len(cells)}] {cell.description}")
     if dry_run:
         return MatrixResult(planned=cells, completed=(), skipped=(), runs=())
+
+    current_runner_identity = _resolve_runner_identity(matrix.run.headless_llm_path)
+    if current_runner_identity != matrix.runner_identity:
+        raise ConfigError(
+            "configured runner identity changed after planning; re-run the matrix"
+        )
 
     complete_ids = _completed_cell_ids(
         matrix.run.output_root / REGISTRY_FILENAME, cells
