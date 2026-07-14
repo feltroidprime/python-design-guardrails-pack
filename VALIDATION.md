@@ -33,16 +33,19 @@ declared per-provider concurrency caps and resume skips registry-complete cells.
 
 - Focused maintenance regression command: 3 passed in 2.40s after first
   demonstrating that the mixed-schema Relay import was incorrectly accepted.
-- `just test`: passed; 175 passed in 62.79s before the review-follow-up commit.
+- Focused benchmark configuration, matrix, and pipeline suites: 103 passed with
+  one expected `DirtyLocalWarning` in 25.61s.
+- `just test`: passed; 205 passed with one expected `DirtyLocalWarning` in
+  63.23s.
 - `just validate`: passed.
-  - Root suite: 197 passed in 58.63s. The single `DirtyLocalWarning` is expected
+  - Root suite: 205 passed in 61.36s. The single `DirtyLocalWarning` is expected
     from the test that deliberately creates a dirty temporary template repo.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
     `.jinja` suffix survived.
   - Generated dependency resolution: 32 packages resolved; 31 installed.
   - Generated quality gate: all steps passed.
-  - Offline update round trip: 1 passed in 14.81s after the current generated
+  - Offline update round trip: 1 passed in 13.76s after the current generated
     gate warmed the pinned tool caches.
 
 ## Generated repository gate
