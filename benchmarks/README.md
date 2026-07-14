@@ -116,9 +116,42 @@ regardless of later working-tree edits. Effective answers start with
 resolved version and complete answers from Copier's answers file are copied to
 `manifest.json`, `results.json`, and `report.md`.
 
-Only the `baseline` variant exists until the feature-toggle questions and
-named answer sets land. Any other name fails during config loading with a
-clear error instead of silently benchmarking the wrong template.
+### Template ablation variants
+
+`variant` selects a named Copier answer set from
+`config/variants/answers.toml`. Omitting it selects `baseline`. The shipped
+variants each change one policy:
+
+| Variant | Copier answers | Generated effect |
+|---|---|---|
+| `baseline` | default answers | full agent contract and pre-commit/pre-push policy |
+| `no-precommit` | `precommit = false` | hook config, dependency, install/update commands, and hook guidance are absent |
+| `no-agents-md` | `agents_contract = "none"` | `AGENTS.md` is absent |
+| `checks-via-commit` | `agents_contract = "hooks-first"` | `AGENTS.md` uses only justfile commands for verification and says to commit so the hooks run the gate |
+
+Variant answers are merged with `[template.answers]`. A run may add unrelated
+answers, but it cannot override an answer owned by its named variant; a
+conflict fails config loading. Unknown names also fail before workspace
+creation and list every known variant.
+
+To add an ablation:
+
+1. Add a typed question to `copier.yml` whose default preserves the baseline.
+2. Express its output with a conditional path or content block under
+   `template/`.
+3. Add one named answer table to `config/variants/answers.toml`.
+4. Add a generation test that compares the variant with baseline and asserts
+   the exact absent, added, and modified path sets; content-changing variants
+   also assert the exact rendered content.
+
+Fairness is mechanical: Copier and variant answers are used only for the
+guardrails arm, while a deterministic Git-tree test applies every shipped
+variant configuration to the bare arm and proves its workspace unchanged.
+Both registry rows still carry the experiment's variant name, so the bare row
+stays paired with the guardrails row. The guardrails workspace records the
+effective answers in `.copier-answers.yml`; the same dictionary is copied to
+the manifest, results, and registry rows. Thus the workspace provenance and
+reported ablation cannot diverge.
 
 The optional exporter configuration is:
 

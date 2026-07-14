@@ -5,7 +5,7 @@ A reusable Python 3.14 repository template that turns software-design principles
 ## Two ways to be here
 
 - **Using the pack**: run `python-repo init` (or the legacy `instantiate.py` seam) to create a new repository, then work inside that repository under its own `AGENTS.md`, justfile, and quality gate. See "Create a new repository" below.
-- **Maintaining the pack**: this repository is a meta-repository; `template/` is the canonical Copier template, `copier.yml` is its rendering policy, and `instantiate.py` preserves the generator and CLI interfaces. Read the root `AGENTS.md` before changing anything — `template/AGENTS.md` is downstream content, not the contract for working here.
+- **Maintaining the pack**: this repository is a meta-repository; `template/` is the canonical Copier template, `copier.yml` is its rendering policy, and `instantiate.py` preserves the generator and CLI interfaces. Read the root `AGENTS.md` before changing anything — the conditional `AGENTS.md` template under `template/` is downstream content, not the contract for working here.
 
 This pack is inspired by the public curriculum of ArjanCodes' **Software Design Mastery** program, but it is an independent implementation. The course is still presented publicly as a 2026 waitlist; this repository therefore separates:
 
@@ -91,8 +91,9 @@ pack checkout, provision the pinned renderer ephemerally:
 uv run --no-project --with copier==9.17.0 python instantiate.py my-product my_product ../my-product
 ```
 
-Every generated repository records its template reference/version and the
-`project_name` and `package` answers in `.copier-answers.yml`. This provenance
+Every generated repository records its template reference/version and all
+answers, including `project_name`, `package`, and feature toggles, in
+`.copier-answers.yml`. This provenance
 is managed by Copier. The generated README explains how to check for tagged
 releases, run `copier update` with inline conflicts, and verify that no merge
 markers survive before running the full quality gate.
@@ -123,6 +124,11 @@ pinned neutral analyzers (ruff, basedpyright, radon, coverage), build-effort
 statistics, and a blind cross-family LLM judge panel. It is reproducible from
 a single TOML config (prompt, models, probes, pins) and writes a
 self-contained report per run.
+
+The template arm can select a named Copier answer-set variant such as
+`no-precommit`, `no-agents-md`, or `checks-via-commit`. Default answers remain
+the full generated repository byte-for-byte; the bare arm never consumes
+variant settings.
 
 ```bash
 just benchmark                                 # full run (long, costs provider usage)

@@ -26,13 +26,14 @@ product.
 ## Two contracts, do not confuse them
 
 - **This file** tells you how to maintain the pack.
-- **`template/AGENTS.md` is downstream content, not your operating contract.**
+- **The conditional `AGENTS.md` template under `template/` is downstream content,
+  not your operating contract.**
   It is shipped to generated repositories and addresses agents working there.
   Edit it deliberately as product content; never follow its workflow here
   (there is no `uv run python scripts/quality_gate.py` at the root), and never
   let root-only tooling or wording leak into it.
 
-The same applies to every file under `template/`: `template/justfile`,
+The same applies to every file under `template/`: `template/justfile.jinja`,
 `template/pyproject.toml.jinja`, and `template/scripts/` describe the downstream
 repository, not this one.
 
@@ -45,7 +46,7 @@ repository, not this one.
 | Stable generation and CLI behavior | `instantiate.py` |
 | `python-repo` CLI packaging (console script, wheel contents) | `pyproject.toml` (root) |
 | Downstream architecture policy | `template/architecture.toml.jinja` + `template/scripts/architecture_rules.py` |
-| Downstream agent contract | `template/AGENTS.md` |
+| Downstream agent contract | `template/{% if agents_contract != 'none' %}AGENTS.md{% endif %}.jinja` |
 | Downstream quality gate | `template/scripts/quality_gate.py` (mirrored by `template/.github/workflows/quality.yml` and the pre-push hook) |
 | Pack validation loop | `justfile` (root) + `scripts/validate_pack.py` + `tests/test_instantiate.py` |
 | Curriculum-to-guardrail rationale | `DESIGN_MASTERY_MAPPING.md` |
@@ -135,7 +136,7 @@ generator), update the hatchling include/force-include sections in the root
 When behavior changes, update the documents that state it, in the same change:
 
 - root `README.md`: maintainer commands and the instantiation walkthrough;
-- `template/README.md.jinja` and `template/AGENTS.md`: downstream commands, only if
+- `template/README.md.jinja` and the conditional `AGENTS.md` template: downstream commands, only if
   downstream behavior changed;
 - `DESIGN_MASTERY_MAPPING.md`: when a guardrail is added, removed, or
   materially changed;

@@ -5,34 +5,32 @@ uv 0.11.28, just 1.56.0, and bun 1.3.9.
 
 ## Change validated
 
-Completed benchmark runs now append one publication-oriented JSONL registry
-row per arm, preserving the manifest's resolved Copier identity and the full
-primary judge endpoint alongside quality, analyzer, coverage, cost, token,
-tool-call, turn, and revision metrics. `just bench-report` renders the registry
-as a standalone offline HTML comparison with grouped tables, identity filters,
-quality/time/cost charts, separate token classes, and action-effort charts.
-Missing or empty registries exit cleanly with a next-step message.
+Copier now exposes `precommit` and `agents_contract` feature-toggle questions
+whose defaults reproduce the previous generated repository byte-for-byte.
+The benchmark declares `no-precommit`, `no-agents-md`, and
+`checks-via-commit` as named TOML answer sets. Deterministic generation tests
+fix each variant's exact absent and modified paths, including the complete
+hooks-first `AGENTS.md` content delta.
 
-Template releases now use changelog-backed PEP 440 git tags. The first release,
-`v0.1.0`, is an annotated tag on the committed Copier baseline. Generated
-repositories document update checks and inline-conflict handling, and the
-template configuration wires an empty migration list. A local, real-git test
-generates from `v0.1.0`, observes `copier check-update --quiet` exit 2, updates
-to the current ref with unchanged answers, observes exit 0, and proves the
-updated repository's full gate offline.
+The fake-agent pipeline proves every variant configuration leaves the bare
+workspace's Git tree unchanged. A completed hooks-first run records the same
+variant and effective Copier answers in its workspace, manifest, results, and
+both append-only registry rows. Config loading rejects unknown variants with
+the complete known-name list and rejects attempts to override a named
+variant's defining answer.
 
 ## Commands and results
 
-- `just release v0.1.0`: passed; created the annotated template release tag.
 - `just validate`: passed.
-  - Root suite: 154 passed in 45.09s. The single `DirtyLocalWarning` is expected
-    from the test that deliberately creates a dirty temporary template repo.
+  - Root suite: 178 passed in 74.68s. The 22 `DirtyLocalWarning` instances are
+    expected because generation tests intentionally exercise the dirty current
+    worktree.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
     `.jinja` suffix survived.
   - Generated dependency resolution: 32 packages resolved; 31 installed.
   - Generated quality gate: all steps passed.
-  - Offline update round trip: 1 passed in 15.59s after the current generated
+  - Offline update round trip: 1 passed in 19.63s after the current generated
     gate warmed the pinned tool caches.
 
 ## Generated repository gate
