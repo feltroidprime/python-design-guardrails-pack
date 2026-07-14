@@ -7,6 +7,7 @@ timed separately, so setup cost is reported instead of hidden.
 """
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -20,6 +21,39 @@ _GIT_IDENTITY = (
     "-c",
     "user.email=guardrails-benchmark@localhost",
 )
+_LOCAL_GIT_ENVIRONMENT = {
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_CONFIG",
+    "GIT_CONFIG_COUNT",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_DIR",
+    "GIT_GRAFT_FILE",
+    "GIT_IMPLICIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_INTERNAL_SUPER_PREFIX",
+    "GIT_NO_REPLACE_OBJECTS",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_PREFIX",
+    "GIT_REPLACE_REF_BASE",
+    "GIT_SHALLOW_FILE",
+    "GIT_WORK_TREE",
+}
+
+
+def _is_local_git_environment(key: str) -> bool:
+    return key in _LOCAL_GIT_ENVIRONMENT or key.startswith(
+        ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
+    )
+
+
+def git_environment() -> dict[str, str]:
+    """Return an environment in which Git discovers the requested workspace."""
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if not _is_local_git_environment(key)
+    }
 
 
 class WorkspaceError(RuntimeError):
@@ -37,7 +71,13 @@ class Workspace:
 def _git(arguments: tuple[str, ...], cwd: Path) -> str:
     command = ("git", *_GIT_IDENTITY, *arguments)
     completed = subprocess.run(
-        command, cwd=cwd, capture_output=True, text=True, errors="replace", check=False
+        command,
+        cwd=cwd,
+        env=git_environment(),
+        capture_output=True,
+        text=True,
+        errors="replace",
+        check=False,
     )
     if completed.returncode != 0:
         raise WorkspaceError(
@@ -85,7 +125,7 @@ def prepare_workspace(arm: str, cfg: BenchmarkConfig, arms_dir: Path, *, repo_ro
 def _git_lines(arguments: tuple[str, ...], cwd: Path) -> list[str] | None:
     completed = subprocess.run(
         ("git", *arguments), cwd=cwd, capture_output=True, text=True, errors="replace",
-        check=False,
+        env=git_environment(), check=False,
     )
     if completed.returncode != 0:
         return None

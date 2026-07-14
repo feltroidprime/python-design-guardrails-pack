@@ -21,9 +21,9 @@ TEMPLATE = Path(__file__).resolve().parents[1] / "template"
 @pytest.fixture
 def policy(tmp_path: Path) -> Policy:
     """The template's real policy, instantiated for a package named `pkg`."""
-    manifest = (TEMPLATE / "architecture.toml").read_text(encoding="utf-8")
+    manifest = (TEMPLATE / "architecture.toml.jinja").read_text(encoding="utf-8")
     (tmp_path / "architecture.toml").write_text(
-        manifest.replace("__PACKAGE__", "pkg"), encoding="utf-8"
+        manifest.replace("{{ package }}", "pkg"), encoding="utf-8"
     )
     return load_policy(tmp_path)
 

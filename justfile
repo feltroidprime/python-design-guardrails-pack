@@ -13,15 +13,16 @@ default:
     @just --list
 
 # Unit tests for the generator (instantiate.py). Fast; no downstream install, no Bun.
-# grimp powers the diagram-sync subprocess tests; keep the pin equal to the
-# template's dev-group pin (template/pyproject.toml).
+# Copier powers generation and grimp powers the diagram-sync subprocess tests.
+# Keep Copier coherent with pyproject.toml and copier.yml; keep grimp coherent
+# with template/pyproject.toml.jinja.
 test:
-    uv run --no-project --python 3.14 --with pytest==9.1.1 --with grimp==3.15 pytest -q tests
+    uv run --no-project --python 3.14 --with pytest==9.1.1 --with copier==9.17.0 --with grimp==3.15 pytest -q tests
 
 # Canonical pack validation: generator tests, then a fresh instantiation in a
 # temporary directory that must pass the generated repository's full quality gate.
 validate: test
-    python3 scripts/validate_pack.py
+    uv run --no-project --python 3.14 --with copier==9.17.0 python scripts/validate_pack.py
 
 # Install the `python-repo` CLI system-wide with uv (editable: template edits
 # and `git pull` take effect without reinstalling).

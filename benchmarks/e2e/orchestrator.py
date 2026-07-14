@@ -36,7 +36,12 @@ from benchmarks.e2e.judging import (
 from benchmarks.e2e.metrics import collect_metrics, run_native_gate
 from benchmarks.e2e.probes import pass_rate, run_probes
 from benchmarks.e2e.reporting import render_report
-from benchmarks.e2e.workspaces import Workspace, changed_since_start, prepare_workspace
+from benchmarks.e2e.workspaces import (
+    Workspace,
+    changed_since_start,
+    git_environment,
+    prepare_workspace,
+)
 
 MetricsCollector = Callable[[Path, Path], dict[str, object]]
 GateRunner = Callable[[Path, Path], dict[str, object]]
@@ -60,6 +65,7 @@ def _git_revision(path: Path) -> str | None:
             ("git", "-C", str(path), "rev-parse", "--short", "HEAD"),
             capture_output=True,
             text=True,
+            env=git_environment(),
             check=False,
         )
     except OSError:
@@ -78,6 +84,7 @@ def _git_dirty(path: Path) -> bool | None:
             ("git", "-C", str(path), "status", "--porcelain"),
             capture_output=True,
             text=True,
+            env=git_environment(),
             check=False,
         )
     except OSError:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Instantiate the repository template using only the standard library.
+"""Instantiate the repository template through Copier.
 
 Two entry points share the same generator core:
 
@@ -8,51 +8,49 @@ Two entry points share the same generator core:
 """
 
 import argparse
+from collections.abc import Iterator
+from contextlib import contextmanager
+from importlib.metadata import PackageNotFoundError, version as distribution_version
+import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
+import threading
+
+from copier import run_copy
+from copier.errors import CopierError
+from plumbum import local
 
 PACKAGE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
-PROJECT_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
-
-PROJECT_TOKEN = "__PROJECT_NAME__"
-PACKAGE_TOKEN = "__PACKAGE__"
-PLACEHOLDER_TOKENS = (PROJECT_TOKEN, PACKAGE_TOKEN)
-
-# Local artifacts that must never reach a generated repository, even if a
-# maintainer accidentally leaves them inside template/.
-IGNORED_ARTIFACT_PATTERNS = (
-    ".DS_Store",
-    ".basedpyright",
-    ".codebase-memory",
-    ".coverage",
-    ".idea",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".venv",
-    "*.egg-info",
-    "*.py[cod]",
-    "__pycache__",
-    "coverage.xml",
-    "dist",
-    "htmlcov",
-    "uv.lock",
+DISTRIBUTION_NAME = "python-design-guardrails-pack"
+GIT_CONTEXT_LOCK = threading.RLock()
+LOCAL_GIT_ENVIRONMENT = (
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_CONFIG",
+    "GIT_CONFIG_COUNT",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_DIR",
+    "GIT_GRAFT_FILE",
+    "GIT_IMPLICIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_INTERNAL_SUPER_PREFIX",
+    "GIT_NO_REPLACE_OBJECTS",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_PREFIX",
+    "GIT_REPLACE_REF_BASE",
+    "GIT_SHALLOW_FILE",
+    "GIT_WORK_TREE",
 )
 
 
-def replace_tokens(path: Path, replacements: dict[str, str]) -> None:
-    if not path.is_file():
-        return
-    try:
-        content = path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        return
-    for token, value in replacements.items():
-        content = content.replace(token, value)
-    path.write_text(content, encoding="utf-8")
+def is_local_git_environment(key: str) -> bool:
+    """Return whether *key* can bind Git commands to a caller's repository."""
+    return key in LOCAL_GIT_ENVIRONMENT or key.startswith(
+        ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
+    )
 
 
 def derive_package_name(project_name: str) -> str:
@@ -60,39 +58,69 @@ def derive_package_name(project_name: str) -> str:
     return project_name.replace("-", "_").replace(".", "_")
 
 
-def validate_names(project_name: str, package_name: str) -> str | None:
-    """Return an error message, or None when both names are acceptable."""
-    if PROJECT_PATTERN.fullmatch(project_name) is None:
-        return "Project name must contain only lowercase letters, digits, '.', '_' or '-'."
-    if PACKAGE_PATTERN.fullmatch(package_name) is None:
-        return "Package name must be a valid lowercase Python identifier."
-    return None
+def packaged_template_version() -> str | None:
+    """Return the release tag represented by an installed wheel, when available."""
+    try:
+        return f"v{distribution_version(DISTRIBUTION_NAME)}"
+    except PackageNotFoundError:
+        return None
+
+
+def environment_without_local_git_context() -> dict[str, str]:
+    """Copy the process environment without a calling repository's Git context."""
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if not is_local_git_environment(key)
+    }
+
+
+@contextmanager
+def without_local_git_context() -> Iterator[None]:
+    """Prevent Copier's temporary git operations from mutating a caller's index."""
+    with GIT_CONTEXT_LOCK:
+        inherited = {
+            key: os.environ.pop(key)
+            for key in tuple(os.environ)
+            if is_local_git_environment(key)
+        }
+        try:
+            with local.env():
+                for key in tuple(local.env.keys()):
+                    if is_local_git_environment(key):
+                        local.env.pop(key)
+                yield
+        finally:
+            os.environ.update(inherited)
 
 
 def generate(project_name: str, package_name: str, output: Path) -> str | None:
-    """Copy the template into *output*. Return an error message, or None on success."""
-    source = Path(__file__).resolve().parent / "template"
+    """Render the template into *output*. Return an error message, or None on success."""
+    source = Path(__file__).resolve().parent
     if output.exists() and any(output.iterdir()):
         return f"Refusing to overwrite non-empty directory: {output}"
-
-    output.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(
-        source,
-        output,
-        dirs_exist_ok=True,
-        ignore=shutil.ignore_patterns(*IGNORED_ARTIFACT_PATTERNS),
-    )
-
-    package_placeholder = output / "src" / PACKAGE_TOKEN
-    package_destination = output / "src" / package_name
-    package_placeholder.rename(package_destination)
-
-    replacements = {
-        PROJECT_TOKEN: project_name,
-        PACKAGE_TOKEN: package_name,
-    }
-    for path in output.rglob("*"):
-        replace_tokens(path, replacements)
+    try:
+        with without_local_git_context():
+            run_copy(
+                str(source),
+                output,
+                data={
+                    "project_name": project_name,
+                    "package": package_name,
+                    "_packaged_template_version": packaged_template_version(),
+                },
+                vcs_ref="HEAD",
+                defaults=True,
+                quiet=True,
+                skip_tasks=True,
+            )
+    except (CopierError, ValueError) as error:
+        message = str(error)
+        for question in ("project_name", "package"):
+            prefix = f"Validation error for question '{question}': "
+            if message.startswith(prefix):
+                return message.removeprefix(prefix)
+        return message
     return None
 
 
@@ -101,7 +129,12 @@ GIT_COMMIT_MESSAGE = "Initial commit from python-design-guardrails-pack"
 
 def run_command(command: list[str], cwd: Path) -> str | None:
     """Run a command in *cwd*; return an error message on failure, None on success."""
-    completed = subprocess.run(command, cwd=cwd, check=False)
+    completed = subprocess.run(
+        command,
+        cwd=cwd,
+        env=environment_without_local_git_context(),
+        check=False,
+    )
     if completed.returncode != 0:
         return f"'{' '.join(command)}' exited with {completed.returncode}."
     return None
@@ -115,6 +148,7 @@ def initialize_git_repository(output: Path) -> str | None:
     email = subprocess.run(
         ["git", "config", "--get", "user.email"],
         cwd=output,
+        env=environment_without_local_git_context(),
         capture_output=True,
         check=False,
     )
@@ -162,9 +196,7 @@ def print_next_steps(project_name: str, output: Path) -> None:
 
 
 def run_init(project_name: str, package_name: str, output: Path) -> int:
-    error = validate_names(project_name, package_name) or generate(
-        project_name, package_name, output
-    )
+    error = generate(project_name, package_name, output)
     if error is not None:
         print(error)
         return 2
@@ -239,9 +271,7 @@ def cli(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    error = validate_names(args.name, package_name) or generate(
-        args.name, package_name, output
-    )
+    error = generate(args.name, package_name, output)
     if error is not None:
         print(error)
         return 2

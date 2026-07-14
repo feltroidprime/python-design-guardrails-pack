@@ -10,6 +10,7 @@ shipped one: one markdown walk, all rule families.
 from pathlib import Path
 
 # Import paths are provided by tests/conftest.py.
+from instantiate import generate
 from scripts.architecture_policy import load_policy
 from scripts.docs_guard import check_documentation
 
@@ -25,9 +26,9 @@ MINIMAL_MAP = (
 
 def make_repo(tmp_path: Path) -> Path:
     """A minimal repository the guard accepts: manifest, map, ADR template."""
-    manifest = (TEMPLATE / "architecture.toml").read_text(encoding="utf-8")
+    manifest = (TEMPLATE / "architecture.toml.jinja").read_text(encoding="utf-8")
     (tmp_path / "architecture.toml").write_text(
-        manifest.replace("__PACKAGE__", "pkg"), encoding="utf-8"
+        manifest.replace("{{ package }}", "pkg"), encoding="utf-8"
     )
     adr_dir = tmp_path / "docs" / "adr"
     adr_dir.mkdir(parents=True)
@@ -172,6 +173,10 @@ def test_doc007_fires_when_the_map_is_missing(tmp_path: Path) -> None:
     assert run_guard(root) == ["DOC007"]
 
 
-def test_template_documentation_passes_the_guard() -> None:
+def test_template_documentation_passes_the_guard(tmp_path: Path) -> None:
     """The shipped template must satisfy its own documentation contract."""
-    assert [item.render(TEMPLATE) for item in check_documentation(load_policy(TEMPLATE))] == []
+    generated = tmp_path / "generated"
+    assert generate("docs-check", "docs_check", generated) is None
+    assert [
+        item.render(generated) for item in check_documentation(load_policy(generated))
+    ] == []

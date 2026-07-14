@@ -1,0 +1,38 @@
+_min_copier_version: "9.17.0"
+_subdirectory: template
+_envops:
+  undefined: jinja2.StrictUndefined
+_exclude:
+  - .DS_Store
+  - .basedpyright
+  - .codebase-memory
+  - .coverage
+  - .idea
+  - .mypy_cache
+  - .pytest_cache
+  - .ruff_cache
+  - .venv
+  - "*.egg-info"
+  - "*.py[cod]"
+  - __pycache__
+  - coverage.xml
+  - dist
+  - htmlcov
+  - uv.lock
+
+project_name:
+  type: str
+  help: Project (distribution) name, for example my-product
+  validator: >-
+    {% if (project_name | regex_search('^[a-z0-9][a-z0-9._-]*$')) != project_name %}
+    Project name must contain only lowercase letters, digits, '.', '_' or '-'.
+    {% endif %}
+
+package:
+  type: str
+  help: Import package name
+  default: "{{ project_name | replace('-', '_') | replace('.', '_') }}"
+  validator: >-
+    {% if (package | regex_search('^[a-z][a-z0-9_]*$')) != package %}
+    Package name must be a valid lowercase Python identifier.
+    {% endif %}

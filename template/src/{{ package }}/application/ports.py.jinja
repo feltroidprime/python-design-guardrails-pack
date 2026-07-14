@@ -1,0 +1,43 @@
+"""Capabilities required by application use cases.
+
+Two port shapes, chosen by surface area: a single-operation capability is a
+callable ``type`` alias; a multi-operation boundary is a ``Protocol``.
+"""
+
+from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from {{ package }}.domain.entities import Item
+    from {{ package }}.domain.events import DomainEvent
+    from {{ package }}.domain.value_objects import ItemId
+
+
+class ItemRepository(Protocol):
+    """Persistence boundary for the Item aggregate."""
+
+    def get(self, item_id: ItemId) -> Item | None:
+        """Return an item when it exists."""
+        ...
+
+    def save(self, item: Item) -> None:
+        """Persist the current aggregate state."""
+        ...
+
+    def list_all(self) -> Iterable[Item]:
+        """Stream every stored item."""
+        ...
+
+
+class EventPublisher(Protocol):
+    """Delivery boundary for already-happened domain facts."""
+
+    def publish(self, event: DomainEvent) -> None:
+        """Hand one event to every independent consumer."""
+        ...
+
+
+type Clock = Callable[[], datetime]
+type ItemIdFactory = Callable[[], ItemId]

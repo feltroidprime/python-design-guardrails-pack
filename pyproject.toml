@@ -1,7 +1,7 @@
 # Packaging metadata for the *generator only*: it exposes the `python-repo`
-# console script (uv tool install) and ships instantiate.py plus template/
-# verbatim. The root still has no virtualenv, no lock file, and no runtime
-# dependencies — the generator stays standard-library-only.
+# console script (uv tool install) and ships instantiate.py, copier.yml, and
+# template/. The root still has no virtualenv or lock file; pinned Copier is its
+# sole runtime dependency.
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -11,26 +11,26 @@ name = "python-design-guardrails-pack"
 version = "0.1.0"
 description = "Generator CLI for the Python design-guardrails repository template"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = ["copier==9.17.0"]
 
 [project.scripts]
 python-repo = "instantiate:cli"
 
 [tool.hatch.build.targets.wheel]
-include = ["instantiate.py"]
+include = ["instantiate.py", "copier.yml"]
 
-# The template must sit next to instantiate.py in site-packages so that
-# Path(__file__).parent / "template" resolves in both editable and wheel
-# installs. force-include bypasses ignore rules, so template/ ships verbatim
-# (dotfiles and placeholder directories included).
+# The template must sit next to instantiate.py and copier.yml in site-packages
+# so Path(__file__).parent remains the Copier template root in editable and
+# wheel installs. force-include bypasses ignore rules, so template/ ships
+# verbatim (dotfiles and Jinja-templated directories included).
 [tool.hatch.build.targets.wheel.force-include]
 "template" = "template"
 
 [tool.hatch.build.targets.sdist]
-include = ["instantiate.py", "template", "README.md"]
+include = ["instantiate.py", "copier.yml", "template", "README.md"]
 
 # The root ships the generator only (instantiate.py + scripts/). `template/` is
-# an un-instantiated scaffold: it holds placeholder tokens (__PACKAGE__) and
+# an uninstantiated scaffold: it holds Jinja expressions and
 # imports dependencies that are never installed at the root, so type-checking it
 # in place is meaningless — its correctness is proven by generating a real
 # project and running the full quality gate (`just validate`). Exclude it from
@@ -38,6 +38,6 @@ include = ["instantiate.py", "template", "README.md"]
 # on the import path so first-party imports (validate_pack) resolve in tests.
 [tool.basedpyright]
 exclude = ["**/node_modules", "**/__pycache__", "**/.*", "template"]
-# "template" stays excluded from analysis (placeholder scaffold) but remains an
+# "template" stays excluded from analysis (Jinja scaffold) but remains an
 # import root so tests importing scripts.* (the guard modules) resolve.
 extraPaths = ["scripts", "template"]

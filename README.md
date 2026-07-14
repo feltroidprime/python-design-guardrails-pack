@@ -4,8 +4,8 @@ A reusable Python 3.14 repository template that turns software-design principles
 
 ## Two ways to be here
 
-- **Using the pack**: run `python-repo init` (or `instantiate.py` directly) to create a new repository, then work inside that repository under its own `AGENTS.md`, justfile, and quality gate. See "Create a new repository" below.
-- **Maintaining the pack**: this repository is a meta-repository; `template/` is the canonical source copied into every generated repository and `instantiate.py` is the generator. Read the root `AGENTS.md` before changing anything — `template/AGENTS.md` is downstream content, not the contract for working here.
+- **Using the pack**: run `python-repo init` (or the legacy `instantiate.py` seam) to create a new repository, then work inside that repository under its own `AGENTS.md`, justfile, and quality gate. See "Create a new repository" below.
+- **Maintaining the pack**: this repository is a meta-repository; `template/` is the canonical Copier template, `copier.yml` is its rendering policy, and `instantiate.py` preserves the generator and CLI interfaces. Read the root `AGENTS.md` before changing anything — `template/AGENTS.md` is downstream content, not the contract for working here.
 
 This pack is inspired by the public curriculum of ArjanCodes' **Software Design Mastery** program, but it is an independent implementation. The course is still presented publicly as a 2026 waitlist; this repository therefore separates:
 
@@ -50,7 +50,8 @@ just install    # runs: uv tool install --force --editable .
 
 This puts a `python-repo` command on your PATH (via `~/.local/bin`). The
 install is editable, so template changes and `git pull` in this repository
-take effect immediately without reinstalling.
+take effect immediately without reinstalling. The tool installation includes
+the pinned Copier engine; generated repositories do not need Copier at runtime.
 
 ## Create a new repository
 
@@ -83,12 +84,16 @@ version control entirely. If `gh` is missing or fails, the local repository
 is kept and the exact `gh repo create` command to run later is printed
 (missing `gh` exits 0; a failed `gh` exits 1).
 
-Without installing anything, the legacy positional form still works and is
-purely local (no git, no GitHub):
+The legacy positional form remains purely local (no git, no GitHub). From a
+pack checkout, provision the pinned renderer ephemerally:
 
 ```bash
-python3 instantiate.py my-product my_product ../my-product
+uv run --no-project --with copier==9.17.0 python instantiate.py my-product my_product ../my-product
 ```
+
+Every generated repository records its template reference/version and the
+`project_name` and `package` answers in `.copier-answers.yml`. This provenance
+is managed by Copier and is the basis for future `copier update` runs.
 
 The generated project contains a small vertical slice built on **foundation bricks**: a replaceable example domain (`Item`) wired through keep-me exemplars of every cross-cutting capability — an injected clock and id factory, a typed in-process event publisher with an audit-log consumer, a SQLite reference adapter demonstrating error translation and context-managed lifecycle, a reusable repository contract-test kit, and a runnable `python -m` CLI through the single composition root. Replace the `Item` domain; keep the bricks (rationale: the generated `docs/adr/0002-foundation-ports-and-reference-adapters.md`).
 
@@ -142,7 +147,7 @@ not part of `just validate`.
 
 ## Maintaining the pack
 
-Prerequisites: `python3` (3.14), [`uv`](https://docs.astral.sh/uv/), [`just`](https://github.com/casey/just), and [`bun`](https://bun.sh) (pack validation runs the downstream quality gate, which validates the LikeC4 diagrams through a pinned `bunx` invocation). The root `pyproject.toml` exists only to package the `python-repo` CLI (`uv tool install`); the root intentionally has no virtualenv or lock file, and pytest and grimp are supplied ephemerally by `uv run --no-project --with`.
+Prerequisites: `python3` (3.14), [`uv`](https://docs.astral.sh/uv/), [`just`](https://github.com/casey/just), and [`bun`](https://bun.sh) (pack validation runs the downstream quality gate, which validates the LikeC4 diagrams through a pinned `bunx` invocation). The root `pyproject.toml` exists only to package the `python-repo` CLI (`uv tool install`) and its pinned Copier runtime dependency. The root intentionally has no virtualenv or lock file; Copier, pytest, and grimp are supplied ephemerally to maintainer entry points by `uv run --no-project --with`.
 
 ```bash
 just test       # generator unit tests (fast inner loop)
@@ -154,4 +159,4 @@ The pack's own `.pre-commit-config.yaml` (local hooks only, through the
 justfile) runs `just test` on every commit — a broken template cannot be
 committed — and `just validate` on every push.
 
-`just validate` runs the generator tests, then instantiates a throwaway repository in a temporary directory, verifies that `template/` carries no local runtime artifacts, that no placeholder token survives generation, resolves the pinned dependencies, and runs the generated repository's own full quality gate before cleaning up. The last executed validation is recorded in `VALIDATION.md`.
+`just validate` runs the generator tests, then instantiates a throwaway repository in a temporary directory, verifies that `template/` carries no local runtime artifacts, that no unrendered Jinja or `.jinja` suffix survives generation, resolves the pinned dependencies, and runs the generated repository's own full quality gate before cleaning up. Artifact exclusions have one source of truth (`_exclude` in `copier.yml`), and strict undefined variables fail during generation. The last executed validation is recorded in `VALIDATION.md`.

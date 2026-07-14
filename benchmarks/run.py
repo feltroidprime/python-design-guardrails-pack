@@ -3,7 +3,8 @@
 
 Standard-library launcher: it reads the config, then re-executes itself under
 `uv run` with headless_llm installed (editable, from the path declared in the
-config) so the pack root keeps its no-virtualenv, no-lock-file policy.
+config) plus the pinned Copier renderer, so the pack root keeps its
+no-virtualenv, no-lock-file policy.
 
 Usage:
     python3 benchmarks/run.py --config benchmarks/config/default.toml
@@ -47,6 +48,8 @@ def _bootstrap(config_path: Path) -> int:
         str(headless),
         "--with",
         "rich==15.0.0",
+        "--with",
+        "copier==9.17.0",
         "python",
         "-u",
         str(Path(__file__).resolve()),

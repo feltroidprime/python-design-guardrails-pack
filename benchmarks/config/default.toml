@@ -69,6 +69,7 @@ exclude = [
   ".pre-commit-config.yaml",
   ".python-version",
   ".gitignore",
+  ".copier-answers.yml",
   ".github/*",
   ".vscode/*",
   "docs/*",

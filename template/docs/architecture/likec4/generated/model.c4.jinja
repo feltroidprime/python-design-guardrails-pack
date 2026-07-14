@@ -1,0 +1,41 @@
+// GENERATED FILE — do not edit by hand.
+// Regenerate with 'just fix' (or: uv run python -m scripts.sync_architecture_diagrams --write).
+
+model {
+  {{ package }} = system '{{ project_name }}' {
+    bootstrap = layer 'bootstrap'
+    adapters = layer 'adapters' {
+      inbound = module 'inbound' {
+        #independent
+      }
+      outbound = module 'outbound' {
+        #independent
+      }
+    }
+    application = layer 'application' {
+      errors = module 'errors'
+      ports = module 'ports'
+      use_cases = module 'use_cases'
+    }
+    domain = layer 'domain' {
+      entities = module 'entities'
+      errors = module 'errors'
+      events = module 'events'
+      value_objects = module 'value_objects'
+    }
+  }
+
+  {{ package }}.adapters.inbound -> {{ package }}.application.use_cases
+  {{ package }}.adapters.inbound -> {{ package }}.domain.errors
+  {{ package }}.adapters.outbound -> {{ package }}.application.errors
+  {{ package }}.adapters.outbound -> {{ package }}.domain.entities
+  {{ package }}.adapters.outbound -> {{ package }}.domain.value_objects
+  {{ package }}.application.use_cases -> {{ package }}.domain.entities
+  {{ package }}.application.use_cases -> {{ package }}.domain.events
+  {{ package }}.application.use_cases -> {{ package }}.domain.value_objects
+  {{ package }}.bootstrap -> {{ package }}.adapters.inbound
+  {{ package }}.bootstrap -> {{ package }}.adapters.outbound
+  {{ package }}.bootstrap -> {{ package }}.application.use_cases
+  {{ package }}.bootstrap -> {{ package }}.domain.events
+  {{ package }}.domain.value_objects -> {{ package }}.domain.errors
+}

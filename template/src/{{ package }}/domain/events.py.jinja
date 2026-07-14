@@ -1,0 +1,22 @@
+"""Immutable facts emitted by the domain/application boundary."""
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from {{ package }}.domain.value_objects import ItemId, ItemName
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ItemCreatedEvent:
+    """Fact that an item was successfully created."""
+
+    item_id: ItemId
+    name: ItemName
+    occurred_at: datetime
+
+
+# Extend this union as new domain facts appear; publishers and handlers stay typed.
+type DomainEvent = ItemCreatedEvent

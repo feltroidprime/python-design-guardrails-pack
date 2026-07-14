@@ -4,24 +4,32 @@ These tests exercise the generator only. The full downstream quality gate is
 covered by scripts/validate_pack.py (run through 'just validate').
 """
 
+import hashlib
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
 
 import pytest
+from copier import run_copy
 
 # Import paths are provided by tests/conftest.py.
-from instantiate import PACKAGE_TOKEN
-from validate_pack import find_forbidden_artifacts, find_placeholder_occurrences
+import instantiate
+from instantiate import generate
+from validate_pack import find_forbidden_artifacts, find_unrendered_jinja
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 INSTANTIATE = REPO_ROOT / "instantiate.py"
 TEMPLATE = REPO_ROOT / "template"
+COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
+PRE_COPIER_TREE_SHA256 = "b12ef82a4c6b2958ef8147d8f4bcc4ee11f8908c9bf30e5bb8670bb08dd31956"
+INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", "")
+INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
 
 EXPECTED_FILES = (
     ".github/workflows/quality.yml",
@@ -62,13 +70,19 @@ EXPECTED_FILES = (
 
 
 def run_instantiate(
-    project: str, package: str, output: Path, *, script: Path = INSTANTIATE
+    project: str,
+    package: str,
+    output: Path,
+    *,
+    script: Path = INSTANTIATE,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(script), project, package, str(output)],
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
 
 
@@ -91,10 +105,52 @@ def test_valid_generation_reports_success_and_next_steps(generated: Path) -> Non
     assert "uv sync --all-groups" in result.stdout
 
 
-@pytest.mark.parametrize(
-    "project",
-    ["My-Product", "-orders", "orders app", "orders/app", ""],
-)
+def test_generation_records_copier_template_and_answers(generated: Path) -> None:
+    answers = (generated / ".copier-answers.yml").read_text(encoding="utf-8")
+
+    assert re.search(r"(?m)^_src_path: .+$", answers)
+    assert re.search(r"(?m)^_commit: .+$", answers)
+    assert re.search(rf"(?m)^project_name: ['\"]?{PROJECT_NAME}['\"]?$", answers)
+    assert re.search(rf"(?m)^package: ['\"]?{PACKAGE_NAME}['\"]?$", answers)
+
+
+def test_default_generation_matches_recorded_pre_copier_output(generated: Path) -> None:
+    digest = hashlib.sha256()
+    files = sorted(
+        path
+        for path in generated.rglob("*")
+        if path.is_file() and path.name != ".copier-answers.yml"
+    )
+    for path in files:
+        relative = path.relative_to(generated).as_posix()
+        digest.update(relative.encode("utf-8") + b"\0")
+        digest.update(path.read_bytes() + b"\0")
+
+    assert digest.hexdigest() == PRE_COPIER_TREE_SHA256
+
+
+def test_copier_derives_package_default_from_project_name(tmp_path: Path) -> None:
+    output = tmp_path / "default-answer"
+
+    with instantiate.without_local_git_context():
+        run_copy(
+            str(REPO_ROOT),
+            output,
+            data={"project_name": PROJECT_NAME},
+            vcs_ref="HEAD",
+            defaults=True,
+            quiet=True,
+            skip_tasks=True,
+        )
+
+    assert (output / "src" / PACKAGE_NAME).is_dir()
+    assert re.search(
+        rf"(?m)^package: ['\"]?{PACKAGE_NAME}['\"]?$",
+        (output / ".copier-answers.yml").read_text(encoding="utf-8"),
+    )
+
+
+@pytest.mark.parametrize("project", INVALID_PROJECT_NAMES)
 def test_invalid_project_names_are_rejected(project: str, tmp_path: Path) -> None:
     result = run_instantiate(project, PACKAGE_NAME, tmp_path / "out")
     assert result.returncode == 2
@@ -102,10 +158,7 @@ def test_invalid_project_names_are_rejected(project: str, tmp_path: Path) -> Non
     assert not (tmp_path / "out").exists()
 
 
-@pytest.mark.parametrize(
-    "package",
-    ["1orders", "acme-orders", "Acme", "acme orders", ""],
-)
+@pytest.mark.parametrize("package", INVALID_PACKAGE_NAMES)
 def test_invalid_package_names_are_rejected(package: str, tmp_path: Path) -> None:
     result = run_instantiate(PROJECT_NAME, package, tmp_path / "out")
     assert result.returncode == 2
@@ -153,6 +206,14 @@ def make_gh_stub(tmp_path: Path) -> tuple[dict[str, str], Path]:
     return env, recorded
 
 
+def copy_pack(destination: Path) -> Path:
+    destination.mkdir()
+    shutil.copy(INSTANTIATE, destination / "instantiate.py")
+    shutil.copy(COPIER_CONFIG, destination / "copier.yml")
+    shutil.copytree(TEMPLATE, destination / "template")
+    return destination
+
+
 def test_init_creates_project_and_git_repository(tmp_path: Path) -> None:
     result = run_cli("init", PROJECT_NAME, str(tmp_path), "--no-github")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -161,7 +222,12 @@ def test_init_creates_project_and_git_repository(tmp_path: Path) -> None:
     assert f"Created {PROJECT_NAME}" in result.stdout
     assert (target / ".git").is_dir(), "git repository was not initialized"
     head = subprocess.run(
-        ["git", "log", "--oneline"], cwd=target, capture_output=True, text=True, check=False
+        ["git", "log", "--oneline"],
+        cwd=target,
+        env=instantiate.environment_without_local_git_context(),
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert head.returncode == 0 and head.stdout.count("\n") == 1, "expected one initial commit"
 
@@ -179,7 +245,7 @@ def test_init_no_git_skips_git_and_github(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
     target = tmp_path / PROJECT_NAME
     assert not (target / ".git").exists()
-    assert find_placeholder_occurrences(target) == []
+    assert find_unrendered_jinja(target) == []
 
 
 def test_init_creates_private_github_repository_by_default(tmp_path: Path) -> None:
@@ -235,14 +301,33 @@ def test_init_refuses_existing_non_empty_target(tmp_path: Path) -> None:
     assert "Refusing to overwrite" in result.stdout
 
 
-def test_package_directory_is_renamed(generated: Path) -> None:
+def test_package_directory_is_rendered(generated: Path) -> None:
     assert (generated / "src" / PACKAGE_NAME).is_dir()
-    assert not (generated / "src" / PACKAGE_TOKEN).exists()
+    assert not (generated / "src" / "{{ package }}").exists()
 
 
-def test_every_placeholder_is_replaced(generated: Path) -> None:
-    leftovers = find_placeholder_occurrences(generated)
-    assert leftovers == [], "Unreplaced placeholders:\n" + "\n".join(leftovers)
+def test_no_unrendered_jinja_survives(generated: Path) -> None:
+    leftovers = find_unrendered_jinja(generated)
+    assert leftovers == [], "Unrendered Jinja:\n" + "\n".join(leftovers)
+
+
+def test_unrendered_scan_rejects_stray_jinja_suffix(tmp_path: Path) -> None:
+    (tmp_path / "missed.txt.jinja").write_text("plain text\n", encoding="utf-8")
+
+    assert find_unrendered_jinja(tmp_path) == [
+        "missed.txt.jinja: stray .jinja template suffix"
+    ]
+
+
+def test_unrendered_scan_detects_jinja_whitespace_control(tmp_path: Path) -> None:
+    (tmp_path / "missed.txt").write_text(
+        "{{- package }}\n{%- if package %}\n", encoding="utf-8"
+    )
+
+    assert find_unrendered_jinja(tmp_path) == [
+        "missed.txt:1: contains Jinja syntax",
+        "missed.txt:2: contains Jinja syntax",
+    ]
 
 
 def test_template_itself_contains_no_local_artifacts() -> None:
@@ -255,10 +340,7 @@ def test_template_itself_contains_no_local_artifacts() -> None:
 
 def test_planted_cache_artifacts_never_reach_generated_repository(tmp_path: Path) -> None:
     """Even a dirty template copy must produce a clean repository."""
-    pack_copy = tmp_path / "pack"
-    pack_copy.mkdir()
-    shutil.copy(INSTANTIATE, pack_copy / "instantiate.py")
-    shutil.copytree(TEMPLATE, pack_copy / "template")
+    pack_copy = copy_pack(tmp_path / "pack")
 
     ruff_cache = pack_copy / "template" / ".ruff_cache" / "0.15.21"
     ruff_cache.mkdir(parents=True)
@@ -279,6 +361,103 @@ def test_planted_cache_artifacts_never_reach_generated_repository(tmp_path: Path
         "Cache artifacts leaked into the generated repository:\n"
         + "\n".join(str(path) for path in artifacts)
     )
+
+
+def test_undefined_jinja_variable_fails_generation_loudly(tmp_path: Path) -> None:
+    pack_copy = copy_pack(tmp_path / "pack")
+    (pack_copy / "template" / "broken.txt.jinja").write_text(
+        "{{ missing_answer }}\n", encoding="utf-8"
+    )
+
+    result = run_instantiate(
+        PROJECT_NAME, PACKAGE_NAME, tmp_path / "out", script=pack_copy / "instantiate.py"
+    )
+
+    assert result.returncode != 0
+    assert "missing_answer" in result.stdout + result.stderr
+
+
+def test_generation_uses_current_dirty_worktree_instead_of_latest_tag(
+    tmp_path: Path,
+) -> None:
+    pack_copy = copy_pack(tmp_path / "pack")
+    git_env = instantiate.environment_without_local_git_context()
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=pack_copy,
+        env=git_env,
+        check=True,
+    )
+    subprocess.run(["git", "add", "--all"], cwd=pack_copy, env=git_env, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=tests",
+            "-c",
+            "user.email=tests@localhost",
+            "commit",
+            "--quiet",
+            "--message=tagged template",
+        ],
+        cwd=pack_copy,
+        env=git_env,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "tag", "v0.1.0"], cwd=pack_copy, env=git_env, check=True
+    )
+    (pack_copy / "template" / "current-worktree.txt").write_text(
+        "current\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "add", "--all"], cwd=pack_copy, env=git_env, check=True)
+
+    output = tmp_path / "out"
+    hook_env = dict(git_env)
+    hook_env["GIT_DIR"] = str(pack_copy / ".git")
+    hook_env["GIT_INDEX_FILE"] = str(pack_copy / ".git" / "index")
+    hook_env["GIT_WORK_TREE"] = str(pack_copy)
+    result = run_instantiate(
+        PROJECT_NAME,
+        PACKAGE_NAME,
+        output,
+        script=pack_copy / "instantiate.py",
+        env=hook_env,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (output / "current-worktree.txt").read_text(encoding="utf-8") == "current\n"
+    staged = subprocess.run(
+        ["git", "diff", "--cached", "--name-only"],
+        cwd=pack_copy,
+        env=git_env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert staged.stdout.splitlines() == ["template/current-worktree.txt"]
+
+
+def test_packaged_template_records_distribution_version_without_git_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pack_copy = copy_pack(tmp_path / "installed-pack")
+    monkeypatch.setattr(instantiate, "__file__", str(pack_copy / "instantiate.py"))
+    monkeypatch.setattr(instantiate, "distribution_version", lambda _name: "1.2.3")
+
+    output = tmp_path / "out"
+    assert instantiate.generate(PROJECT_NAME, PACKAGE_NAME, output) is None
+
+    answers = (output / ".copier-answers.yml").read_text(encoding="utf-8")
+    assert re.search(r"(?m)^_commit: ['\"]?v1\.2\.3['\"]?$", answers)
+
+
+def test_artifact_exclusions_have_one_configuration_source() -> None:
+    config = COPIER_CONFIG.read_text(encoding="utf-8")
+    generator = INSTANTIATE.read_text(encoding="utf-8")
+
+    assert "_exclude:" in config
+    assert "IGNORED_ARTIFACT_PATTERNS" not in generator
 
 
 def test_expected_files_are_preserved(generated: Path) -> None:

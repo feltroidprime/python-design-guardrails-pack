@@ -9,9 +9,9 @@ This is a **meta-repository**. It does not ship an application; it generates
 opinionated Python 3.14 repositories. The generated repositories are the
 product.
 
-- `instantiate.py` is the generator. It copies `template/` into a target
-  directory, renames `src/__PACKAGE__`, and replaces the placeholder tokens
-  `__PROJECT_NAME__` and `__PACKAGE__`. It is also the module behind the
+- `copier.yml` defines the generation engine: typed and validated answers,
+  strict Jinja rendering, the `template/` subdirectory, and artifact exclusions.
+  `instantiate.py` is the stable adapter over pinned Copier and the module behind the
   installable `python-repo` console script (`python-repo init <name>
   [directory] [--package NAME] [--public] [--no-github] [--no-git]`); the
   root `pyproject.toml` exists solely to package that CLI plus `template/`
@@ -20,8 +20,8 @@ product.
   the legacy positional form stays purely local (no git, no gh, no network)
   because the pack's tests and `validate_pack.py` depend on that. Tests for
   the gh behavior must use a PATH-stubbed `gh`, never the real one.
-- `template/` is the canonical source of every generated repository, verbatim
-  except for placeholder substitution.
+- `template/` is the canonical source of every generated repository. Files and
+  paths ending in `.jinja` are rendered by Copier; all others are copied verbatim.
 
 ## Two contracts, do not confuse them
 
@@ -33,7 +33,7 @@ product.
   let root-only tooling or wording leak into it.
 
 The same applies to every file under `template/`: `template/justfile`,
-`template/pyproject.toml`, and `template/scripts/` describe the downstream
+`template/pyproject.toml.jinja`, and `template/scripts/` describe the downstream
 repository, not this one.
 
 ## Sources of truth
@@ -41,9 +41,10 @@ repository, not this one.
 | Concern | Source of truth |
 |---|---|
 | Everything a generated repository contains | `template/**` |
-| Generation logic, name validation, placeholder tokens, artifact exclusion | `instantiate.py` |
+| Copier questions, rendering policy, and artifact exclusion | `copier.yml` |
+| Stable generation and CLI behavior | `instantiate.py` |
 | `python-repo` CLI packaging (console script, wheel contents) | `pyproject.toml` (root) |
-| Downstream architecture policy | `template/architecture.toml` + `template/scripts/architecture_rules.py` |
+| Downstream architecture policy | `template/architecture.toml.jinja` + `template/scripts/architecture_rules.py` |
 | Downstream agent contract | `template/AGENTS.md` |
 | Downstream quality gate | `template/scripts/quality_gate.py` (mirrored by `template/.github/workflows/quality.yml` and the pre-push hook) |
 | Pack validation loop | `justfile` (root) + `scripts/validate_pack.py` + `tests/test_instantiate.py` |
@@ -55,30 +56,41 @@ repository, not this one.
 1. **Fix the canonical source.** A defect observed in a generated repository is
    fixed under `template/` (or in `instantiate.py`), never by patching a
    generated copy. Generated copies are throwaway.
-2. **Keep `instantiate.py` standard-library-only.** No third-party imports, no
-   downloads. It must run with a bare `python3`.
+2. **Keep the Copier dependency explicit and pinned.** The generator deliberately
+   depends on Copier: it replaces bespoke rendering with a maintained engine and
+   records provenance for downstream updates. The root remains venv-less and
+   lock-free; root generation entry points provision the exact pin with
+   `uv run --no-project --with`.
 3. **Never weaken a downstream guardrail silently.** Loosening any ceiling,
    lint rule, type setting, coverage floor, or architecture rule in
    `template/` requires an explicit rationale in the change description and an
    update to `DESIGN_MASTERY_MAPPING.md` when the mapping changes.
 4. **Keep version pins coherent.** The pinned toolchain appears in several
-   places that must move together: `template/pyproject.toml` (dev group and
+   places that must move together: `template/pyproject.toml.jinja` (dev group and
    `tool.uv.required-version`), `template/.pre-commit-config.yaml` (hook
    revisions), and `template/.github/workflows/quality.yml` (uv version).
    Two diagram-toolchain pins join this rule: the grimp pin appears in
-   `template/pyproject.toml` (dev group) **and** the root `justfile`
+   `template/pyproject.toml.jinja` (dev group) **and** the root `justfile`
    (`--with grimp==…` for the diagram-sync tests) — move both together. The
    LikeC4 CLI version is pinned in exactly one place, `[tool.likec4]` in
-   `template/pyproject.toml`; never introduce a second copy.
+   `template/pyproject.toml.jinja`; never introduce a second copy. The Copier
+   pin appears in the root `pyproject.toml`, both generating recipes in the root
+   `justfile`, the benchmark bootstrap in `benchmarks/run.py`, and
+   `_min_copier_version` in `copier.yml`; move all together. The root project
+   version is the wheel fallback for Copier's `_commit`, so release wheels must
+   use the corresponding template tag version.
 5. **No local artifacts in `template/`.** Runtime caches (`.ruff_cache`,
    `__pycache__`, `.pytest_cache`, …) must never exist there; the authoritative
-   pattern list is `IGNORED_ARTIFACT_PATTERNS` in `instantiate.py`. Note that
+   pattern list is `_exclude` in `copier.yml`. Note that
    `template/.gitignore` hides such artifacts from `git status`, so a clean
    status does **not** prove a clean template — `just validate` checks the
    filesystem directly.
-6. **Placeholders.** If you introduce a new placeholder token in `template/`,
-   add it to `PLACEHOLDER_TOKENS` in `instantiate.py` in the same change;
-   the placeholder scan in validation fails otherwise.
+6. **Jinja rendering.** Any template file whose content needs rendering must end
+   in `.jinja`; templated path components use Jinja directly. Strict undefined
+   makes unknown variables fail generation, and validation rejects stray Jinja
+   syntax or `.jinja` suffixes in generated output. Keep files containing other
+   template syntax, such as GitHub Actions `${{ }}`, verbatim unless they also
+   need Copier rendering.
 7. **Throwaway repositories stay out of the tree.** Generate validation or
    experiment repositories only in temporary directories (the validation
    script already does this), never inside this working tree.
@@ -92,8 +104,8 @@ just validate
 ```
 
 It runs the generator unit tests, then instantiates a fresh repository in a
-temporary directory, verifies template cleanliness and full placeholder
-replacement, resolves the pinned dependencies, runs the generated repository's
+temporary directory, verifies template cleanliness and complete Jinja
+rendering, resolves the pinned dependencies, runs the generated repository's
 own quality gate, and cleans up.
 
 Required before claiming completion:
@@ -109,8 +121,9 @@ loop, not a completion criterion for template changes.
 Prerequisites: `python3` (3.14), `uv`, `just`, `bun`, and network access for
 the first dependency resolution (including the first `bunx` download of the
 pinned LikeC4 CLI, exercised by the downstream gate's `diagram views` check).
-`uv run --no-project --with` supplies pytest and grimp; the root
-`pyproject.toml` is packaging-only (no dependencies, no dev tooling) and the
+`uv run --no-project --with` supplies Copier, pytest, and grimp; the root
+`pyproject.toml` is packaging-only (Copier is its sole runtime dependency; it
+has no dev tooling) and the
 root intentionally has no virtualenv or lock file, so IDE warnings about
 unresolved `pytest`/`validate_pack`/`grimp` imports are expected. If you
 change what a wheel must ship (new top-level template asset, renamed
@@ -122,7 +135,7 @@ generator), update the hatchling include/force-include sections in the root
 When behavior changes, update the documents that state it, in the same change:
 
 - root `README.md`: maintainer commands and the instantiation walkthrough;
-- `template/README.md` and `template/AGENTS.md`: downstream commands, only if
+- `template/README.md.jinja` and `template/AGENTS.md`: downstream commands, only if
   downstream behavior changed;
 - `DESIGN_MASTERY_MAPPING.md`: when a guardrail is added, removed, or
   materially changed;

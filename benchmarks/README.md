@@ -49,9 +49,9 @@ Prerequisites: `uv`, `git`, a checkout of
 CLIs for the providers referenced by the config (`claude`, `codex`,
 `opencode`). Bun is needed only when `run_native_gate = true`.
 
-The launcher is standard-library-only; it re-executes itself through
-`uv run --with-editable <headless_llm>` so the pack root keeps its
-no-virtualenv policy. Results land **outside the working tree** (default
+The launcher is standard-library-only until it re-executes itself through
+`uv run --with-editable <headless_llm> --with copier==9.17.0`; this provisions
+the generator engine without giving the pack root a virtualenv. Results land **outside the working tree** (default
 `~/.local/share/guardrails-benchmark/runs/<label>-<timestamp>/`), each run a
 self-contained directory: `config.toml`, `build_prompt.md`, `manifest.json`,
 both workspaces, every raw analyzer output, `results.json`, `report.md`.

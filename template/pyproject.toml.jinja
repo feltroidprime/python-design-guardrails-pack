@@ -1,0 +1,229 @@
+[build-system]
+requires = ["uv_build==0.11.28"]
+build-backend = "uv_build"
+
+[project]
+name = "{{ project_name }}"
+version = "0.1.0"
+description = "A Python 3.14 application with an executable architecture and quality contract."
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = []
+
+# Dev tooling floats: floors are the last versions this repository's toolchain
+# was validated against, and the first `uv sync` resolves the latest releases.
+# Reproducibility comes from uv.lock (kept current by the uv-lock pre-commit
+# hook), not from exact pins here.
+[dependency-groups]
+dev = [
+  "basedpyright>=1.39.9",
+  "coverage[toml]>=7.15.0",
+  "grimp>=3.15",
+  "hypothesis>=6.156.6",
+  "import-linter>=2.13",
+  "pre-commit>=4.6.0",
+  "pytest>=9.1.1",
+  "pytest-cov>=7.1.0",
+  "pytest-socket>=0.8.0",
+  "ruff>=0.15.21",
+]
+
+[tool.uv]
+required-version = ">=0.11.28,<0.12"
+
+# The only place the LikeC4 CLI version is pinned. Every invocation goes
+# through `bunx likec4@<version>` (quality gate and `just diagrams`), which
+# keeps this Python repository free of JavaScript project files.
+[tool.likec4]
+version = "1.58.0"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests", "scripts"]
+force-exclude = true
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "ANN",
+  "ARG",
+  "ASYNC",
+  "B",
+  "BLE",
+  "C4",
+  "C90",
+  "DTZ",
+  "E",
+  "ERA",
+  "F",
+  "FBT",
+  "FLY",
+  "FURB",
+  "G",
+  "I",
+  "ICN",
+  "ISC",
+  "LOG",
+  "N",
+  "PERF",
+  "PGH",
+  "PIE",
+  "PL",
+  "PT",
+  "PTH",
+  "Q",
+  "RET",
+  "RSE",
+  "RUF",
+  "S",
+  "SIM",
+  "SLF",
+  "T10",
+  "T20",
+  "TC",
+  "TID",
+  "TRY",
+  "UP",
+  "W",
+]
+ignore = [
+  "COM812",
+  "ISC001",
+  "PLR0904",
+  "TRY003",
+]
+fixable = ["ALL"]
+unfixable = ["ERA001"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+  "ANN201",
+  "ARG001",
+  "PLR2004",
+  "S101",
+  "SLF001",
+]
+"scripts/**/*.py" = ["T201"]
+"scripts/architecture_policy.py" = ["TC003"]
+"scripts/architecture_rules.py" = ["TC003"]
+"scripts/quality_gate.py" = ["S603"]
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = false
+mypy-init-return = false
+suppress-dummy-args = true
+
+[tool.ruff.lint.isort]
+# "tests" is declared explicitly because namespace packages (no __init__.py)
+# are not auto-detected as first-party.
+known-first-party = ["{{ package }}", "tests"]
+combine-as-imports = true
+force-sort-within-sections = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 6
+max-branches = 10
+max-locals = 12
+max-nested-blocks = 4
+max-public-methods = 12
+max-returns = 6
+max-statements = 40
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+
+[tool.basedpyright]
+include = ["src", "tests", "scripts"]
+# Locate the project venv explicitly so the editor language server resolves
+# third-party imports the same way the CLI does. Without this, the basedpyright
+# VS Code extension analyses against an empty environment and reports spurious
+# "import could not be resolved" errors for installed dependencies.
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+pythonPlatform = "All"
+typeCheckingMode = "recommended"
+failOnWarnings = true
+reportAny = "error"
+reportExplicitAny = "error"
+reportImplicitOverride = "error"
+reportMatchNotExhaustive = "error"
+reportMissingParameterType = "error"
+reportMissingTypeArgument = "error"
+reportPrivateUsage = "error"
+reportUnannotatedClassAttribute = "error"
+reportUnnecessaryTypeIgnoreComment = "error"
+
+[tool.pytest.ini_options]
+minversion = "9.1"
+testpaths = ["tests"]
+# Test packages are namespace packages (PEP 420): no __init__.py under tests/
+# (enforced by ARCH014). The repository root on sys.path plus namespace
+# detection keeps `tests.*` imports (the contract kit) working without them.
+consider_namespace_packages = true
+pythonpath = ["."]
+addopts = [
+  "-ra",
+  "--strict-config",
+  "--strict-markers",
+  "--disable-socket",
+  "--cov={{ package }}",
+  "--cov-branch",
+  "--cov-report=term-missing:skip-covered",
+  "--cov-fail-under=90",
+]
+markers = [
+  "contract: shared behavioral contract for a port implementation",
+  "integration: deterministic integration test across real local components",
+]
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["{{ package }}"]
+relative_files = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+]
+
+[tool.importlinter]
+root_package = "{{ package }}"
+include_external_packages = false
+exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+id = "layers"
+name = "Dependencies point inward"
+type = "layers"
+layers = [
+  "{{ package }}.bootstrap",
+  "{{ package }}.adapters",
+  "{{ package }}.application",
+  "{{ package }}.domain",
+]
+
+[[tool.importlinter.contracts]]
+id = "adapter-independence"
+name = "Inbound and outbound adapters are independent"
+type = "independence"
+modules = [
+  "{{ package }}.adapters.inbound",
+  "{{ package }}.adapters.outbound",
+]
