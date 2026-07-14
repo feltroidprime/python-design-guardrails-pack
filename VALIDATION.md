@@ -5,28 +5,25 @@ uv 0.11.28, just 1.56.0, and bun 1.3.9.
 
 ## Change validated
 
-The generation engine was migrated from manual file copying, package-directory
-renaming, and placeholder replacement to pinned Copier 9.17.0 behind the
-unchanged `generate(...)` and `python-repo init` interfaces. The template now
-uses `.jinja` files and a templated package path, records Copier provenance and
-answers, takes artifact exclusions from `copier.yml`, and renders the current
-worktree explicitly with `vcs_ref="HEAD"`. Wheel installs fall back to the
-distribution release (`v0.1.0` in this run) when git metadata is unavailable.
+The benchmark harness now selects the template arm through pinned Copier with
+an explicit `[template]` configuration. Manifests, `results.json`, and reports
+record the resolved template version, variant, and effective answers. `HEAD`
+records a dirty-flagged git-describe identity for working-tree experiments;
+release tags stay pinned to their committed content. Non-baseline variants
+fail fast until feature-toggle questions ship, Copier prompting is disabled,
+and `.copier-answers.yml` is excluded symmetrically from judge bundles.
 
 ## Commands and results
 
 - `just validate`: passed.
-  - Root suite: 126 passed. The eight `DirtyLocalWarning` messages are expected
-    because validation deliberately includes the staged, uncommitted template.
+  - Root suite: 150 passed in 38.32s. The single `DirtyLocalWarning` is expected
+    from the test that deliberately creates a dirty temporary template repo.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
     `.jinja` suffix survived.
   - Generated dependency resolution: passed.
   - Generated quality gate: all steps passed.
-- `uv build --out-dir .packaging-check`: source distribution and wheel built.
-- Wheel-installed `python-repo init wheel-check . --no-git`: passed; generated
-  `.copier-answers.yml` recorded `_commit: v0.1.0`, `_src_path`, `project_name`,
-  and `package`. The temporary packaging directory was removed afterward.
+- `just test`: 150 passed in 40.16s with the same one expected warning.
 
 ## Generated repository gate
 
@@ -42,6 +39,7 @@ distribution release (`v0.1.0` in this run) when git metadata is unavailable.
 
 - The first validation on a machine may need network access for pinned Python
   dependencies and the pinned LikeC4 CLI.
-- Worktree generation requires git so Copier can record and render `HEAD`;
-  installed wheels do not require git metadata and record the package version
-  as their template release instead.
+- Working-tree benchmark identity requires git. Release benchmarking should
+  use a PEP 440 template tag in `[template] vcs_ref` for a stable identity.
+- Real benchmark runs still require a compatible `headless_llm` checkout and
+  authenticated provider CLIs; the deterministic fake-agent tests do not.
