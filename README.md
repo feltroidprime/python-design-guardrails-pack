@@ -4,7 +4,7 @@ A reusable Python 3.14 repository template that turns software-design principles
 
 ## Two ways to be here
 
-- **Using the pack**: run `python-repo init` (or the legacy `instantiate.py` seam) to create a new repository, then work inside that repository under its own `AGENTS.md`, justfile, and quality gate. See "Create a new repository" below.
+- **Using the pack**: run `python-repo init` (or the legacy `instantiate.py` seam) to create a new repository, then work inside that repository with its justfile and quality gate, plus its optional `AGENTS.md`. See "Create a new repository" below.
 - **Maintaining the pack**: this repository is a meta-repository; `template/` is the canonical Copier template, `copier.yml` is its rendering policy, and `instantiate.py` preserves the generator and CLI interfaces. Read the root `AGENTS.md` before changing anything — the conditional `AGENTS.md` template under `template/` is downstream content, not the contract for working here.
 
 This pack is inspired by the public curriculum of ArjanCodes' **Software Design Mastery** program, but it is an independent implementation. The course is still presented publicly as a 2026 waitlist; this repository therefore separates:
@@ -102,11 +102,11 @@ The generated project contains a small vertical slice built on **foundation bric
 
 ## Key files in a generated repository
 
-- `AGENTS.md`: operational contract for coding agents.
+- `AGENTS.md`: optional operational contract for coding agents (`agents_contract != "none"`).
 - `architecture.toml`: deterministic architecture policy.
 - `scripts/architecture_guard.py`: AST-level fitness functions.
 - `pyproject.toml`: Ruff, BasedPyright, pytest, Coverage, Import Linter, and dependencies.
-- `.pre-commit-config.yaml`: fast commit checks and full pre-push gate.
+- `.pre-commit-config.yaml`: optional fast commit checks and full pre-push gate (`precommit = true`).
 - `.vscode/settings.json`: hides derived artifacts (caches, coverage, `.venv`) from the VS Code explorer and search.
 - `docs/README.md`: the documentation map — one row per document (who reads it, when, freshness mode) plus the admission rule for new documents; kept true by `scripts/docs_guard.py`.
 - `docs/architecture/`: pattern admission rules, ADRs, migration and exception templates.

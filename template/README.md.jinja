@@ -68,9 +68,10 @@ uv run python -m {{ package }} list
 ## What to replace, what to keep
 
 The example separates the replaceable `Item` slice from the foundation
-bricks you keep and imitate. The single owner of that distinction is the
+bricks you keep and imitate. {% if agents_contract != 'none' %}The single owner of that distinction is the
 "Foundation bricks" section of `AGENTS.md`; the decision behind it is
-`docs/adr/0002-foundation-ports-and-reference-adapters.md`.
+`docs/adr/0002-foundation-ports-and-reference-adapters.md`.{% else %}The decision that owns that distinction is
+`docs/adr/0002-foundation-ports-and-reference-adapters.md`.{% endif %}
 
 ## Architecture diagrams
 
@@ -86,5 +87,5 @@ Diagrams are **derived from the code**, never hand-maintained
 ## Documentation
 
 `docs/README.md` is the documentation map: one row per document, saying who
-reads it, when, and how its freshness is guaranteed. Read `AGENTS.md` before
-changing code; record decisions under `docs/adr/`.
+reads it, when, and how its freshness is guaranteed. {% if agents_contract != 'none' %}Read `AGENTS.md` before
+changing code; {% endif %}record decisions under `docs/adr/`.

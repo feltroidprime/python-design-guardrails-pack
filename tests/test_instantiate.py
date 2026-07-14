@@ -213,7 +213,8 @@ def test_no_agents_md_has_exact_file_delta(tmp_path: Path) -> None:
     assert set(variant) - set(baseline) == set()
     assert {
         path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
-    } == {".copier-answers.yml"}
+    } == {".copier-answers.yml", "README.md"}
+    assert b"AGENTS.md" not in variant["README.md"]
 
 
 def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> None:

@@ -4,6 +4,12 @@
 
 The public page describes a program launching in 2026 and exposes a detailed curriculum, but not the lessons themselves. The first column below is explicit. The probable Python techniques are informed inference from the curriculum and ArjanCodes' public teaching. The final column is this pack's independent enforcement design.
 
+Rows that cite the generated `AGENTS.md` or Git hooks describe the default
+`full`/`precommit = true` materialization. The named benchmark ablations may
+remove the agent contract, switch it to hooks-first verification, or omit the
+hook configuration; deterministic architecture, documentation, type, lint,
+and test controls remain available through the justfile and quality gate.
+
 ## Core Designer
 
 | Public topic | Probable Python 3.14 technique | Deterministic materialization |

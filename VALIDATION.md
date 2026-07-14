@@ -10,7 +10,8 @@ whose defaults reproduce the previous generated repository byte-for-byte.
 The benchmark declares `no-precommit`, `no-agents-md`, and
 `checks-via-commit` as named TOML answer sets. Deterministic generation tests
 fix each variant's exact absent and modified paths, including the complete
-hooks-first `AGENTS.md` content delta.
+hooks-first `AGENTS.md` content delta and removal of stale `AGENTS.md`
+references from the no-contract README.
 
 The fake-agent pipeline proves every variant configuration leaves the bare
 workspace's Git tree unchanged. A completed hooks-first run records the same
@@ -22,7 +23,7 @@ variant's defining answer.
 ## Commands and results
 
 - `just validate`: passed.
-  - Root suite: 180 passed in 65.10s. The 22 `DirtyLocalWarning` instances are
+  - Root suite: 180 passed in 77.76s. The 22 `DirtyLocalWarning` instances are
     expected because generation tests intentionally exercise the dirty current
     worktree.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
@@ -30,7 +31,7 @@ variant's defining answer.
     `.jinja` suffix survived.
   - Generated dependency resolution: 32 packages resolved; 31 installed.
   - Generated quality gate: all steps passed.
-  - Offline update round trip: 1 passed in 15.52s after the current generated
+  - Offline update round trip: 1 passed in 19.75s after the current generated
     gate warmed the pinned tool caches.
 
 ## Generated repository gate
