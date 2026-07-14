@@ -13,20 +13,28 @@ as a standalone offline HTML comparison with grouped tables, identity filters,
 quality/time/cost charts, separate token classes, and action-effort charts.
 Missing or empty registries exit cleanly with a next-step message.
 
+Template releases now use changelog-backed PEP 440 git tags. The first release,
+`v0.1.0`, is an annotated tag on the committed Copier baseline. Generated
+repositories document update checks and inline-conflict handling, and the
+template configuration wires an empty migration list. A local, real-git test
+generates from `v0.1.0`, observes `copier check-update --quiet` exit 2, updates
+to the current ref with unchanged answers, observes exit 0, and proves the
+updated repository's full gate offline.
+
 ## Commands and results
 
+- `just release v0.1.0`: passed; created the annotated template release tag.
 - `just validate`: passed.
   - Root suite: 155 passed in 40.53s. The single `DirtyLocalWarning` is expected
     from the test that deliberately creates a dirty temporary template repo.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
     `.jinja` suffix survived.
-  - Generated dependency resolution: passed.
+  - Generated dependency resolution: 32 packages resolved; 31 installed.
   - Generated quality gate: all steps passed.
-- `just test`: 155 passed in 43.63s with the same single expected
-  `DirtyLocalWarning`.
-- `tests/test_benchmark_report.py::test_just_bench_report_renders_fixture_registry`:
-  1 passed in 0.26s, confirming the `just bench-report` integration directly.
+  - Offline update round trip: passed after the current generated gate warmed
+    the pinned tool caches.
+- `just test`: 150 passed in 40.16s with the same one expected warning.
 
 ## Generated repository gate
 
@@ -40,12 +48,14 @@ Missing or empty registries exit cleanly with a next-step message.
 
 ## Remaining portability notes
 
-- The first validation on a machine may need network access for pinned Python
-  dependencies and the pinned LikeC4 CLI.
+- The first full validation on a machine may need network access to warm the
+  pinned Python and LikeC4 caches. The update round-trip gate then runs with uv
+  offline and package-manager network proxies pointed at an unreachable local
+  endpoint.
 - Working-tree benchmark identity requires git. Release benchmarking should
   use a PEP 440 template tag in `[template] vcs_ref` for a stable identity.
 - Real benchmark runs still require a compatible `headless_llm` checkout and
   authenticated provider CLIs; the deterministic fake-agent tests do not.
-- The HTML is dependency-free and its content, grouping, filters, asset URLs,
-  and JavaScript syntax are deterministic-test covered. No browser backend was
-  available in this session for an additional live visual smoke test.
+- Local generation and downstream updates require git metadata. Installed
+  wheels continue to fall back to their distribution version for Copier's
+  recorded template identity.
