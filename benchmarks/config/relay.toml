@@ -1,0 +1,331 @@
+# Complementary real-app benchmark: event sourcing, a state machine, injected
+# time, import/export idempotence, audit history, aggregation, and scale.
+# Run with: python3 benchmarks/run.py --config benchmarks/config/relay.toml
+
+[run]
+output_root = "~/.local/share/guardrails-benchmark/runs"
+label = "relay"
+seed = 0
+keep_workspaces = true
+run_native_gate = true
+parallel_arms = true
+headless_llm_path = "../../headless_llm"
+install_timeout_seconds = 600.0
+tests_timeout_seconds = 600.0
+gate_timeout_seconds = 1200.0
+
+[project]
+name = "relay"
+package = "relay"
+
+[builder]
+provider = "claude"
+model = "claude-opus-4-8"
+effort = "high"
+timeout_seconds = 3600.0
+allowed_tools = [
+  "Bash",
+  "Read",
+  "Write",
+  "Edit",
+  "Glob",
+  "Grep",
+  "TodoWrite",
+  "BashOutput",
+  "KillShell",
+]
+
+[prompt]
+spec_file = "prompts/relay_spec.md"
+charter_file = "prompts/build_charter.md"
+
+[judge]
+timeout_seconds = 900.0
+max_bundle_chars = 400000
+max_file_chars = 40000
+exclude = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "architecture.toml",
+  "justfile",
+  ".pre-commit-config.yaml",
+  ".python-version",
+  ".gitignore",
+  ".github/*",
+  ".vscode/*",
+  "docs/*",
+  "scripts/*",
+  "*.lock",
+  "*.log",
+]
+
+[[judge.panel]]
+provider = "codex"
+model = "gpt-5.6-sol"
+effort = "high"
+
+[[judge.panel]]
+provider = "opencode"
+model = "minimax/MiniMax-M3"
+effort = "high"
+
+[tools]
+ruff = "0.15.21"
+basedpyright = "1.39.9"
+radon = "6.0.1"
+coverage = "7.15.1"
+ruff_select = "F,E,W,B"
+ruff_ignore = "E501"
+
+# Invalid input (exit 2) is checked before any successful mutation.
+[[probes]]
+name = "rejects-malformed-now"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "not-a-time", "stats"]
+expect_exit = 2
+stderr_regex = '\S'
+
+[[probes]]
+name = "rejects-malformed-deadline"
+argv = [
+  "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:00:00Z",
+  "enqueue", "--title", "bad", "--deadline", "2026-99-99T00:00:00Z",
+]
+expect_exit = 2
+stderr_regex = '\S'
+
+# Job 1 carries Unicode and becomes terminal.
+[[probes]]
+name = "enqueue-unicode-overdue-job"
+argv = [
+  "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:00:00Z",
+  "enqueue", "--title", "Préparer café ☕", "--note", "naïve — 東京",
+  "--deadline", "2026-04-01T09:00:00Z",
+]
+expect_exit = 0
+stdout_regex = '\A\s*id=\d+\s*\Z'
+capture = [["id1", 'id=(\d+)']]
+
+[[probes]]
+name = "overdue-list-is-unicode-safe"
+argv = [
+  "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:00:00Z",
+  "list", "--overdue",
+]
+expect_exit = 0
+stdout_regex = '(?m)^\d+\tqueued\t2026-04-01T09:00:00Z\t"Préparer café ☕"\t"naïve — 東京"$'
+
+[[probes]]
+name = "start-first-job"
+argv = [
+  "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:10:00Z",
+  "start", "--id", "{id1}",
+]
+expect_exit = 0
+stdout_regex = '\A\s*\Z'
+
+[[probes]]
+name = "complete-first-job"
+argv = [
+  "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:20:00Z",
+  "done", "--id", "{id1}",
+]
+expect_exit = 0
+stdout_regex = '\A\s*\Z'
+
+[[probes]]
+name = "terminal-job-rejects-retry"
+argv = [
+  "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:30:00Z",
+  "retry", "--id", "{id1}",
+]
+expect_exit = 4
+stderr_regex = '\S'
+
+[[probes]]
+name = "history-exposes-append-only-events"
+argv = [
+  "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T11:00:00Z",
+  "history", "--id", "{id1}",
+]
+expect_exit = 0
+stdout_regex = '(?s)\A1\t2026-04-01T10:00:00Z\tenqueued\tqueued\n2\t2026-04-01T10:10:00Z\tstarted\trunning\n3\t2026-04-01T10:20:00Z\tcompleted\tdone\n?\Z'
+
+[[probes]]
+name = "unknown-id-has-dedicated-exit"
+argv = [
+  "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T11:00:00Z",
+  "start", "--id", "999999",
+]
+expect_exit = 3
+stderr_regex = '\S'
+
+# Job 2 exercises failed -> queued via retry and remains the sole overdue job.
+[[probes]]
+name = "enqueue-retry-job"
+argv = [
+  "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:00:00Z",
+  "enqueue", "--title", "retry me", "--deadline", "2026-04-01T09:30:00Z",
+]
+expect_exit = 0
+capture = [["id2", 'id=(\d+)']]
+
+[[probes]]
+name = "start-retry-job"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:05:00Z", "start", "--id", "{id2}"]
+expect_exit = 0
+
+[[probes]]
+name = "fail-retry-job"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:06:00Z", "fail", "--id", "{id2}"]
+expect_exit = 0
+
+[[probes]]
+name = "retry-failed-job"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:07:00Z", "retry", "--id", "{id2}"]
+expect_exit = 0
+
+# Jobs 3 and 4 leave one job in every state for list/stats aggregation.
+[[probes]]
+name = "enqueue-running-job"
+argv = [
+  "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:00:00Z",
+  "enqueue", "--title", "still running", "--deadline", "2026-04-01T12:00:00Z",
+]
+expect_exit = 0
+capture = [["id3", 'id=(\d+)']]
+
+[[probes]]
+name = "start-running-job"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:08:00Z", "start", "--id", "{id3}"]
+expect_exit = 0
+
+[[probes]]
+name = "enqueue-failed-job"
+argv = [
+  "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:00:00Z",
+  "enqueue", "--title", "stays failed", "--deadline", "2026-04-01T08:00:00Z",
+]
+expect_exit = 0
+capture = [["id4", 'id=(\d+)']]
+
+[[probes]]
+name = "start-failed-job"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:08:00Z", "start", "--id", "{id4}"]
+expect_exit = 0
+
+[[probes]]
+name = "fail-fourth-job"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:09:00Z", "fail", "--id", "{id4}"]
+expect_exit = 0
+
+[[probes]]
+name = "list-orders-by-id"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T11:00:00Z", "list"]
+expect_exit = 0
+stdout_regex = '(?s)\A\d+\tdone\t2026-04-01T09:00:00Z\t"Préparer café ☕"\t"naïve — 東京"\n\d+\tqueued\t2026-04-01T09:30:00Z\t"retry me"\t""\n\d+\trunning\t2026-04-01T12:00:00Z\t"still running"\t""\n\d+\tfailed\t2026-04-01T08:00:00Z\t"stays failed"\t""\n?\Z'
+
+[[probes]]
+name = "state-filter-lists-only-failed"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T11:00:00Z", "list", "--state", "failed"]
+expect_exit = 0
+stdout_regex = '\A\d+\tfailed\t2026-04-01T08:00:00Z\t"stays failed"\t""\n?\Z'
+
+[[probes]]
+name = "overdue-excludes-terminal-jobs"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T11:00:00Z", "list", "--overdue"]
+expect_exit = 0
+stdout_regex = '\A\d+\tqueued\t2026-04-01T09:30:00Z\t"retry me"\t""\n?\Z'
+
+[[probes]]
+name = "stats-aggregates-states-and-overdue"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T11:00:00Z", "stats"]
+expect_exit = 0
+stdout_regex = '\Aqueued=1 running=1 done=1 failed=1 overdue=1\n?\Z'
+
+# JSON round-trip into a fresh log.
+[[probes]]
+name = "export-json"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T12:00:00Z", "export", "--format", "json", "--output", "{db}.json"]
+expect_exit = 0
+stdout_regex = '\Aexported=4\n?\Z'
+
+[[probes]]
+name = "import-json-fresh"
+argv = ["uv", "run", "relay", "--log", "{db}.json.log", "--now", "2026-04-01T12:01:00Z", "import", "--format", "json", "--input", "{db}.json"]
+expect_exit = 0
+stdout_regex = '\Aimported=4 skipped=0\n?\Z'
+
+[[probes]]
+name = "export-json-roundtrip"
+argv = ["uv", "run", "relay", "--log", "{db}.json.log", "--now", "2026-04-01T12:02:00Z", "export", "--format", "json", "--output", "{db}.json.roundtrip"]
+expect_exit = 0
+stdout_regex = '\Aexported=4\n?\Z'
+
+[[probes]]
+name = "json-roundtrip-is-byte-identical"
+argv = ["uv", "run", "python", "-c", "import pathlib,sys; raise SystemExit(0 if pathlib.Path(sys.argv[1]).read_bytes() == pathlib.Path(sys.argv[2]).read_bytes() else 1)", "{db}.json", "{db}.json.roundtrip"]
+expect_exit = 0
+
+[[probes]]
+name = "snapshot-log-before-idempotent-import"
+argv = ["uv", "run", "python", "-c", "import pathlib,shutil,sys; shutil.copyfile(sys.argv[1], sys.argv[2])", "{db}.json.log", "{db}.json.log.before"]
+expect_exit = 0
+
+[[probes]]
+name = "reimport-json-skips-every-job"
+argv = ["uv", "run", "relay", "--log", "{db}.json.log", "--now", "2026-04-01T12:03:00Z", "import", "--format", "json", "--input", "{db}.json"]
+expect_exit = 0
+stdout_regex = '\Aimported=0 skipped=4\n?\Z'
+
+[[probes]]
+name = "idempotent-import-does-not-change-event-log"
+argv = ["uv", "run", "python", "-c", "import pathlib,sys; raise SystemExit(0 if pathlib.Path(sys.argv[1]).read_bytes() == pathlib.Path(sys.argv[2]).read_bytes() else 1)", "{db}.json.log.before", "{db}.json.log"]
+expect_exit = 0
+
+# CSV round-trip into another fresh log.
+[[probes]]
+name = "export-csv"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T12:10:00Z", "export", "--format", "csv", "--output", "{db}.csv"]
+expect_exit = 0
+stdout_regex = '\Aexported=4\n?\Z'
+
+[[probes]]
+name = "import-csv-fresh"
+argv = ["uv", "run", "relay", "--log", "{db}.csv.log", "--now", "2026-04-01T12:11:00Z", "import", "--format", "csv", "--input", "{db}.csv"]
+expect_exit = 0
+stdout_regex = '\Aimported=4 skipped=0\n?\Z'
+
+[[probes]]
+name = "export-csv-roundtrip"
+argv = ["uv", "run", "relay", "--log", "{db}.csv.log", "--now", "2026-04-01T12:12:00Z", "export", "--format", "csv", "--output", "{db}.csv.roundtrip"]
+expect_exit = 0
+stdout_regex = '\Aexported=4\n?\Z'
+
+[[probes]]
+name = "csv-roundtrip-is-byte-identical"
+argv = ["uv", "run", "python", "-c", "import pathlib,sys; raise SystemExit(0 if pathlib.Path(sys.argv[1]).read_bytes() == pathlib.Path(sys.argv[2]).read_bytes() else 1)", "{db}.csv", "{db}.csv.roundtrip"]
+expect_exit = 0
+
+# A generated 5,000-row export-shaped CSV keeps the repository small while
+# making replay-per-row / list-scan-per-row implementations miss the ceiling.
+[[probes]]
+name = "generate-streaming-scale-csv"
+argv = [
+  "uv", "run", "python", "-c",
+  "import csv,sys; f=open(sys.argv[1],'w',encoding='utf-8',newline=''); w=csv.writer(f,lineterminator='\\n'); w.writerow(('id','title','note','deadline','state','created_at','updated_at')); w.writerows((i,'bulk-%d'%i,'','','queued','2026-04-01T00:00:00Z','2026-04-01T00:00:00Z') for i in range(1000,6000)); f.close()",
+  "{db}.bulk.csv",
+]
+expect_exit = 0
+
+[[probes]]
+name = "import-five-thousand-rows-within-linear-timeout"
+argv = ["uv", "run", "relay", "--log", "{db}.bulk.log", "--now", "2026-04-01T13:00:00Z", "import", "--format", "csv", "--input", "{db}.bulk.csv"]
+expect_exit = 0
+stdout_regex = '\Aimported=5000 skipped=0\n?\Z'
+timeout_seconds = 8.0
+
+[[probes]]
+name = "stats-after-streaming-import"
+argv = ["uv", "run", "relay", "--log", "{db}.bulk.log", "--now", "2026-04-01T13:01:00Z", "stats"]
+expect_exit = 0
+stdout_regex = '\Aqueued=5000 running=0 done=0 failed=0 overdue=0\n?\Z'

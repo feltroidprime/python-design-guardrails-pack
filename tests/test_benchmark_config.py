@@ -64,11 +64,14 @@ def _minimal(tmp_path: Path, *, output_root: str | None = None, extra: str = "")
 
 
 class TestShippedConfigs:
-    @pytest.mark.parametrize("name", ["default.toml", "smoke.toml"])
-    def test_shipped_config_loads(self, name: str) -> None:
-        cfg = load_config(CONFIG_DIR / name, repo_root=REPO_ROOT)
+    @pytest.mark.parametrize("path", sorted(CONFIG_DIR.glob("*.toml")), ids=lambda path: path.name)
+    def test_every_shipped_config_loads(self, path: Path) -> None:
+        cfg = load_config(path, repo_root=REPO_ROOT)
         assert cfg.probes
         assert cfg.judge.panel
+
+    def test_real_app_configs_include_relay(self) -> None:
+        assert (CONFIG_DIR / "relay.toml").is_file()
 
     def test_default_probes_cover_error_paths_too(self) -> None:
         cfg = load_config(CONFIG_DIR / "default.toml", repo_root=REPO_ROOT)
