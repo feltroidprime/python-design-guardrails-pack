@@ -24,6 +24,11 @@ test:
 validate: test
     uv run --no-project --python 3.14 --with copier==9.17.0 python scripts/validate_pack.py
 
+# Create an annotated PEP 440 template tag after verifying its changelog entry
+# and a clean working tree. Tags are pushed separately by the release operator.
+release version:
+    python3 scripts/release.py "{{version}}"
+
 # Install the `python-repo` CLI system-wide with uv (editable: template edits
 # and `git pull` take effect without reinstalling).
 install:

@@ -153,6 +153,7 @@ Prerequisites: `python3` (3.14), [`uv`](https://docs.astral.sh/uv/), [`just`](ht
 ```bash
 just test       # generator unit tests (fast inner loop)
 just validate   # canonical validation — required before claiming any template change done
+just release vX.Y.Z  # verify CHANGELOG.md and create the annotated release tag
 pre-commit install --hook-type pre-commit --hook-type pre-push   # once per clone
 ```
 
@@ -161,3 +162,10 @@ justfile) runs `just test` on every commit — a broken template cannot be
 committed — and `just validate` on every push.
 
 `just validate` runs the generator tests, then instantiates a throwaway repository in a temporary directory, verifies that `template/` carries no local runtime artifacts, that no unrendered Jinja or `.jinja` suffix survives generation, resolves the pinned dependencies, and runs the generated repository's own full quality gate before cleaning up. Artifact exclusions have one source of truth (`_exclude` in `copier.yml`), and strict undefined variables fail during generation. The last executed validation is recorded in `VALIDATION.md`.
+
+Template releases are annotated PEP 440 git tags (`vX.Y.Z`). Add the matching
+entry to `CHANGELOG.md`, commit it with the release contents, then run
+`just release vX.Y.Z`; the recipe refuses a missing entry, a dirty tree, an
+invalid version, or an existing tag. Local generation intentionally records
+Copier's `git describe` identity (including its dirty marker) for experimental
+work. Reproducible release benchmarks pin a release tag through `vcs_ref`.
