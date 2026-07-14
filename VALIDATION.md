@@ -22,11 +22,12 @@ Matrix benchmark campaigns now expand builders, apps, seeds, named Copier
 answer-set variants, and repetitions into deterministic cells. Campaigns pin
 all cells to one immutable template snapshot, including dirty `HEAD`
 experiments, and preserve the resolved revision and source digest in manifests
-and registry rows. Validation rejects duplicate dimensions, OpenCode roles
-whose model family cannot be established, builder/judge family overlap, and
-unknown variants before execution. Cross-provider builders use the target
-provider's native model and effort defaults, while scheduling enforces declared
-per-provider concurrency caps and resume skips registry-complete cells.
+and registry rows. Snapshot commits and Copier answer provenance are stable
+across resumed invocations. Validation rejects duplicate dimensions, OpenCode
+roles without an explicit canonical family, builder/judge family overlap, and
+unknown variants before execution. Matrix builders use the declared provider's
+native model and effort defaults when omitted, while scheduling enforces
+declared per-provider concurrency caps and resume skips registry-complete cells.
 
 ## Commands and results
 
@@ -34,14 +35,14 @@ per-provider concurrency caps and resume skips registry-complete cells.
   demonstrating that the mixed-schema Relay import was incorrectly accepted.
 - `just test`: passed; 175 passed in 62.79s before the review-follow-up commit.
 - `just validate`: passed.
-  - Root suite: 181 passed in 81.56s. The single `DirtyLocalWarning` is expected
+  - Root suite: 197 passed in 58.63s. The single `DirtyLocalWarning` is expected
     from the test that deliberately creates a dirty temporary template repo.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
     `.jinja` suffix survived.
   - Generated dependency resolution: 32 packages resolved; 31 installed.
   - Generated quality gate: all steps passed.
-  - Offline update round trip: 1 passed in 19.26s after the current generated
+  - Offline update round trip: 1 passed in 14.81s after the current generated
     gate warmed the pinned tool caches.
 
 ## Generated repository gate
