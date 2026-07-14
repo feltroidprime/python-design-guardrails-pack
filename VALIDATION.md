@@ -5,25 +5,30 @@ uv 0.11.28, just 1.56.0, and bun 1.3.9.
 
 ## Change validated
 
-The benchmark harness now selects the template arm through pinned Copier with
-an explicit `[template]` configuration. Manifests, `results.json`, and reports
-record the resolved template version, variant, and effective answers. `HEAD`
-records a dirty-flagged git-describe identity for working-tree experiments;
-release tags stay pinned to their committed content. Non-baseline variants
-fail fast until feature-toggle questions ship, Copier prompting is disabled,
-and `.copier-answers.yml` is excluded symmetrically from judge bundles.
+Completed benchmark runs now append one publication-oriented JSONL registry
+row per arm, preserving the manifest's resolved Copier identity and the full
+primary judge endpoint alongside quality, analyzer, coverage, cost, token,
+tool-call, turn, and revision metrics. `just bench-report` renders the registry
+as a standalone offline HTML comparison with grouped tables, identity filters,
+quality/time/cost charts, separate token classes, and action-effort charts.
+Missing or empty registries exit cleanly with a next-step message.
 
 ## Commands and results
 
 - `just validate`: passed.
-  - Root suite: 150 passed in 38.32s. The single `DirtyLocalWarning` is expected
+  - Root suite: 155 passed in 43.58s. The single `DirtyLocalWarning` is expected
     from the test that deliberately creates a dirty temporary template repo.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
     `.jinja` suffix survived.
   - Generated dependency resolution: passed.
   - Generated quality gate: all steps passed.
-- `just test`: 150 passed in 40.16s with the same one expected warning.
+- `just test`: 155 passed in 45.80s. Its 13 `DirtyLocalWarning` messages were
+  expected because that inner-loop run exercised Copier while review fixes
+  were still uncommitted; the final clean `just validate` run had only the
+  deliberate dirty-template warning above.
+- Ticket-specific report and append tests: 5 passed; inline report JavaScript
+  also passed `node --check`.
 
 ## Generated repository gate
 
@@ -43,3 +48,6 @@ and `.copier-answers.yml` is excluded symmetrically from judge bundles.
   use a PEP 440 template tag in `[template] vcs_ref` for a stable identity.
 - Real benchmark runs still require a compatible `headless_llm` checkout and
   authenticated provider CLIs; the deterministic fake-agent tests do not.
+- The HTML is dependency-free and its content, grouping, filters, asset URLs,
+  and JavaScript syntax are deterministic-test covered. No browser backend was
+  available in this session for an additional live visual smoke test.
