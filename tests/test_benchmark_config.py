@@ -171,14 +171,44 @@ timeout_seconds = 2.5
         with pytest.raises(ConfigError, match="version_typo"):
             load_config(path, repo_root=REPO_ROOT)
 
-    def test_non_baseline_variant_is_rejected_until_toggles_ship(
-        self, tmp_path: Path
+    @pytest.mark.parametrize(
+        ("variant", "answers"),
+        (
+            ("no-precommit", {"precommit": False}),
+            ("no-agents-md", {"agents_contract": "none"}),
+            ("checks-via-commit", {"agents_contract": "hooks-first"}),
+        ),
+    )
+    def test_named_variant_resolves_its_answer_set(
+        self, tmp_path: Path, variant: str, answers: dict[str, object]
     ) -> None:
-        path = _minimal(tmp_path, template="variant = 'no-precommit'")
+        path = _minimal(tmp_path, template=f"variant = {variant!r}")
+
+        cfg = load_config(path, repo_root=REPO_ROOT)
+
+        assert cfg.template.variant == variant
+        assert cfg.template.answers == answers
+
+    def test_unknown_variant_lists_every_known_name(self, tmp_path: Path) -> None:
+        path = _minimal(tmp_path, template="variant = 'missing-ablation'")
+
+        with pytest.raises(ConfigError) as raised:
+            load_config(path, repo_root=REPO_ROOT)
+
+        assert str(raised.value) == (
+            f"{path}: [template]: unknown template variant 'missing-ablation'; "
+            "known variants: baseline, checks-via-commit, no-agents-md, no-precommit"
+        )
+
+    def test_variant_answer_cannot_be_overridden(self, tmp_path: Path) -> None:
+        path = _minimal(
+            tmp_path,
+            template="variant = 'no-precommit'\nanswers = { precommit = true }",
+        )
 
         with pytest.raises(
             ConfigError,
-            match="variant 'no-precommit'.*only 'baseline'.*feature-toggle",
+            match="no-precommit.*precommit.*declares false.*override.*true",
         ):
             load_config(path, repo_root=REPO_ROOT)
 

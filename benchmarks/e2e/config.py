@@ -32,6 +32,7 @@ PROVIDERS = ("claude", "codex", "opencode")
 
 # Sanity floor: below this the app spec cannot describe a real application.
 _MIN_SPEC_CHARS = 200
+_VARIANT_ANSWERS = Path("benchmarks/config/variants/answers.toml")
 
 
 class ConfigError(ValueError):
@@ -447,21 +448,54 @@ def _project(section: dict[str, object], *, where: str) -> ProjectSettings:
     return ProjectSettings(name=name, package=package)
 
 
-def _template(section: dict[str, object], *, where: str) -> TemplateSettings:
+def _template_variants(repo_root: Path) -> dict[str, dict[str, object]]:
+    path = repo_root / _VARIANT_ANSWERS
+    try:
+        raw: dict[str, object] = tomllib.loads(path.read_text(encoding="utf-8"))
+    except OSError as error:
+        raise ConfigError(f"template variant answer sets not found: {path}") from error
+    except tomllib.TOMLDecodeError as error:
+        raise ConfigError(f"{path}: invalid TOML: {error}") from error
+
+    variants: dict[str, dict[str, object]] = {}
+    for name, answers in raw.items():
+        if not isinstance(answers, dict):
+            raise ConfigError(f"{path}: variant {name!r} must be a table of Copier answers")
+        variants[name] = dict(answers)
+    return variants
+
+
+def _template(
+    section: dict[str, object], *, where: str, repo_root: Path
+) -> TemplateSettings:
     _reject_unknown(section, frozenset({"vcs_ref", "variant", "answers"}), where=where)
     answers = section.get("answers", {})
     if not isinstance(answers, dict):
         raise ConfigError(f"{where}: 'answers' must be a table")
     variant = _string(section, "variant", where=where, default="baseline")
-    if variant != "baseline":
+    variants = _template_variants(repo_root)
+    if variant not in variants:
+        known = ", ".join(sorted(variants))
         raise ConfigError(
-            f"{where}: template variant {variant!r} is unavailable; only 'baseline' "
-            "is supported until feature-toggle questions ship"
+            f"{where}: unknown template variant {variant!r}; known variants: {known}"
         )
+    for key, value in variants[variant].items():
+        if key in answers and answers[key] != value:
+            declared = str(value).lower() if isinstance(value, bool) else repr(value)
+            override = (
+                str(answers[key]).lower()
+                if isinstance(answers[key], bool)
+                else repr(answers[key])
+            )
+            raise ConfigError(
+                f"{where}: variant {variant!r} answer {key!r} declares {declared}; "
+                f"[template.answers] cannot override it with {override}"
+            )
+    resolved_answers = {**variants[variant], **answers}
     return TemplateSettings(
         vcs_ref=_string(section, "vcs_ref", where=where, default="HEAD"),
         variant=variant,
-        answers=dict(answers),
+        answers=resolved_answers,
     )
 
 
@@ -595,7 +629,9 @@ def load_config(path: Path, *, repo_root: Path) -> BenchmarkConfig:
         run=_run(_table(raw, "run", where=where), where=f"{where}: [run]", repo_root=repo_root),
         project=_project(_table(raw, "project", where=where), where=f"{where}: [project]"),
         template=_template(
-            _table(raw, "template", where=where), where=f"{where}: [template]"
+            _table(raw, "template", where=where),
+            where=f"{where}: [template]",
+            repo_root=repo_root,
         ),
         builder=_builder(_table(raw, "builder", where=where), where=f"{where}: [builder]"),
         judge=_judge(_table(raw, "judge", where=where), where=f"{where}: [judge]"),
