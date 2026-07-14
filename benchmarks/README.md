@@ -14,6 +14,7 @@ several judges), and deliberately not part of `just validate`.
 
 ```bash
 just benchmark                                            # ledger app, config model
+just benchmark benchmarks/config/relay.toml               # event-sourced job queue
 just benchmark benchmarks/config/smoke.toml               # tiny app (plumbing check)
 just benchmark benchmarks/config/default.toml haiku       # pick the coding model
 just benchmark benchmarks/config/default.toml gpt-5.6-sol codex xhigh
@@ -62,6 +63,22 @@ rejected. The two most useful knobs:
   `[[probes]]` to match its contract.
 - **models**: `[builder]` (provider/model/effort/timeout) and
   `[[judge.panel]]` entries.
+
+## Real benchmark applications
+
+The two real apps are deliberately complementary; `smoke.toml` remains only a
+cheap harness check.
+
+| Config | Application | Design surface |
+|---|---|---|
+| `default.toml` | `ledger`, a personal expense CLI | SQLite CRUD, decimal-money and date invariants, budget upserts, monthly filtering and aggregation, deterministic financial formatting |
+| `relay.toml` | `relay`, an offline job-queue/workflow CLI | append-only JSONL event sourcing and replay, explicit state transitions and exit taxonomy, injected time and overdue logic, Unicode audit history, deterministic lists/stats, JSON/CSV round-trips, idempotent and 5,000-row imports |
+
+Each config carries its exact product brief under `config/prompts/` and its
+regex-checkable acceptance scenario as ordered `[[probes]]`. The relay scenario
+also runs against the standard-library reference in `tests/relay_reference.py`
+during `just test`, proving the published contract and captures are mutually
+consistent without a provider or network.
 
 ## What is measured
 

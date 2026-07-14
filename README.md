@@ -119,6 +119,7 @@ self-contained report per run.
 
 ```bash
 just benchmark                                 # full run (long, costs provider usage)
+just benchmark benchmarks/config/relay.toml    # event-sourced job queue
 just benchmark benchmarks/config/smoke.toml    # cheap plumbing check
 ```
 
