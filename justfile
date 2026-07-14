@@ -43,6 +43,10 @@ benchmark config="benchmarks/config/default.toml" model="" provider="" effort=""
         {{ if provider == "" { "" } else { "--builder-provider " + provider } }} \
         {{ if effort == "" { "" } else { "--builder-effort " + effort } }}
 
+# Render the append-only run registry as a standalone, offline HTML report.
+bench-report registry="~/.local/share/guardrails-benchmark/runs/registry.jsonl" output="~/.local/share/guardrails-benchmark/runs/bench-report.html":
+    python3 benchmarks/report.py --registry "{{registry}}" --output "{{output}}"
+
 # Create the ignored local Langfuse environment with fresh random secrets.
 langfuse-init:
     python3 "{{langfuse_dir}}/init_env.py"

@@ -22,6 +22,7 @@ just benchmark benchmarks/config/relay.toml               # event-sourced job qu
 just benchmark benchmarks/config/smoke.toml               # tiny app (plumbing check)
 just benchmark benchmarks/config/default.toml haiku       # pick the coding model
 just benchmark benchmarks/config/default.toml gpt-5.6-sol codex xhigh
+just bench-report                                         # compare every recorded run
 python3 benchmarks/run.py --config path/to/your.toml \
     --builder-model sonnet --builder-effort high          # equivalent flags
 ```
@@ -55,6 +56,26 @@ the generator engine without giving the pack root a virtualenv. Results land **o
 `~/.local/share/guardrails-benchmark/runs/<label>-<timestamp>/`), each run a
 self-contained directory: `config.toml`, `build_prompt.md`, `manifest.json`,
 both workspaces, every raw analyzer output, `results.json`, `report.md`.
+
+Every completed run also appends two summary rows (one per arm) to
+`~/.local/share/guardrails-benchmark/runs/registry.jsonl`. Existing rows are
+never rewritten. Each row copies the resolved Copier identity directly from
+that run's manifest and records the variant, application, phase (`build` for
+today's pipeline), provider/model/effort, seed, run label, revisions, probe and
+judge outcomes, analyzer densities, coverage, time, cost, token classes, tool
+calls, and turns.
+
+`just bench-report` reads that real output-root registry and writes
+`bench-report.html` beside it. The standalone report has no network assets: it
+contains filterable grouped comparisons plus inline quality-vs-time,
+quality-vs-cost, and effort charts. Filters cover template version, model,
+application, variant, and phase. To render another registry or destination:
+
+```bash
+just bench-report path/to/registry.jsonl path/to/report.html
+```
+
+A missing or empty registry prints a next-step message and exits cleanly.
 
 ## Configure it
 

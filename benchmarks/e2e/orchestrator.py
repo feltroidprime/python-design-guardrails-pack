@@ -35,6 +35,7 @@ from benchmarks.e2e.judging import (
 )
 from benchmarks.e2e.metrics import collect_metrics, run_native_gate
 from benchmarks.e2e.probes import pass_rate, run_probes
+from benchmarks.e2e.registry import REGISTRY_FILENAME, append_registry_rows, registry_rows
 from benchmarks.e2e.reporting import render_report
 from benchmarks.e2e.workspaces import (
     Workspace,
@@ -370,6 +371,10 @@ def run_benchmark(
     }
     _write_json(run_dir / "results.json", results)
     (run_dir / "report.md").write_text(render_report(results), encoding="utf-8")
+    append_registry_rows(
+        cfg.run.output_root / REGISTRY_FILENAME,
+        registry_rows(results, cfg),
+    )
 
     if not cfg.run.keep_workspaces:
         shutil.rmtree(arms_dir, ignore_errors=True)

@@ -769,6 +769,89 @@ class TestOrchestration:
         guardrails_src = run.run_dir / "arms" / ARM_GUARDRAILS / "workspace" / "src" / "demo"
         assert guardrails_src.is_dir(), "guardrails arm must start from the instantiated template"
 
+    def test_completed_runs_append_well_formed_registry_rows(
+        self, tmp_path: Path
+    ) -> None:
+        cfg = _pipeline_config(tmp_path)
+        metric_summary = {
+            "ruff": {"per_kloc": 1.5},
+            "basedpyright": {"errors_per_kloc": 2.5},
+            "coverage": {"percent": 87.5},
+        }
+
+        first = run_benchmark(
+            cfg,
+            repo_root=REPO_ROOT,
+            runner_factory=lambda role: _FakeRunner(role, []),
+            metrics_collector=lambda workspace, out_dir: metric_summary,
+            log=lambda message: None,
+        )
+        second = run_benchmark(
+            replace(cfg, run=replace(cfg.run, label="fake-second")),
+            repo_root=REPO_ROOT,
+            runner_factory=lambda role: _FakeRunner(role, []),
+            metrics_collector=lambda workspace, out_dir: metric_summary,
+            log=lambda message: None,
+        )
+
+        registry = cfg.run.output_root / "registry.jsonl"
+        rows = [
+            json.loads(line)
+            for line in registry.read_text(encoding="utf-8").splitlines()
+        ]
+        assert len(rows) == 4
+        assert [row["run_id"] for row in rows[:2]] == [
+            first.results["meta"]["run_id"],
+            first.results["meta"]["run_id"],
+        ]
+        assert [row["run_id"] for row in rows[2:]] == [
+            second.results["meta"]["run_id"],
+            second.results["meta"]["run_id"],
+        ]
+        assert [row["arm"] for row in rows] == [*ARMS, *ARMS]
+
+        first_manifest = json.loads(
+            (first.run_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+        for row in rows[:2]:
+            assert row == {
+                "schema_version": 1,
+                "run_id": first.results["meta"]["run_id"],
+                "started_utc": first.results["meta"]["started_utc"],
+                "run_label": "fake",
+                "arm": row["arm"],
+                "template": first_manifest["template"],
+                "variant": "baseline",
+                "app": "demo",
+                "phase": "build",
+                "provider": "claude",
+                "model": "fake-model",
+                "effort": None,
+                "seed": 7,
+                "pack_revision": first.results["meta"]["pack_revision"],
+                "headless_llm_revision": first.results["meta"]["headless_llm_revision"],
+                "probe_pass_rate": 1.0,
+                "judge_primary_votes": first.results["judging"]["aggregate"][
+                    "primary_preferences"
+                ][row["arm"]],
+                "judge_dimension_means": first.results["judging"]["aggregate"][
+                    "dimension_means"
+                ][row["arm"]],
+                "analyzer_densities": {
+                    "ruff_violations_per_kloc": 1.5,
+                    "basedpyright_errors_per_kloc": 2.5,
+                },
+                "coverage_percent": 87.5,
+                "wall_time_seconds": 1.2,
+                "cost_usd": 0.01,
+                "input_tokens": 100,
+                "cached_input_tokens": 0,
+                "output_tokens": 50,
+                "reasoning_tokens": 25,
+                "tool_calls": 5,
+                "turns": 3,
+            }
+
     def test_structured_events_cover_both_arms_and_judging(self, tmp_path: Path) -> None:
         """The TUI contract: stages, probes, builds, and verdicts all emit events."""
         from benchmarks.e2e import events as ev
