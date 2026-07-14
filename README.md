@@ -93,7 +93,9 @@ uv run --no-project --with copier==9.17.0 python instantiate.py my-product my_pr
 
 Every generated repository records its template reference/version and the
 `project_name` and `package` answers in `.copier-answers.yml`. This provenance
-is managed by Copier and is the basis for future `copier update` runs.
+is managed by Copier. The generated README explains how to check for tagged
+releases, run `copier update` with inline conflicts, and verify that no merge
+markers survive before running the full quality gate.
 
 The generated project contains a small vertical slice built on **foundation bricks**: a replaceable example domain (`Item`) wired through keep-me exemplars of every cross-cutting capability — an injected clock and id factory, a typed in-process event publisher with an audit-log consumer, a SQLite reference adapter demonstrating error translation and context-managed lifecycle, a reusable repository contract-test kit, and a runnable `python -m` CLI through the single composition root. Replace the `Item` domain; keep the bricks (rationale: the generated `docs/adr/0002-foundation-ports-and-reference-adapters.md`).
 
