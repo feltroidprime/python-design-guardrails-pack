@@ -85,6 +85,12 @@ expect_exit = 2
 stderr_regex = '\S'
 
 [[probes]]
+name = "rejects-noncanonical-now"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-4-1T1:2:3Z", "stats"]
+expect_exit = 2
+stderr_regex = '\S'
+
+[[probes]]
 name = "rejects-malformed-deadline"
 argv = [
   "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:00:00Z",
@@ -98,7 +104,7 @@ stderr_regex = '\S'
 name = "enqueue-unicode-overdue-job"
 argv = [
   "uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:00:00Z",
-  "enqueue", "--title", "Préparer café ☕", "--note", "naïve — 東京",
+  "enqueue", "--title", "Préparer café ☕", "--note", "naïve, 東京",
   "--deadline", "2026-04-01T09:00:00Z",
 ]
 expect_exit = 0
@@ -112,7 +118,7 @@ argv = [
   "list", "--overdue",
 ]
 expect_exit = 0
-stdout_regex = '(?m)^\d+\tqueued\t2026-04-01T09:00:00Z\t"Préparer café ☕"\t"naïve — 東京"$'
+stdout_regex = '(?m)^\d+\tqueued\t2026-04-01T09:00:00Z\t"Préparer café ☕"\t"naïve, 東京"$'
 
 [[probes]]
 name = "start-first-job"
@@ -149,6 +155,28 @@ argv = [
 ]
 expect_exit = 0
 stdout_regex = '(?s)\A1\t2026-04-01T10:00:00Z\tenqueued\tqueued\n2\t2026-04-01T10:10:00Z\tstarted\trunning\n3\t2026-04-01T10:20:00Z\tcompleted\tdone\n?\Z'
+
+[[probes]]
+name = "event-log-is-jsonl-and-globally-sequenced"
+argv = ["uv", "run", "python", "-c", "import json,pathlib,sys; raw=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'); lines=raw.splitlines(); events=[json.loads(line) for line in lines]; ok=raw==chr(10).join(lines)+chr(10) and len(events)==3 and all(list(event)==['seq','at','type','job_id','data'] and type(event['seq']) is int and event['seq']==i and type(event['job_id']) is int for i,event in enumerate(events,1)) and [event['at'] for event in events]==['2026-04-01T10:00:00Z','2026-04-01T10:10:00Z','2026-04-01T10:20:00Z'] and [event['type'] for event in events]==['enqueued','started','completed'] and all(event['job_id']==1 for event in events) and type(events[0]['data']) is dict and list(events[0]['data'])==['title','note','deadline'] and list(events[0]['data'].values())==['Préparer café ☕','naïve, 東京','2026-04-01T09:00:00Z'] and all(type(event['data']) is dict and len(event['data'])==0 for event in events[1:]) and all(line==json.dumps(event,ensure_ascii=False,separators=(',',':')) for line,event in zip(lines,events,strict=True)); raise SystemExit(0 if ok else 1)", "{db}"]
+expect_exit = 0
+
+[[probes]]
+name = "copy-log-for-independent-replay"
+argv = ["uv", "run", "python", "-c", "import shutil,sys; shutil.copyfile(sys.argv[1],sys.argv[2])", "{db}", "{db}.replay"]
+expect_exit = 0
+
+[[probes]]
+name = "copied-log-reconstructs-current-state"
+argv = ["uv", "run", "relay", "--log", "{db}.replay", "--now", "2026-04-01T11:00:00Z", "list"]
+expect_exit = 0
+stdout_regex = '\A\d+\tdone\t2026-04-01T09:00:00Z\t"Préparer café ☕"\t"naïve, 東京"\n?\Z'
+
+[[probes]]
+name = "rejects-nonpositive-id-as-invalid-input"
+argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T11:00:00Z", "start", "--id", "0"]
+expect_exit = 2
+stderr_regex = '\S'
 
 [[probes]]
 name = "unknown-id-has-dedicated-exit"
@@ -219,10 +247,15 @@ argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T10:09:00Z", 
 expect_exit = 0
 
 [[probes]]
+name = "complete-event-log-has-exact-transition-semantics"
+argv = ["uv", "run", "python", "-c", "import json,pathlib,sys; raw=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'); lines=raw.splitlines(); events=[json.loads(line) for line in lines]; types=['enqueued','started','completed','enqueued','started','failed','retried','enqueued','started','enqueued','started','failed']; ids=[1,1,1,2,2,2,2,3,3,4,4,4]; ats=['2026-04-01T10:00:00Z','2026-04-01T10:10:00Z','2026-04-01T10:20:00Z','2026-04-01T10:00:00Z','2026-04-01T10:05:00Z','2026-04-01T10:06:00Z','2026-04-01T10:07:00Z','2026-04-01T10:00:00Z','2026-04-01T10:08:00Z','2026-04-01T10:00:00Z','2026-04-01T10:08:00Z','2026-04-01T10:09:00Z']; payloads=[['Préparer café ☕','naïve, 東京','2026-04-01T09:00:00Z'],['retry me','','2026-04-01T09:30:00Z'],['still running','','2026-04-01T12:00:00Z'],['stays failed','','2026-04-01T08:00:00Z']]; enqueued=[event for event in events if event['type']=='enqueued']; transitions=[event for event in events if event['type']!='enqueued']; ok=raw==chr(10).join(json.dumps(event,ensure_ascii=False,separators=(',',':')) for event in events)+chr(10) and [event['type'] for event in events]==types and [event['job_id'] for event in events]==ids and [event['at'] for event in events]==ats and all(type(event['seq']) is int and event['seq']==i and type(event['job_id']) is int for i,event in enumerate(events,1)) and all(type(event['data']) is dict and list(event['data'])==['title','note','deadline'] for event in enqueued) and [list(event['data'].values()) for event in enqueued]==payloads and all(type(event['data']) is dict and len(event['data'])==0 for event in transitions); raise SystemExit(0 if ok else 1)", "{db}"]
+expect_exit = 0
+
+[[probes]]
 name = "list-orders-by-id"
 argv = ["uv", "run", "relay", "--log", "{db}", "--now", "2026-04-01T11:00:00Z", "list"]
 expect_exit = 0
-stdout_regex = '(?s)\A\d+\tdone\t2026-04-01T09:00:00Z\t"Préparer café ☕"\t"naïve — 東京"\n\d+\tqueued\t2026-04-01T09:30:00Z\t"retry me"\t""\n\d+\trunning\t2026-04-01T12:00:00Z\t"still running"\t""\n\d+\tfailed\t2026-04-01T08:00:00Z\t"stays failed"\t""\n?\Z'
+stdout_regex = '(?s)\A\d+\tdone\t2026-04-01T09:00:00Z\t"Préparer café ☕"\t"naïve, 東京"\n\d+\tqueued\t2026-04-01T09:30:00Z\t"retry me"\t""\n\d+\trunning\t2026-04-01T12:00:00Z\t"still running"\t""\n\d+\tfailed\t2026-04-01T08:00:00Z\t"stays failed"\t""\n?\Z'
 
 [[probes]]
 name = "state-filter-lists-only-failed"
@@ -250,10 +283,20 @@ expect_exit = 0
 stdout_regex = '\Aexported=4\n?\Z'
 
 [[probes]]
+name = "json-export-has-exact-schema-and-encoding"
+argv = ["uv", "run", "python", "-c", "import json,pathlib,sys; raw=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'); payload=json.loads(raw); jobs=payload.get('jobs'); expected=[[1,'Préparer café ☕','naïve, 東京','2026-04-01T09:00:00Z','done','2026-04-01T10:00:00Z','2026-04-01T10:20:00Z'],[2,'retry me','','2026-04-01T09:30:00Z','queued','2026-04-01T10:00:00Z','2026-04-01T10:07:00Z'],[3,'still running','','2026-04-01T12:00:00Z','running','2026-04-01T10:00:00Z','2026-04-01T10:08:00Z'],[4,'stays failed','','2026-04-01T08:00:00Z','failed','2026-04-01T10:00:00Z','2026-04-01T10:09:00Z']]; ok=list(payload)==['version','jobs'] and type(payload['version']) is int and payload['version']==1 and isinstance(jobs,list) and all(type(job['id']) is int and list(job)==['id','title','note','deadline','state','created_at','updated_at'] for job in jobs) and [list(job.values()) for job in jobs]==expected and raw==json.dumps(payload,ensure_ascii=False,separators=(',',':'))+'\\n'; raise SystemExit(0 if ok else 1)", "{db}.json"]
+expect_exit = 0
+
+[[probes]]
 name = "import-json-fresh"
 argv = ["uv", "run", "relay", "--log", "{db}.json.log", "--now", "2026-04-01T12:01:00Z", "import", "--format", "json", "--input", "{db}.json"]
 expect_exit = 0
 stdout_regex = '\Aimported=4 skipped=0\n?\Z'
+
+[[probes]]
+name = "json-import-appends-exact-imported-events"
+argv = ["uv", "run", "python", "-c", "import json,pathlib,sys; raw=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'); events=[json.loads(line) for line in raw.splitlines()]; expected=[['Préparer café ☕','naïve, 東京','2026-04-01T09:00:00Z','done','2026-04-01T10:00:00Z','2026-04-01T10:20:00Z'],['retry me','','2026-04-01T09:30:00Z','queued','2026-04-01T10:00:00Z','2026-04-01T10:07:00Z'],['still running','','2026-04-01T12:00:00Z','running','2026-04-01T10:00:00Z','2026-04-01T10:08:00Z'],['stays failed','','2026-04-01T08:00:00Z','failed','2026-04-01T10:00:00Z','2026-04-01T10:09:00Z']]; ok=raw==chr(10).join(json.dumps(event,ensure_ascii=False,separators=(',',':')) for event in events)+chr(10) and len(events)==4 and all(list(event)==['seq','at','type','job_id','data'] and type(event['seq']) is int and event['seq']==i and event['at']=='2026-04-01T12:01:00Z' and event['type']=='imported' and type(event['job_id']) is int and event['job_id']==i and type(event['data']) is dict and list(event['data'])==['title','note','deadline','state','created_at','updated_at'] for i,event in enumerate(events,1)) and [list(event['data'].values()) for event in events]==expected; raise SystemExit(0 if ok else 1)", "{db}.json.log"]
+expect_exit = 0
 
 [[probes]]
 name = "export-json-roundtrip"
@@ -290,10 +333,20 @@ expect_exit = 0
 stdout_regex = '\Aexported=4\n?\Z'
 
 [[probes]]
+name = "csv-export-has-exact-header-and-line-endings"
+argv = ["uv", "run", "python", "-c", "import csv,pathlib,sys; raw=pathlib.Path(sys.argv[1]).read_bytes(); rows=list(csv.reader(raw.decode('utf-8').splitlines())); expected=[['id','title','note','deadline','state','created_at','updated_at'],['1','Préparer café ☕','naïve, 東京','2026-04-01T09:00:00Z','done','2026-04-01T10:00:00Z','2026-04-01T10:20:00Z'],['2','retry me','','2026-04-01T09:30:00Z','queued','2026-04-01T10:00:00Z','2026-04-01T10:07:00Z'],['3','still running','','2026-04-01T12:00:00Z','running','2026-04-01T10:00:00Z','2026-04-01T10:08:00Z'],['4','stays failed','','2026-04-01T08:00:00Z','failed','2026-04-01T10:00:00Z','2026-04-01T10:09:00Z']]; ok=b'\\r' not in raw and raw.endswith(b'\\n') and rows==expected; raise SystemExit(0 if ok else 1)", "{db}.csv"]
+expect_exit = 0
+
+[[probes]]
 name = "import-csv-fresh"
 argv = ["uv", "run", "relay", "--log", "{db}.csv.log", "--now", "2026-04-01T12:11:00Z", "import", "--format", "csv", "--input", "{db}.csv"]
 expect_exit = 0
 stdout_regex = '\Aimported=4 skipped=0\n?\Z'
+
+[[probes]]
+name = "csv-import-appends-exact-imported-events"
+argv = ["uv", "run", "python", "-c", "import json,pathlib,sys; raw=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'); events=[json.loads(line) for line in raw.splitlines()]; expected=[['Préparer café ☕','naïve, 東京','2026-04-01T09:00:00Z','done','2026-04-01T10:00:00Z','2026-04-01T10:20:00Z'],['retry me','','2026-04-01T09:30:00Z','queued','2026-04-01T10:00:00Z','2026-04-01T10:07:00Z'],['still running','','2026-04-01T12:00:00Z','running','2026-04-01T10:00:00Z','2026-04-01T10:08:00Z'],['stays failed','','2026-04-01T08:00:00Z','failed','2026-04-01T10:00:00Z','2026-04-01T10:09:00Z']]; ok=raw==chr(10).join(json.dumps(event,ensure_ascii=False,separators=(',',':')) for event in events)+chr(10) and len(events)==4 and all(list(event)==['seq','at','type','job_id','data'] and type(event['seq']) is int and event['seq']==i and event['at']=='2026-04-01T12:11:00Z' and event['type']=='imported' and type(event['job_id']) is int and event['job_id']==i and type(event['data']) is dict and list(event['data'])==['title','note','deadline','state','created_at','updated_at'] for i,event in enumerate(events,1)) and [list(event['data'].values()) for event in events]==expected; raise SystemExit(0 if ok else 1)", "{db}.csv.log"]
+expect_exit = 0
 
 [[probes]]
 name = "export-csv-roundtrip"
@@ -306,26 +359,26 @@ name = "csv-roundtrip-is-byte-identical"
 argv = ["uv", "run", "python", "-c", "import pathlib,sys; raise SystemExit(0 if pathlib.Path(sys.argv[1]).read_bytes() == pathlib.Path(sys.argv[2]).read_bytes() else 1)", "{db}.csv", "{db}.csv.roundtrip"]
 expect_exit = 0
 
-# A generated 5,000-row export-shaped CSV keeps the repository small while
+# A generated 50,000-row export-shaped CSV keeps the repository small while
 # making replay-per-row / list-scan-per-row implementations miss the ceiling.
 [[probes]]
 name = "generate-streaming-scale-csv"
 argv = [
   "uv", "run", "python", "-c",
-  "import csv,sys; f=open(sys.argv[1],'w',encoding='utf-8',newline=''); w=csv.writer(f,lineterminator='\\n'); w.writerow(('id','title','note','deadline','state','created_at','updated_at')); w.writerows((i,'bulk-%d'%i,'','','queued','2026-04-01T00:00:00Z','2026-04-01T00:00:00Z') for i in range(1000,6000)); f.close()",
+  "import csv,sys; f=open(sys.argv[1],'w',encoding='utf-8',newline=''); w=csv.writer(f,lineterminator='\\n'); w.writerow(('id','title','note','deadline','state','created_at','updated_at')); w.writerows((i,'bulk-%d'%i,'','','queued','2026-04-01T00:00:00Z','2026-04-01T00:00:00Z') for i in range(1000,51000)); f.close()",
   "{db}.bulk.csv",
 ]
 expect_exit = 0
 
 [[probes]]
-name = "import-five-thousand-rows-within-linear-timeout"
+name = "import-fifty-thousand-rows-within-linear-timeout"
 argv = ["uv", "run", "relay", "--log", "{db}.bulk.log", "--now", "2026-04-01T13:00:00Z", "import", "--format", "csv", "--input", "{db}.bulk.csv"]
 expect_exit = 0
-stdout_regex = '\Aimported=5000 skipped=0\n?\Z'
-timeout_seconds = 8.0
+stdout_regex = '\Aimported=50000 skipped=0\n?\Z'
+timeout_seconds = 3.0
 
 [[probes]]
 name = "stats-after-streaming-import"
 argv = ["uv", "run", "relay", "--log", "{db}.bulk.log", "--now", "2026-04-01T13:01:00Z", "stats"]
 expect_exit = 0
-stdout_regex = '\Aqueued=5000 running=0 done=0 failed=0 overdue=0\n?\Z'
+stdout_regex = '\Aqueued=50000 running=0 done=0 failed=0 overdue=0\n?\Z'

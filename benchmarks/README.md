@@ -72,7 +72,7 @@ cheap harness check.
 | Config | Application | Design surface |
 |---|---|---|
 | `default.toml` | `ledger`, a personal expense CLI | SQLite CRUD, decimal-money and date invariants, budget upserts, monthly filtering and aggregation, deterministic financial formatting |
-| `relay.toml` | `relay`, an offline job-queue/workflow CLI | append-only JSONL event sourcing and replay, explicit state transitions and exit taxonomy, injected time and overdue logic, Unicode audit history, deterministic lists/stats, JSON/CSV round-trips, idempotent and 5,000-row imports |
+| `relay.toml` | `relay`, an offline job-queue/workflow CLI | append-only JSONL event sourcing and replay, explicit state transitions and exit taxonomy, injected time and overdue logic, Unicode audit history, deterministic lists/stats, JSON/CSV round-trips, idempotent and 50,000-row imports |
 
 Each config carries its exact product brief under `config/prompts/` and its
 regex-checkable acceptance scenario as ordered `[[probes]]`. The relay scenario

@@ -6,6 +6,7 @@ import csv
 from datetime import datetime
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any
 
@@ -21,7 +22,9 @@ class RelayError(Exception):
 
 
 def _timestamp(value: object, *, field: str) -> str:
-    if not isinstance(value, str):
+    if not isinstance(value, str) or re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", value
+    ) is None:
         raise RelayError(f"{field} must be a UTC ISO-8601 datetime")
     try:
         datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
@@ -266,7 +269,7 @@ def _execute(args: argparse.Namespace) -> None:
         "retry": ("failed", "queued", "retried"),
     }
     if args.command in transitions:
-        ident = args.id
+        ident = _positive_id(args.id)
         if ident not in jobs:
             raise RelayError(f"unknown job id: {ident}", exit_code=3)
         expected, _target, event_type = transitions[args.command]
@@ -291,7 +294,7 @@ def _execute(args: argparse.Namespace) -> None:
         return
 
     if args.command == "history":
-        ident = args.id
+        ident = _positive_id(args.id)
         if ident not in jobs:
             raise RelayError(f"unknown job id: {ident}", exit_code=3)
         for seq, at, event_type, state in history[ident]:
