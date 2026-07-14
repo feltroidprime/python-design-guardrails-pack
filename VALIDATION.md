@@ -27,18 +27,23 @@ across resumed invocations. Validation rejects duplicate dimensions, OpenCode
 roles without an explicit canonical family, builder/judge family overlap, and
 unknown variants before execution. Matrix builders use the declared provider's
 native model and effort defaults when omitted, while scheduling enforces
-declared per-provider concurrency caps and resume skips registry-complete cells.
+declared per-provider concurrency caps. Resume now hashes the complete
+outcome-affecting build and maintenance configuration and skips only cells with
+every expected arm/phase row. Matrix-selected named variants replace, rather
+than combine with, the app's named variant; template symlinks are rejected
+before any provider workspace can be created.
 
 ## Commands and results
 
 - Focused maintenance regression command: 3 passed in 2.40s after first
   demonstrating that the mixed-schema Relay import was incorrectly accepted.
-- Focused benchmark configuration, matrix, and pipeline suites: 103 passed with
-  one expected `DirtyLocalWarning` in 25.61s.
-- `just test`: passed; 205 passed with one expected `DirtyLocalWarning` in
-  63.23s.
+- Focused benchmark configuration, matrix, and pipeline suites: 107 passed in
+  27.36s; the 18 `DirtyLocalWarning` instances reflected the intentionally
+  uncommitted template-sensitive review fixes at that point.
+- `just test`: passed; 209 passed in 63.14s. Its 24 `DirtyLocalWarning`
+  instances likewise reflected the then-uncommitted review fixes.
 - `just validate`: passed.
-  - Root suite: 205 passed in 61.36s. The single `DirtyLocalWarning` is expected
+  - Root suite: 209 passed in 67.08s. The single `DirtyLocalWarning` is expected
     from the test that deliberately creates a dirty temporary template repo.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
