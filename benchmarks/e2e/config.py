@@ -203,23 +203,6 @@ class RunSettings:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class LangfuseSettings:
-    """Optional post-run export; disabled unless a config opts in."""
-
-    enabled: bool = False
-    base_url: str = "http://127.0.0.1:3000"
-    public_key_env: str = "LANGFUSE_PUBLIC_KEY"
-    secret_key_env: str = "LANGFUSE_SECRET_KEY"
-    timeout_seconds: float = 5.0
-
-    def __post_init__(self) -> None:
-        if not self.base_url.startswith(("http://", "https://")):
-            raise ConfigError("[langfuse]: base_url must start with http:// or https://")
-        if self.timeout_seconds <= 0:
-            raise ConfigError("[langfuse]: timeout_seconds must be positive")
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
 class BenchmarkConfig:
     source_path: Path
     run: RunSettings
@@ -231,7 +214,6 @@ class BenchmarkConfig:
     tools: ToolPins
     spec_text: str
     charter_text: str
-    langfuse: LangfuseSettings = field(default_factory=LangfuseSettings)
     maintenance: ScenarioPhase | None = None
     # Populated only by the campaign runner. The single-run config format and
     # pipeline stay unchanged, while manifests and registry rows can retain
@@ -555,35 +537,6 @@ def _template(
     )
 
 
-def _langfuse(section: dict[str, object], *, where: str) -> LangfuseSettings:
-    _reject_unknown(
-        section,
-        frozenset(
-            {
-                "enabled",
-                "base_url",
-                "public_key_env",
-                "secret_key_env",
-                "timeout_seconds",
-            }
-        ),
-        where=where,
-    )
-    return LangfuseSettings(
-        enabled=_boolean(section, "enabled", where=where, default=False),
-        base_url=_string(
-            section, "base_url", where=where, default="http://127.0.0.1:3000"
-        ).rstrip("/"),
-        public_key_env=_string(
-            section, "public_key_env", where=where, default="LANGFUSE_PUBLIC_KEY"
-        ),
-        secret_key_env=_string(
-            section, "secret_key_env", where=where, default="LANGFUSE_SECRET_KEY"
-        ),
-        timeout_seconds=_number(section, "timeout_seconds", where=where, default=5.0),
-    )
-
-
 def _prompt_text(section: dict[str, object], key: str, *, where: str, config_dir: Path) -> str:
     path = Path(_string(section, key, where=where))
     if not path.is_absolute():
@@ -708,7 +661,6 @@ def load_config(path: Path, *, repo_root: Path) -> BenchmarkConfig:
                 "prompt",
                 "probes",
                 "tools",
-                "langfuse",
                 "scenario",
             }
         ),
@@ -725,10 +677,6 @@ def load_config(path: Path, *, repo_root: Path) -> BenchmarkConfig:
         if not isinstance(entry, dict):
             raise ConfigError(f"{where}: probes[{index}] must be a table")
         probes.append(_probe(entry, where=f"{where}: probes[{index}]"))
-
-    raw_langfuse = raw.get("langfuse", {})
-    if not isinstance(raw_langfuse, dict):
-        raise ConfigError(f"{where}: [langfuse] must be a table")
 
     return BenchmarkConfig(
         source_path=path.resolve(),
@@ -749,7 +697,6 @@ def load_config(path: Path, *, repo_root: Path) -> BenchmarkConfig:
         charter_text=_prompt_text(
             prompt_section, "charter_file", where=f"{where}: [prompt]", config_dir=path.parent
         ),
-        langfuse=_langfuse(raw_langfuse, where=f"{where}: [langfuse]"),
         maintenance=_scenario(
             raw.get("scenario"),
             where=f"{where}: [scenario]",

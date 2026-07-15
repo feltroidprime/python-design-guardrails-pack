@@ -1,7 +1,0 @@
-{
-  "base_url": "https://cloud.langfuse.com",
-  "enabled": false,
-  "max_chars": 2147483647,
-  "public_key": "pk-lf-replace-me",
-  "secret_key": "sk-lf-replace-me"
-}

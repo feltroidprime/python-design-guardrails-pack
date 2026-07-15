@@ -7,10 +7,6 @@ __pycache__/
 .basedpyright/
 .import_linter_cache/
 .codebase-memory/
-.agent-observability/
-.claude/settings.local.json
-.codex/hooks.json
-.codex/langfuse.json
 .coverage
 coverage.xml
 htmlcov/

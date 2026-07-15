@@ -27,7 +27,6 @@ need; every document is one link away. The gate's `docs guard` check
 {% if agents_contract != 'none' %}| [AGENTS.md](../AGENTS.md) | before changing any code: the repository operating contract | checked |
 | [CLAUDE.md](../CLAUDE.md) | never on its own: it imports [AGENTS.md](../AGENTS.md), which Claude Code does not read natively, so one contract governs every agent | checked |
 {% endif %}| docs/README.md | deciding where a piece of knowledge belongs (this file) | checked |
-| [docs/agent-observability.md](agent-observability.md) | opting in to full Codex or Claude Code session tracing, exporting a transcript, or running a feedback-loop retrospective | checked |
 | [docs/adr/](adr/) | understanding or recording a decision — one file per decision, numbered, never rewritten (start from [0000-template.md](adr/0000-template.md)) | dated |
 | [docs/architecture/README.md](architecture/README.md) | needing the dependency direction, the stable seams, or the list of fitness functions | checked |
 | [docs/architecture/EXCEPTIONS.md](architecture/EXCEPTIONS.md) | granting or auditing a suppression — the exception ledger | checked |

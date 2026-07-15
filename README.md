@@ -109,9 +109,7 @@ The generated project contains a small vertical slice built on **foundation bric
 - `pyproject.toml`: Ruff, BasedPyright, pytest, Coverage, Import Linter, and dependencies.
 - `.pre-commit-config.yaml`: optional fast commit checks and full pre-push gate (`precommit = true`).
 - `.vscode/settings.json`: hides derived artifacts (caches, coverage, `.venv`) from the VS Code explorer and search.
-- `scripts/agent_observability.py`: opt-in operator CLI for pinned official Langfuse Codex/Claude Code transcript sources; it keeps hooks, credentials, exported sessions, and analysis corpora in ignored local files.
 - `docs/README.md`: the documentation map — one row per document (who reads it, when, freshness mode) plus the admission rule for new documents; kept true by `scripts/docs_guard.py`.
-- `docs/agent-observability.md`: privacy boundary, setup, transcript export, and the evidence loop for turning recurring session pain into benchmarked template changes.
 - `docs/architecture/`: pattern admission rules, ADRs, migration and exception templates.
 - `docs/architecture/likec4/`: architecture diagrams — `generated/` is derived from the import graph by `scripts/sync_architecture_diagrams.py` (never hand-edited), `views.c4` is team-owned narration.
 - `scripts/quality_gate.py`: canonical one-command acceptance gate.
@@ -145,27 +143,11 @@ just bench-report                              # offline cross-run comparison re
 just bench-figures                             # offline article SVG/PNG/CSV export
 ```
 
-An optional pinned local Langfuse stack traces interactive Claude Code
-sessions without participating in the benchmark gate:
-
-```bash
-just langfuse-init
-just langfuse-up
-just langfuse-status
-```
-
-Generated repositories now carry their own opt-in operator flow for both Codex
-and Claude Code. With project-scoped Langfuse credentials, `just
-agent-observability-install` installs reviewed project-local sources; sessions
-can then be exported individually or analyzed as an ignored multi-session JSON
-corpus whose summary counts recurring diagnostics such as `E501`. The generated
-`docs/agent-observability.md` owns the privacy and analysis workflow.
-
 On a terminal, the run renders a live two-arm dashboard (probe checklist,
 judge verdicts revealed one by one); `--no-tui` keeps plain logs.
 
 See `benchmarks/README.md` for the methodology, judge-bias controls, publication
-figure inventory, and the linked Langfuse setup/hook/teardown guide.
+figure inventory, and experiment workflow.
 It is a maintainer tool built on [`headless_llm`](../../headless_llm) and is
 not part of `just validate`.
 

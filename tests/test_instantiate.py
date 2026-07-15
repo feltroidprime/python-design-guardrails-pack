@@ -27,12 +27,11 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "e91847a3df494514a2807c154a1fce5d8ee0b76752f7a353e55390766dbbfd03"
+EXPECTED_GENERATED_TREE_SHA256 = "111f6a338189d67dd1dc941655cab8916c6958970fb436c3d3496c930f6787c7"
 INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", "")
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
 
 EXPECTED_FILES = (
-    ".codex/langfuse.example.json",
     ".github/workflows/quality.yml",
     ".gitignore",
     ".pre-commit-config.yaml",
@@ -43,11 +42,9 @@ EXPECTED_FILES = (
     "README.md",
     "architecture.toml",
     "docs/README.md",
-    "docs/agent-observability.md",
     "docs/adr/0000-template.md",
     "docs/adr/0001-derived-architecture-diagrams.md",
     "docs/adr/0002-foundation-ports-and-reference-adapters.md",
-    "docs/adr/0003-agent-session-observability.md",
     "docs/architecture/EXCEPTIONS.md",
     "docs/architecture/likec4/generated/baseline-views.c4",
     "docs/architecture/likec4/generated/model.c4",
@@ -57,13 +54,6 @@ EXPECTED_FILES = (
     "justfile",
     "pyproject.toml",
     "scripts/architecture_guard.py",
-    "scripts/agent_observability.py",
-    "scripts/agent_observability_claude.py",
-    "scripts/agent_observability_codex_hook.py",
-    "scripts/agent_observability_controls.py",
-    "scripts/agent_observability_plugins.py",
-    "scripts/agent_observability_support.py",
-    "scripts/agent_observability_transcripts.py",
     "scripts/architecture_rules.py",
     "scripts/docs_guard.py",
     "scripts/none_discipline.py",
@@ -134,39 +124,6 @@ def test_generated_readme_documents_copier_update_workflow(generated: Path) -> N
     assert "exit status `2`" in readme
     assert "copier update --conflict inline" in readme
     assert "check-merge-conflict" in readme
-
-
-def test_generated_repository_exposes_opt_in_agent_session_observability(
-    generated: Path,
-) -> None:
-    justfile = (generated / "justfile").read_text(encoding="utf-8")
-    gitignore = (generated / ".gitignore").read_text(encoding="utf-8")
-    docs_map = (generated / "docs" / "README.md").read_text(encoding="utf-8")
-    guide = (generated / "docs" / "agent-observability.md").read_text(encoding="utf-8")
-
-    for recipe in (
-        "agent-observability-install",
-        "agent-observability-status",
-        "agent-observability-disable",
-        "agent-observability-recent",
-        "agent-observability-export",
-        "agent-observability-analyze",
-    ):
-        assert recipe in justfile
-    for ignored in (
-        ".agent-observability/",
-        ".claude/settings.local.json",
-        ".codex/hooks.json",
-        ".codex/langfuse.json",
-    ):
-        assert ignored in gitignore
-    assert "[docs/agent-observability.md](agent-observability.md)" in docs_map
-    assert "Claude Code" in guide
-    assert "Codex" in guide
-    assert "TRACE_TO_LANGFUSE" in guide
-    assert "full prompts" in guide
-    assert "just agent-observability-export" in guide
-    assert "just agent-observability-analyze" in guide
 
 
 def test_copier_migrations_are_wired() -> None:

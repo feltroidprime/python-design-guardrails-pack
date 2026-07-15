@@ -34,7 +34,6 @@ from benchmarks.e2e.config import (
     ProbeSpec,
 )
 from benchmarks.e2e import events as ev
-from benchmarks.e2e.exporting import BenchmarkExporter, LangfuseExporter, arm_traces
 from benchmarks.e2e.judging import (
     Bundle,
     aggregate_judgments,
@@ -223,7 +222,6 @@ def run_benchmark(
     gate_runner: GateRunner | None = None,
     log: Logger = print,
     events: ev.EventSink = ev.ignore_event,
-    exporter: BenchmarkExporter | None = None,
     template_source_root: Path | None = None,
     template_vcs_ref: str | None = None,
     template_identity: dict[str, object] | None = None,
@@ -576,22 +574,4 @@ def run_benchmark(
             },
         )
     )
-    active_exporter = exporter
-    if cfg.langfuse.enabled and active_exporter is None:
-        try:
-            active_exporter = LangfuseExporter.from_settings(cfg.langfuse)
-        except Exception as error:  # noqa: BLE001 - observability must fail open
-            emit(
-                "warning: Langfuse export unavailable: "
-                f"{type(error).__name__}: {error}"
-            )
-    if cfg.langfuse.enabled and active_exporter is not None:
-        for trace in arm_traces(cfg, results):
-            try:
-                active_exporter.export(trace)
-            except Exception as error:  # noqa: BLE001 - observability must fail open
-                emit(
-                    "warning: Langfuse export failed for "
-                    f"{trace.arm}: {type(error).__name__}: {error}"
-                )
     return BenchmarkRun(run_dir=run_dir, results=results)

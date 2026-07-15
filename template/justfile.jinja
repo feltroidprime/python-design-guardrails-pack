@@ -35,48 +35,6 @@ diagrams:
     version="$(uv run python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['tool']['likec4']['version'])")"
     exec bunx "likec4@${version}" serve docs/architecture/likec4
 
-# Install the pinned Langfuse transcript plugins for installed coding agents.
-# Credentials are read from the environment and persisted only in ignored local files.
-agent-observability-install:
-    uv run python -m scripts.agent_observability install \
-        --agent "${AGENT_OBSERVABILITY_AGENT:-all}"
-
-# Verify plugin revisions, local opt-in, and credentials without printing secrets.
-agent-observability-status:
-    uv run python -m scripts.agent_observability status
-
-# Remove project credentials and explicitly opt this repository out of tracing.
-agent-observability-disable:
-    uv run python -m scripts.agent_observability disable
-
-# List recent traced turns with their Langfuse session and trace identifiers.
-agent-observability-recent:
-    uv run python -m scripts.agent_observability recent \
-        --minutes "${AGENT_OBSERVABILITY_LOOKBACK_MINUTES:-60}"
-
-# Export one complete Langfuse session to an ignored local JSON transcript.
-agent-observability-export:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    : "${LANGFUSE_SESSION_ID:?set LANGFUSE_SESSION_ID to the session to export}"
-    args=(export "$LANGFUSE_SESSION_ID")
-    if [[ -n "${AGENT_OBSERVABILITY_OUTPUT:-}" ]]; then
-        args+=(--output "$AGENT_OBSERVABILITY_OUTPUT")
-    fi
-    uv run python -m scripts.agent_observability "${args[@]}"
-
-# Export a recent multi-session corpus and summarize recurring diagnostic codes.
-agent-observability-analyze:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    args=(analyze
-        --minutes "${AGENT_OBSERVABILITY_LOOKBACK_MINUTES:-1440}"
-        --minimum-sessions "${AGENT_OBSERVABILITY_MINIMUM_SESSIONS:-2}")
-    if [[ -n "${AGENT_OBSERVABILITY_OUTPUT:-}" ]]; then
-        args+=(--output "$AGENT_OBSERVABILITY_OUTPUT")
-    fi
-    uv run python -m scripts.agent_observability "${args[@]}"
-
 update:
     uv lock --upgrade
 {% if precommit %}    uv run pre-commit autoupdate

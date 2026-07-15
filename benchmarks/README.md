@@ -12,10 +12,6 @@ maintenance sessions for each real app, with arms concurrent by default —
 `run.parallel_arms`), somewhat costly, and deliberately not part of
 `just validate`.
 
-[Local Langfuse operations](langfuse/README.md) cover the optional pinned
-observability stack, Claude Code hook, trace check, and teardown. The lab is
-independent of running the benchmark.
-
 The [optimization experiment protocol](EXPERIMENTS.md) registers hypotheses,
 named Copier variants, pinned multi-seed campaigns, reports, and evidence-backed
 adopt/reject decisions.
@@ -180,10 +176,6 @@ rejected. The three most useful knobs:
 - **template**: `[template] vcs_ref`, `variant`, and answer overrides select
   exactly which Copier generation the template arm starts from. The bare arm
   never reads these settings.
-- **observability**: `[langfuse] enabled` opts into provider-neutral post-run
-  export. It is `false` by default; exporter setup and connection failures are
-  warnings and cannot change benchmark results.
-
 The baseline template configuration is:
 
 ```toml
@@ -242,66 +234,6 @@ stays paired with the guardrails row. The guardrails workspace records the
 effective answers in `.copier-answers.yml`; the same dictionary is copied to
 the manifest, results, and registry rows. Thus the workspace provenance and
 reported ablation cannot diverge.
-
-The optional exporter configuration is:
-
-```toml
-[langfuse]
-enabled = false
-base_url = "http://127.0.0.1:3000"
-public_key_env = "LANGFUSE_PUBLIC_KEY"
-secret_key_env = "LANGFUSE_SECRET_KEY"
-timeout_seconds = 5.0
-```
-
-`public_key_env` and `secret_key_env` name environment variables; credentials
-never belong in tracked TOML. When enabled, export happens only after
-`results.json` and `report.md` are complete. Each arm and phase becomes one trace tagged
-with arm, resolved Copier version and variant, app, phase, provider,
-model, effort, seed, run label, and both source revisions. Its spans are
-`instantiate`, `build` or `change`, `install`, `self-tests`, `probes`, `analyzers`, and
-`judging`; numeric probe, judge, analyzer-density, coverage, time, cost, token,
-tool-call, and turn metrics become trace scores.
-
-For the local stack, load the generated project keys before launching a run:
-
-```bash
-set -a
-source benchmarks/langfuse/.env
-set +a
-just benchmark benchmarks/config/smoke.toml
-```
-
-To exercise the fake-agent API round trip (separate from and excluded from
-`just test`):
-
-```bash
-just langfuse-init
-just langfuse-up
-LANGFUSE_INTEGRATION=1 uv run --no-project --python 3.14 \
-  --with pytest==9.1.1 --with copier==9.17.0 \
-  pytest -q benchmarks/integration/test_langfuse_export.py
-```
-
-### Langfuse dashboard over benchmark tags
-
-The pinned Langfuse v3 widget builder can save score charts filtered by exact
-trace tags, so a useful per-version dashboard can be recreated in the local UI:
-
-1. Open **Dashboards → Widgets → New widget**, select evaluation scores, and
-   choose numeric score value as the metric.
-2. Filter score name to `cost_usd`, then add the trace-tag filters
-   `template:<resolved-version>` and (optionally) `arm:bare` or
-   `arm:guardrails`; save as “Cost — <resolved-version>”.
-3. Repeat for `judge_primary_preference` and the `judge_*` dimension scores.
-4. Create “Benchmark — <resolved-version>”, add the saved widgets, and use the
-   global tag filters for app, provider, model, effort, seed, and variant.
-
-The current widget builder filters by complete tag strings but does not expose
-the value after a prefix such as `template:` as its own grouping dimension.
-Consequently one saved widget cannot dynamically group all template versions;
-clone the widget and change its exact version filter. The append-only registry
-report remains the canonical cross-version view.
 
 ## Real benchmark applications
 
@@ -388,11 +320,6 @@ about these scenarios, not about template value in general.
 - The builder inherits the host machine's agent-CLI configuration (global
   instruction files, hooks). This is symmetric between arms — the comparison
   stands — but absolute numbers vary across machines.
-- The optional Langfuse Claude Code hook is active for headless Claude builds,
-  not only interactive sessions. Because inherited host settings are
-  symmetric between arms, it does not favor either arm, but its enabled state
-  can affect absolute timing. Keep that state fixed across a campaign (or
-  uninstall it first); see the [operations guide](langfuse/README.md).
 - OpenCode currently merges (rather than replaces) the host's global MCP
   server configuration even when the harness requests none; judge tool
   lockdown and the neutral CWD make this moot for judging, but an OpenCode

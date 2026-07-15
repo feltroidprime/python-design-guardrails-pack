@@ -12,4 +12,3 @@ uv.lock
 .DS_Store
 dist/
 *.egg-info/
-benchmarks/langfuse/.env
