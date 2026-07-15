@@ -157,3 +157,27 @@ A completion report must state:
 
 Never claim a validation you did not execute. If the gate fails, report the
 failure verbatim rather than narrowing the claim.
+
+<!-- vendored-docs:begin -->
+## Vendored documentation
+
+Before writing code against these libraries, read the page named below instead of recalling the
+API from memory. These trees are pinned and read-only; `vendor-docs check` fails on local edits.
+
+| Read | When | Pin |
+|---|---|---|
+| `docs/vendored/arize_phoenix/phoenix/` | before choosing Phoenix capabilities for an AI application | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/get-started/` | before adding Phoenix to an application | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/tracing/` | before instrumenting application tracing or annotating spans | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/evaluation/` | before implementing Phoenix evaluators or server-side evaluations | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/datasets-and-experiments/` | before creating Phoenix datasets or experiment workflows | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/prompt-engineering/` | before storing, versioning, or testing prompts with Phoenix | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/integrations/` | before wiring Phoenix to a provider, framework, language, or coding agent | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/` | before choosing a local, notebook, container, or cloud Phoenix environment | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/self-hosting/` | before deploying or upgrading a self-hosted Phoenix instance | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/` | before hardening a Phoenix tracing pipeline or server for production | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/settings/` | before configuring Phoenix authentication, access control, providers, secrets, or sandboxes | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/cookbook/` | before adapting an end-to-end Phoenix workflow pattern | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/use-cases/` | before evaluating a RAG application with Phoenix | arize-phoenix-v18.0.0 |
+| `docs/vendored/arize_phoenix/phoenix/resources/frequently-asked-questions/` | before troubleshooting Phoenix setup or behavior | arize-phoenix-v18.0.0 |
+<!-- vendored-docs:end -->

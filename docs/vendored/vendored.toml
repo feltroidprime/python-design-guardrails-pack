@@ -1,0 +1,69 @@
+version = 1
+
+[[source]]
+id = "arize_phoenix"
+repo = "https://github.com/Arize-ai/phoenix"
+tag = "arize-phoenix-v18.0.0"
+commit = "8acd96d1621e503193ab384bc1044251475fc277"
+vendored_at = "2026-07-15"
+include = ["docs/phoenix.mdx", "docs/phoenix/get-started.mdx", "docs/phoenix/get-started/**", "docs/phoenix/environments.mdx", "docs/phoenix/production-guide.mdx", "docs/phoenix/cookbook.mdx", "docs/phoenix/cookbook/**", "docs/phoenix/datasets-and-experiments/**", "docs/phoenix/evaluation/**", "docs/phoenix/integrations.mdx", "docs/phoenix/integrations/**", "docs/phoenix/prompt-engineering/**", "docs/phoenix/self-hosting.mdx", "docs/phoenix/self-hosting/**", "docs/phoenix/settings/**", "docs/phoenix/tracing/**", "docs/phoenix/use-cases/**", "docs/phoenix/resources/frequently-asked-questions.mdx", "docs/phoenix/resources/frequently-asked-questions/**", "LICENSE"]
+exclude = ["docs/**/*.png", "docs/**/*.xml", "docs/**/*.js", "docs/**/*.jsx", "docs/**/*.css", "docs/openapi.json", "docs/phoenix/llms.txt", "docs/phoenix/release-notes/**", "docs/phoenix/release-notes.mdx", "docs/phoenix/sdk-api-reference/**", "docs/phoenix/sdk-api-reference.mdx", "docs/phoenix/documentation/**", "docs/phoenix/skill.md", "packages/*/docs/**", "tutorials/**", "examples/**", "js/examples/**", "packages/*/examples/**", "js/packages/*/examples/**"]
+tree_hash = "h1:Y2xKEjGz3RlrKTIAR3eOl/F55zL2YyLN5v5vCG1v/ws="
+purpose = "Phoenix concepts, quickstarts, tracing, evaluation, dataset and experiment, prompt, integration, deployment, settings, cookbook, RAG, and troubleshooting guides; exact SDK and REST APIs plus runnable examples remain in installed packages or upstream."
+license = "Elastic-2.0"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/"
+when = "before choosing Phoenix capabilities for an AI application"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/get-started/"
+when = "before adding Phoenix to an application"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/tracing/"
+when = "before instrumenting application tracing or annotating spans"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/evaluation/"
+when = "before implementing Phoenix evaluators or server-side evaluations"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/datasets-and-experiments/"
+when = "before creating Phoenix datasets or experiment workflows"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/prompt-engineering/"
+when = "before storing, versioning, or testing prompts with Phoenix"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/integrations/"
+when = "before wiring Phoenix to a provider, framework, language, or coding agent"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/"
+when = "before choosing a local, notebook, container, or cloud Phoenix environment"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/self-hosting/"
+when = "before deploying or upgrading a self-hosted Phoenix instance"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/"
+when = "before hardening a Phoenix tracing pipeline or server for production"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/settings/"
+when = "before configuring Phoenix authentication, access control, providers, secrets, or sandboxes"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/cookbook/"
+when = "before adapting an end-to-end Phoenix workflow pattern"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/use-cases/"
+when = "before evaluating a RAG application with Phoenix"
+
+[[source.route]]
+subject = "docs/vendored/arize_phoenix/phoenix/resources/frequently-asked-questions/"
+when = "before troubleshooting Phoenix setup or behavior"
