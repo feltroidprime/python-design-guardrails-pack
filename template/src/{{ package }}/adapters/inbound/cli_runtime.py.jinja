@@ -1,0 +1,236 @@
+"""Typed CLI request execution, independent of the parser framework."""
+
+from dataclasses import dataclass
+import traceback
+from typing import TYPE_CHECKING
+
+from {{ package }}.adapters.inbound.cli_catalog import COMMAND_CATALOG, CommandName, OutputMode
+from {{ package }}.adapters.inbound.cli_protocol import (
+    ExitCode,
+    write_capabilities,
+    write_created,
+    write_failure,
+    write_item_page,
+)
+from {{ package }}.application.errors import RepositoryError
+from {{ package }}.application.query_models import (
+    AfterItem,
+    FirstPage,
+    ListItemsQuery,
+)
+from {{ package }}.application.use_cases import CreateItemCommand
+from {{ package }}.domain.errors import DomainError, InvalidItemNameError
+from {{ package }}.domain.value_objects import ItemId
+
+if TYPE_CHECKING:
+    from typing import TextIO
+
+    from {{ package }}.application.use_cases import CreateItem, ListItems
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AddRequest:
+    raw_name: str
+    output_mode: OutputMode
+    debug: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CapabilitiesRequest:
+    limit: int
+    continuation: str
+    output_mode: OutputMode
+    debug: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ListRequest:
+    limit: int
+    continuation: str
+    output_mode: OutputMode
+    debug: bool
+
+
+type CliRequest = AddRequest | CapabilitiesRequest | ListRequest
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ExecutionFailure:
+    code: str
+    message: str
+    retryable: bool
+    hint: str
+    exit_code: ExitCode
+
+
+def execute(
+    request: CliRequest,
+    *,
+    create_item: CreateItem,
+    list_items: ListItems,
+    out: TextIO,
+    err: TextIO,
+) -> int:
+    """Execute a typed request and translate failures to the process contract."""
+    command, output_mode, debug = _request_context(request)
+    try:
+        return _dispatch(
+            request,
+            create_item=create_item,
+            list_items=list_items,
+            out=out,
+            err=err,
+        )
+    except RepositoryError as error:
+        failure = ExecutionFailure(
+            code="dependency_unavailable",
+            message=str(error),
+            retryable=True,
+            hint="Retry after the local dependency is available.",
+            exit_code=ExitCode.TEMPORARY_UNAVAILABLE,
+        )
+    except Exception as error:  # noqa: BLE001  # ARCH-EXCEPTION: ADR-0003
+        if debug:
+            traceback.print_exception(error, file=err)
+            return ExitCode.UNEXPECTED_FAILURE
+        failure = ExecutionFailure(
+            code="unexpected_failure",
+            message="The command failed unexpectedly.",
+            retryable=False,
+            hint=f"Re-run 'python -m {{ package }} {command} --debug' for a traceback.",
+            exit_code=ExitCode.UNEXPECTED_FAILURE,
+        )
+    return _write_execution_failure(
+        command=command,
+        output_mode=output_mode,
+        failure=failure,
+        err=err,
+    )
+
+
+def _request_context(request: CliRequest) -> tuple[str, OutputMode, bool]:
+    match request:
+        case AddRequest(output_mode=output_mode, debug=debug):
+            return CommandName.ADD.value, output_mode, debug
+        case CapabilitiesRequest(output_mode=output_mode, debug=debug):
+            return CommandName.CAPABILITIES.value, output_mode, debug
+        case ListRequest(output_mode=output_mode, debug=debug):
+            return CommandName.LIST.value, output_mode, debug
+
+
+def _write_execution_failure(
+    *,
+    command: str,
+    output_mode: OutputMode,
+    failure: ExecutionFailure,
+    err: TextIO,
+) -> int:
+    if output_mode == OutputMode.HUMAN:
+        _ = err.write(f"error: {failure.message}\n{failure.hint}\n")
+    else:
+        write_failure(
+            command=command,
+            code=failure.code,
+            message=failure.message,
+            retryable=failure.retryable,
+            hint=failure.hint,
+            err=err,
+        )
+    return failure.exit_code
+
+
+def _dispatch(
+    request: CliRequest,
+    *,
+    create_item: CreateItem,
+    list_items: ListItems,
+    out: TextIO,
+    err: TextIO,
+) -> int:
+    match request:
+        case AddRequest(raw_name=raw_name, output_mode=output_mode):
+            return _add(
+                raw_name,
+                output_mode=output_mode,
+                create_item=create_item,
+                out=out,
+                err=err,
+            )
+        case CapabilitiesRequest(limit=limit, continuation=continuation, output_mode=output_mode):
+            _write_capabilities(
+                limit=limit,
+                continuation=continuation,
+                output_mode=output_mode,
+                out=out,
+            )
+            return ExitCode.SUCCESS
+        case ListRequest(limit=limit, continuation=continuation, output_mode=output_mode):
+            start = _page_start(continuation)
+            page = list_items(ListItemsQuery(limit=limit, start=start))
+            if output_mode == OutputMode.HUMAN:
+                for item in page.items:
+                    _ = out.write(f"{item.item_id.value}\t{item.name.value}\n")
+            else:
+                write_item_page(page, out=out)
+            return ExitCode.SUCCESS
+
+
+def _page_start(continuation: str) -> FirstPage | AfterItem:
+    if not continuation:
+        return FirstPage()
+    return AfterItem(item_id=ItemId(value=continuation))
+
+
+def _write_capabilities(
+    *, limit: int, continuation: str, output_mode: OutputMode, out: TextIO
+) -> None:
+    eligible = tuple(spec for spec in COMMAND_CATALOG if spec.name.value > continuation)
+    fetched = eligible[: limit + 1]
+    visible = fetched[:limit]
+    truncated = len(fetched) > limit
+    next_token = visible[-1].name.value if truncated else ""
+    if output_mode == OutputMode.HUMAN:
+        for spec in visible:
+            _ = out.write(f"{spec.name.value}\t{spec.kind.value}\t{spec.purpose}\n")
+    else:
+        write_capabilities(
+            visible,
+            truncated=truncated,
+            continuation=next_token,
+            out=out,
+        )
+
+
+def _add(
+    raw_name: str,
+    *,
+    output_mode: OutputMode,
+    create_item: CreateItem,
+    out: TextIO,
+    err: TextIO,
+) -> int:
+    try:
+        event = create_item(CreateItemCommand(name=raw_name))
+    except DomainError as error:
+        if output_mode == OutputMode.HUMAN:
+            _ = err.write(f"error: {error}\n")
+        else:
+            code = (
+                "invalid_item_name"
+                if isinstance(error, InvalidItemNameError)
+                else "domain_rejection"
+            )
+            write_failure(
+                command=CommandName.ADD.value,
+                code=code,
+                message=str(error),
+                retryable=False,
+                hint="Provide a non-blank name no longer than 80 characters.",
+                err=err,
+            )
+        return ExitCode.PERMANENT_REJECTION
+    if output_mode == OutputMode.HUMAN:
+        _ = out.write(f"created {event.item_id.value}\t{event.name.value}\n")
+    else:
+        write_created(event, out=out)
+    return ExitCode.SUCCESS

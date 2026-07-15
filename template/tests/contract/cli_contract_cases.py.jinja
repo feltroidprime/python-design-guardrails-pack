@@ -1,0 +1,276 @@
+"""Independent behavioral cases for every cataloged CLI command."""
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+def _validate_invalid_observation(
+    invalid_args: tuple[str, ...], invalid_readback_args: tuple[str, ...]
+) -> None:
+    if not invalid_args or not invalid_args[0].strip():
+        raise ValueError("Invalid scenarios require explicit non-empty arguments.")
+    if not invalid_readback_args or not all(token.strip() for token in invalid_readback_args):
+        raise ValueError("Invalid scenarios require an observable CLI readback.")
+    if invalid_args == invalid_readback_args:
+        raise ValueError("Invalid scenarios cannot use themselves as their readback.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class QueryContractCase:
+    name: str
+    purpose: str
+    success_args: tuple[str, ...]
+    invalid_args: tuple[str, ...]
+    invalid_readback_args: tuple[str, ...]
+    invalid_exit_code: Literal[2, 3]
+    invalid_error_code: str
+    human_args: tuple[str, ...]
+    help_tokens: tuple[str, ...]
+    machine_format: Literal["json", "jsonl"]
+    seed_args: tuple[tuple[str, ...], ...]
+    collection_key: str
+    identity_key: str
+    default_limit: int
+    maximum_limit: int
+    expected_count: int
+    stable_order: str
+    kind: Literal["query"] = "query"
+
+    def __post_init__(self) -> None:
+        _validate_invalid_observation(self.invalid_args, self.invalid_readback_args)
+        if self.default_limit < 1 or self.maximum_limit < self.default_limit:
+            raise ValueError("Query case limits must be positive and ordered.")
+        if self.expected_count <= self.default_limit:
+            raise ValueError("Query cases must observe more than the default page.")
+        if not self.stable_order.strip():
+            raise ValueError("Query cases require a stable-order declaration.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MutationContractCase:
+    name: str
+    purpose: str
+    success_args: tuple[str, ...]
+    invalid_args: tuple[str, ...]
+    invalid_readback_args: tuple[str, ...]
+    invalid_exit_code: Literal[2, 3]
+    invalid_error_code: str
+    human_args: tuple[str, ...]
+    help_tokens: tuple[str, ...]
+    machine_format: Literal["json", "jsonl"]
+    readback_args: tuple[str, ...]
+    readback_collection_key: str
+    retry_policy: Literal["idempotent", "non-idempotent"]
+    expected_after_replay: int
+    dry_run: bool
+    kind: Literal["mutation"] = "mutation"
+
+    def __post_init__(self) -> None:
+        _validate_invalid_observation(self.invalid_args, self.invalid_readback_args)
+        if self.invalid_readback_args != self.readback_args:
+            raise ValueError("Mutation invalid scenarios must use the mutation readback.")
+        minimum_effects = 1 if self.retry_policy == "idempotent" else 2
+        if self.expected_after_replay < minimum_effects:
+            raise ValueError("Mutation replay must have an observable readback effect.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StreamingContractCase:
+    name: str
+    purpose: str
+    success_args: tuple[str, ...]
+    invalid_args: tuple[str, ...]
+    invalid_readback_args: tuple[str, ...]
+    invalid_exit_code: Literal[2, 3]
+    invalid_error_code: str
+    human_args: tuple[str, ...]
+    help_tokens: tuple[str, ...]
+    machine_format: Literal["json", "jsonl"]
+    baseline_args: tuple[str, ...]
+    filter_args: tuple[str, ...]
+    filter_key: str
+    filter_value: str
+    termination_args: tuple[str, ...]
+    termination_maximum: int
+    declared_filters: tuple[str, ...]
+    termination_controls: tuple[str, ...]
+    kind: Literal["streaming"] = "streaming"
+
+    def __post_init__(self) -> None:
+        _validate_invalid_observation(self.invalid_args, self.invalid_readback_args)
+        if not self.declared_filters or not self.termination_controls:
+            raise ValueError("Streaming cases require filters and termination controls.")
+        if not all(
+            control.startswith("--")
+            for control in (*self.declared_filters, *self.termination_controls)
+        ):
+            raise ValueError("Streaming controls must be automation flags.")
+        if not all(control in self.filter_args for control in self.declared_filters):
+            raise ValueError("Every declared filter must occur in filter_args.")
+        if not all(control in self.termination_args for control in self.termination_controls):
+            raise ValueError("Every termination control must occur in termination_args.")
+        if any(control in self.filter_args for control in self.termination_controls) or any(
+            control in self.termination_args for control in self.declared_filters
+        ):
+            raise ValueError("Streaming filter and termination scenarios must not mix controls.")
+        if not self.baseline_args or any(
+            control in self.baseline_args
+            for control in (*self.declared_filters, *self.termination_controls)
+        ):
+            raise ValueError("Streaming baselines must omit filters and termination controls.")
+        if not self.filter_key or not self.filter_value or self.termination_maximum < 1:
+            raise ValueError("Streaming observations must be non-empty and positively bounded.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InteractiveContractCase:
+    name: str
+    purpose: str
+    success_args: tuple[str, ...]
+    invalid_args: tuple[str, ...]
+    invalid_readback_args: tuple[str, ...]
+    invalid_exit_code: Literal[2, 3]
+    invalid_error_code: str
+    human_args: tuple[str, ...]
+    help_tokens: tuple[str, ...]
+    machine_format: Literal["json", "jsonl"]
+    automation_args: tuple[str, ...]
+    missing_automation_args: tuple[str, ...]
+    automation_inputs: tuple[str, ...]
+    kind: Literal["interactive/bootstrap"] = "interactive/bootstrap"
+
+    def __post_init__(self) -> None:
+        _validate_invalid_observation(self.invalid_args, self.invalid_readback_args)
+        if not self.automation_inputs:
+            raise ValueError("Interactive cases require declared automation inputs.")
+        if not all(control.startswith("--") for control in self.automation_inputs):
+            raise ValueError("Interactive automation inputs must be flags.")
+        if not all(control in self.automation_args for control in self.automation_inputs):
+            raise ValueError("Every automation input must occur in automation_args.")
+        if any(control in self.missing_automation_args for control in self.automation_inputs):
+            raise ValueError("The missing-input scenario must omit automation inputs.")
+        if self.invalid_args != self.missing_automation_args:
+            raise ValueError("The invalid interactive scenario must be the missing-input scenario.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BulkContractCase:
+    name: str
+    purpose: str
+    success_args: tuple[str, ...]
+    invalid_args: tuple[str, ...]
+    invalid_readback_args: tuple[str, ...]
+    invalid_exit_code: Literal[2, 3]
+    invalid_error_code: str
+    human_args: tuple[str, ...]
+    help_tokens: tuple[str, ...]
+    machine_format: Literal["json", "jsonl"]
+    scoped_args: tuple[str, ...]
+    destination_args: tuple[str, ...]
+    destination_control: str
+    invalid_destination_path: Path
+    missing_scope_args: tuple[str, ...]
+    required_scope: tuple[str, ...]
+    destination_required: bool
+    kind: Literal["bulk/export"] = "bulk/export"
+
+    def __post_init__(self) -> None:
+        _validate_invalid_observation(self.invalid_args, self.invalid_readback_args)
+        if not self.required_scope:
+            raise ValueError("Bulk cases require at least one explicit scope control.")
+        if not all(control.startswith("--") for control in self.required_scope):
+            raise ValueError("Bulk scope controls must be automation flags.")
+        if not all(control in self.scoped_args for control in self.required_scope):
+            raise ValueError("Every required scope control must occur in scoped_args.")
+        if any(control in self.missing_scope_args for control in self.required_scope):
+            raise ValueError("The missing-scope scenario must omit required scope controls.")
+        if self.invalid_args != self.missing_scope_args:
+            raise ValueError("The invalid bulk scenario must be the missing-scope scenario.")
+        if not self.destination_control.startswith("--"):
+            raise ValueError("Bulk destination controls must be automation flags.")
+        if self.destination_required and self.destination_control not in self.destination_args:
+            raise ValueError("Required destination controls must occur in destination_args.")
+        destination = self.invalid_destination_path
+        if (
+            not str(self.invalid_destination_path).strip()
+            or destination.is_absolute()
+            or ".." in destination.parts
+            or self.destination_control not in self.invalid_args
+        ):
+            raise ValueError("Invalid bulk scenarios require a safe destination artifact probe.")
+        destination_index = self.invalid_args.index(self.destination_control)
+        if destination_index + 1 >= len(self.invalid_args) or self.invalid_args[
+            destination_index + 1
+        ] != str(self.invalid_destination_path):
+            raise ValueError("The invalid destination path must follow its control flag.")
+
+
+type CliContractCase = (
+    QueryContractCase
+    | MutationContractCase
+    | StreamingContractCase
+    | InteractiveContractCase
+    | BulkContractCase
+)
+
+
+CLI_CONTRACT_CASES: tuple[CliContractCase, ...] = (
+    MutationContractCase(
+        name="add",
+        purpose="Create one item.",
+        success_args=("add", "Contract item"),
+        invalid_args=("add", "   "),
+        invalid_readback_args=("list", "--limit", "10"),
+        invalid_exit_code=3,
+        invalid_error_code="invalid_item_name",
+        human_args=("add", "Human item", "--format", "human"),
+        help_tokens=("name", "--format", "--debug"),
+        machine_format="json",
+        readback_args=("list", "--limit", "10"),
+        readback_collection_key="items",
+        retry_policy="non-idempotent",
+        expected_after_replay=2,
+        dry_run=False,
+    ),
+    QueryContractCase(
+        name="capabilities",
+        purpose="Describe the versioned command catalog for automation.",
+        success_args=("capabilities",),
+        invalid_args=("capabilities", "--limit", "0"),
+        invalid_readback_args=("capabilities", "--limit", "100"),
+        invalid_exit_code=2,
+        invalid_error_code="invalid_syntax",
+        human_args=("capabilities", "--limit", "100", "--format", "human"),
+        help_tokens=("--limit", "--continuation", "--format", "--debug"),
+        machine_format="json",
+        seed_args=(),
+        collection_key="commands",
+        identity_key="name",
+        default_limit=2,
+        maximum_limit=100,
+        expected_count=3,
+        stable_order="command name",
+    ),
+    QueryContractCase(
+        name="list",
+        purpose="List stored items in stable identifier order.",
+        success_args=("list",),
+        invalid_args=("list", "--limit", "0"),
+        invalid_readback_args=("list", "--limit", "10"),
+        invalid_exit_code=2,
+        invalid_error_code="invalid_syntax",
+        human_args=("list", "--format", "human"),
+        help_tokens=("--limit", "--continuation", "--format", "--debug"),
+        machine_format="json",
+        seed_args=(("add", "One"), ("add", "Two"), ("add", "Three")),
+        collection_key="items",
+        identity_key="id",
+        default_limit=2,
+        maximum_limit=200,
+        expected_count=3,
+        stable_order="item identifier",
+    ),
+)

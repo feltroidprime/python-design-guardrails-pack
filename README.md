@@ -1,5 +1,11 @@
 # Python Design Guardrails Pack
 
+Generated repositories include an agent-native CLI contract: one closed
+command catalog drives help and machine-readable capabilities, while an
+independent typed case set must cover every command at the detached process
+seam. JSON envelopes, exit classes, bounds, continuations, and retry policy are
+versioned in generated ADR-0003.
+
 A reusable Python 3.14 repository template that turns software-design principles into executable constraints for humans and coding agents.
 
 ## Two ways to be here

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from {{ package }}.application.query_models import AfterItem, FirstPage
 from {{ package }}.domain.entities import Item
 from {{ package }}.domain.value_objects import ItemId, ItemName
 
@@ -44,10 +45,12 @@ class ItemRepositoryContract:
         assert stored.name == ItemName(value="After")
 
     @pytest.mark.contract
-    def test_list_all_streams_every_saved_item(self, repository: ItemRepository) -> None:
+    def test_list_page_is_bounded_ordered_and_continuable(self, repository: ItemRepository) -> None:
         repository.save(Item(item_id=ItemId(value="contract-3"), name=ItemName(value="First")))
         repository.save(Item(item_id=ItemId(value="contract-4"), name=ItemName(value="Second")))
 
-        listed = sorted(item.item_id.value for item in repository.list_all())
+        first = repository.list_page(start=FirstPage(), limit=1)
+        second = repository.list_page(start=AfterItem(item_id=first[-1].item_id), limit=1)
 
-        assert listed == ["contract-3", "contract-4"]
+        assert [item.item_id.value for item in first] == ["contract-3"]
+        assert [item.item_id.value for item in second] == ["contract-4"]

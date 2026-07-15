@@ -1,17 +1,35 @@
-from collections.abc import Iterator
+import pytest
 
 from {{ package }}.adapters.outbound.memory_repository import MemoryItemRepository
+from {{ package }}.application.query_models import (
+    AfterItem,
+    FirstPage,
+    ListItemsQuery,
+    NoMoreItems,
+)
 from {{ package }}.application.use_cases import ListItems
 from {{ package }}.domain.entities import Item
 from {{ package }}.domain.value_objects import ItemId, ItemName
 
 
-def test_list_items_streams_stored_items() -> None:
+def test_list_items_bounds_and_continues_stable_pages() -> None:
     repository = MemoryItemRepository()
-    repository.save(Item(item_id=ItemId(value="item-1"), name=ItemName(value="One")))
+    for raw_id in ("item-3", "item-1", "item-2"):
+        repository.save(Item(item_id=ItemId(value=raw_id), name=ItemName(value=raw_id)))
     handler = ListItems(repository=repository)
 
-    items = handler()
+    first = handler(ListItemsQuery(limit=2, start=FirstPage()))
+    assert isinstance(first.continuation, AfterItem)
+    second = handler(ListItemsQuery(limit=2, start=first.continuation))
 
-    assert isinstance(items, Iterator)
-    assert [item.name.value for item in items] == ["One"]
+    assert [item.item_id.value for item in first.items] == ["item-1", "item-2"]
+    assert first.truncated is True
+    assert first.continuation.item_id == ItemId(value="item-2")
+    assert [item.item_id.value for item in second.items] == ["item-3"]
+    assert second.truncated is False
+    assert isinstance(second.continuation, NoMoreItems)
+
+
+def test_list_query_rejects_a_non_positive_limit() -> None:
+    with pytest.raises(ValueError, match="positive"):
+        _ = ListItemsQuery(limit=0, start=FirstPage())

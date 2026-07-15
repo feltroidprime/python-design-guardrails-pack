@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "fdffdcadcf7b4b364fc6ceaea1156bfbb27b83c63c4208d10f0aaa5bfd9bbfe0"
+EXPECTED_GENERATED_TREE_SHA256 = "557ea6c0bfb439a30deb42935bd26a9f3e46f1fe93d23ff8ab2ec7b728065d46"
 INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", "")
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
 
@@ -46,6 +46,7 @@ EXPECTED_FILES = (
     "docs/adr/0000-template.md",
     "docs/adr/0001-derived-architecture-diagrams.md",
     "docs/adr/0002-foundation-ports-and-reference-adapters.md",
+    "docs/adr/0003-agent-native-cli-protocol.md",
     "docs/architecture/EXCEPTIONS.md",
     "docs/architecture/likec4/generated/baseline-views.c4",
     "docs/architecture/likec4/generated/model.c4",
@@ -56,17 +57,25 @@ EXPECTED_FILES = (
     "pyproject.toml",
     "scripts/architecture_guard.py",
     "scripts/architecture_rules.py",
+    "scripts/cli_discipline.py",
     "scripts/docs_guard.py",
     "scripts/none_discipline.py",
     "scripts/quality_gate.py",
     "scripts/sync_architecture_diagrams.py",
     f"src/{PACKAGE_NAME}/__main__.py",
+    f"src/{PACKAGE_NAME}/adapters/inbound/cli_catalog.py",
+    f"src/{PACKAGE_NAME}/adapters/inbound/cli_protocol.py",
+    f"src/{PACKAGE_NAME}/adapters/inbound/cli_runtime.py",
     f"src/{PACKAGE_NAME}/adapters/outbound/sqlite_repository.py",
     f"src/{PACKAGE_NAME}/application/errors.py",
+    f"src/{PACKAGE_NAME}/application/query_models.py",
     f"src/{PACKAGE_NAME}/bootstrap.py",
     f"src/{PACKAGE_NAME}/domain/value_objects.py",
     f"src/{PACKAGE_NAME}/py.typed",
     "tests/contract/item_repository_contract.py",
+    "tests/contract/cli_contract_cases.py",
+    "tests/integration/test_cli_contract.py",
+    "tests/unit/adapters/test_cli_protocol.py",
     "tests/unit/domain/test_value_objects.py",
 )
 

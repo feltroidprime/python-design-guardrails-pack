@@ -1,0 +1,151 @@
+import pytest
+
+from {{ package }}.adapters.inbound.cli_catalog import (
+    COMMAND_CATALOG,
+    DEBUG_OPTION,
+    ArgumentSpec,
+    BulkPolicy,
+    CommandKind,
+    CommandName,
+    CommandPolicy,
+    CommandSpec,
+    InteractivePolicy,
+    MutationPolicy,
+    OutputMode,
+    OutputOption,
+    PageLimitOption,
+    QueryPolicy,
+    RetryPolicy,
+    StreamingPolicy,
+)
+from {{ package }}.adapters.inbound.cli_protocol import (
+    PROTOCOL_DECISION,
+    SCHEMA_VERSION,
+    ExitCode,
+    capability_document,
+)
+
+POLICY_CASES: tuple[tuple[CommandKind, CommandPolicy, str], ...] = (
+    (
+        CommandKind.QUERY,
+        QueryPolicy(
+            default_limit=2,
+            maximum_limit=10,
+            stable_order="identifier",
+            continuation=True,
+        ),
+        "bounds",
+    ),
+    (
+        CommandKind.MUTATION,
+        MutationPolicy(retry=RetryPolicy.IDEMPOTENT, dry_run=True),
+        "mutation",
+    ),
+    (
+        CommandKind.STREAMING,
+        StreamingPolicy(filters=("--kind",), termination_controls=("--limit",)),
+        "streaming",
+    ),
+    (
+        CommandKind.INTERACTIVE,
+        InteractivePolicy(automation_inputs=("--name",)),
+        "automation",
+    ),
+    (
+        CommandKind.BULK,
+        BulkPolicy(required_scope=("--project",), destination_required=True),
+        "bulk",
+    ),
+)
+
+
+def test_schema_and_exit_classes_remain_the_adr_0003_contract() -> None:
+    assert SCHEMA_VERSION == "1.0"
+    assert PROTOCOL_DECISION == "ADR-0003"
+    assert {member.name: member.value for member in ExitCode} == {
+        "SUCCESS": 0,
+        "SYNTAX": 2,
+        "PERMANENT_REJECTION": 3,
+        "TEMPORARY_UNAVAILABLE": 4,
+        "UNEXPECTED_FAILURE": 70,
+    }
+
+
+def test_adr_0003_pins_existing_command_identities_kinds_and_required_policies() -> None:
+    documents = {spec.name.value: capability_document(spec) for spec in COMMAND_CATALOG}
+
+    assert documents["add"]["kind"] == "mutation"
+    assert documents["add"]["mutation"] == {"retry": "non-idempotent", "dry_run": False}
+    assert documents["capabilities"]["kind"] == "query"
+    assert documents["capabilities"]["bounds"] == {
+        "default_limit": 2,
+        "maximum_limit": 100,
+        "stable_order": "command name",
+        "continuation": True,
+    }
+    assert documents["list"]["kind"] == "query"
+    assert documents["list"]["bounds"] == {
+        "default_limit": 2,
+        "maximum_limit": 200,
+        "stable_order": "item identifier",
+        "continuation": True,
+    }
+
+
+@pytest.mark.parametrize(
+    ("default_limit", "maximum_limit"),
+    [(0, 1), (2, 1)],
+)
+def test_query_policy_rejects_non_positive_or_inverted_bounds(
+    default_limit: int, maximum_limit: int
+) -> None:
+    with pytest.raises(ValueError, match="positive and ordered"):
+        _ = QueryPolicy(
+            default_limit=default_limit,
+            maximum_limit=maximum_limit,
+            stable_order="identifier",
+            continuation=True,
+        )
+
+
+def test_command_spec_rejects_empty_public_discovery_text() -> None:
+    with pytest.raises(ValueError, match="purpose and automation example"):
+        _ = CommandSpec(
+            name=CommandName.ADD,
+            kind=CommandKind.MUTATION,
+            purpose="",
+            automation_example="",
+            output_modes=(OutputMode.JSON, OutputMode.HUMAN),
+            default_output_mode=OutputMode.JSON,
+            policy=MutationPolicy(retry=RetryPolicy.NON_IDEMPOTENT, dry_run=False),
+            arguments=(OutputOption(), DEBUG_OPTION),
+        )
+
+
+@pytest.mark.parametrize(("kind", "policy", "policy_key"), POLICY_CASES)
+def test_every_closed_policy_has_a_public_capability_shape(
+    kind: CommandKind, policy: CommandPolicy, policy_key: str
+) -> None:
+    arguments: tuple[ArgumentSpec, ...] = (OutputOption(), DEBUG_OPTION)
+    if isinstance(policy, QueryPolicy):
+        arguments = (
+            PageLimitOption(flag="--limit", destination="limit", help="positive page size"),
+            *arguments,
+        )
+    spec = CommandSpec(
+        name=CommandName.ADD,
+        kind=kind,
+        purpose="Synthetic contract case.",
+        automation_example="python -m example add value",
+        output_modes=(OutputMode.JSON, OutputMode.HUMAN),
+        default_output_mode=OutputMode.JSON,
+        policy=policy,
+        arguments=arguments,
+    )
+
+    document = capability_document(spec)
+
+    assert document["kind"] == kind.value
+    assert document["output_modes"] == ["json", "human"]
+    assert document["default_output_mode"] == "json"
+    assert policy_key in document

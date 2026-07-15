@@ -89,8 +89,43 @@ The example application separates two kinds of code (see ADR-0002):
 | Resource lifecycle | `bootstrap.sqlite_application` context manager; acquire at the edge, release deterministically |
 | Certify a port implementation | subclass the port's contract in `tests/contract/` (see `item_repository_contract.py`) and provide a `repository` fixture |
 | New port | single operation → callable `type` alias; multiple operations → `Protocol` (both in `application/ports.py`) |
+| Expose a CLI command | add one `CommandSpec` in `adapters/inbound/cli_catalog.py` and one matching closed case in `tests/contract/cli_contract_cases.py`; preserve ADR-0003 |
 
 A cross-cutting need with no matching brick requires an ADR before the code exists.
+
+## Agent-native CLI contract
+
+The CLI is an automation protocol, not a collection of parser handlers. ADR-0003
+owns its compatibility rules.
+
+- `adapters/inbound/cli_catalog.py` is the only command registration surface.
+  Parser construction and `capabilities` both derive from it; never call
+  `add_parser` with a command literal or register beside the catalog.
+- Every catalog command has exactly one independent typed case in
+  `tests/contract/cli_contract_cases.py`. Choose the matching closed variant:
+  query, mutation, streaming, interactive/bootstrap, or bulk/export. The case
+  must supply that kind's bounds, retry, termination, automation, or scope
+  scenario before completeness can pass.
+- Machine JSON is the default for data-bearing commands. Successful data uses
+  stdout only; diagnostics use stderr only. Human output requires
+  `--format human`. Never make wording, wrapping, option order, JSON key order,
+  generated IDs, or timestamps compatibility surfaces.
+- Queries declare positive defaults and maxima, stable order, truncation, and
+  continuation. Apply the bound in the use case and outbound port, not after
+  rendering an unbounded collection.
+- Mutations declare whether identical replay is safe. Non-idempotent operations
+  return an operation ID; invalid input must fail before effects. Dry-run is not
+  evidence of idempotence.
+- Automation invocations never prompt, decorate machine output, or depend on a
+  TTY. Streams require filters plus termination; bulk/export requires scope and
+  destination; interactive conveniences require a complete flag-driven path.
+- Argparse stays private to `adapters/inbound/cli.py`. It produces typed
+  requests immediately; application and domain APIs never accept namespaces or
+  framework objects. ARCH021–024 enforce inbound non-interactivity, controlled
+  exits, framework isolation, and catalog-owned command names and aliases.
+- Breaking envelope, exit-classification, command identity/kind, or required
+  changes require a new ADR and protocol version. Run the full quality gate;
+  there is no parallel CLI-only acceptance command.
 
 ## Architecture diagrams (derived, never drawn)
 

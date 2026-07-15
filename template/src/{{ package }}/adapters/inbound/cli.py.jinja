@@ -1,23 +1,205 @@
-"""Command-line inbound adapter.
+"""Argparse boundary for the versioned command-line contract."""
 
-Inbound adapters translate the outside world (here: argv and text streams)
-into application calls, and translate failures back into stable exit codes.
-"""
+import argparse
+import sys
+from typing import TYPE_CHECKING, NoReturn, override
 
-from typing import TYPE_CHECKING
-
-from {{ package }}.application.use_cases import CreateItemCommand
-from {{ package }}.domain.errors import DomainError
+from {{ package }}.adapters.inbound.cli_catalog import (
+    COMMAND_CATALOG,
+    ArgumentSpec,
+    CommandName,
+    CommandPolicy,
+    FlagOption,
+    OutputMode,
+    OutputOption,
+    PageLimitOption,
+    PositionalText,
+    QueryPolicy,
+    TextOption,
+)
+from {{ package }}.adapters.inbound.cli_protocol import ExitCode, write_failure
+from {{ package }}.adapters.inbound.cli_runtime import (
+    AddRequest,
+    CapabilitiesRequest,
+    CliRequest,
+    ListRequest,
+    execute,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from typing import TextIO
+
+    from _typeshed import SupportsWrite
 
     from {{ package }}.application.use_cases import CreateItem, ListItems
 
-USAGE = """usage: python -m {{ package }} add <name>
-       python -m {{ package }} list
-"""
+
+class _RawArguments:
+    command: str
+    name: str
+    limit: int
+    continuation: str
+    output_format: str
+    debug: bool
+
+    def __init__(self) -> None:
+        self.command = ""
+        self.name = ""
+        self.limit = 0
+        self.continuation = ""
+        self.output_format = ""
+        self.debug = False
+
+
+class _ParserExitError(Exception):
+    def __init__(self, *, status: int, message: str) -> None:
+        super().__init__(message)
+        self.status: int = status
+        self.message: str = message
+
+
+class _ContractParser(argparse.ArgumentParser):
+    _out: TextIO = sys.stdout
+
+    def bind_output(self, out: TextIO) -> None:
+        self._out = out
+
+    @override
+    def _print_message(
+        self,
+        message: str | None,
+        file: SupportsWrite[str] | None = None,  # ARCH-EXCEPTION: ADR-0003
+    ) -> None:
+        if message:
+            _ = file
+            _ = self._out.write(message)
+
+    @override
+    def exit(self, status: int = 0, message: str | None = None) -> NoReturn:
+        raise _ParserExitError(status=status, message=message or "")
+
+    @override
+    def error(self, message: str) -> NoReturn:
+        raise _ParserExitError(status=ExitCode.SYNTAX, message=message)
+
+
+def _parser(*, out: TextIO) -> _ContractParser:
+    parser = _ContractParser(
+        prog="python -m {{ package }}",
+        description="Agent-native example application.",
+        allow_abbrev=False,
+        suggest_on_error=True,
+        color=False,
+    )
+    parser.bind_output(out)
+    commands = parser.add_subparsers(dest="command", required=True)
+    for spec in COMMAND_CATALOG:
+        command = commands.add_parser(
+            spec.name.value,
+            help=spec.purpose,
+            description=spec.purpose,
+            epilog=f"Automation example: {spec.automation_example}",
+            allow_abbrev=False,
+            suggest_on_error=True,
+            color=False,
+        )
+        command.bind_output(out)
+        for argument in spec.arguments:
+            _add_catalog_argument(
+                command,
+                argument,
+                output_modes=spec.output_modes,
+                default_output_mode=spec.default_output_mode,
+                policy=spec.policy,
+            )
+    return parser
+
+
+def _add_catalog_argument(
+    parser: _ContractParser,
+    argument: ArgumentSpec,
+    *,
+    output_modes: tuple[OutputMode, ...],
+    default_output_mode: OutputMode,
+    policy: CommandPolicy,
+) -> None:
+    match argument:
+        case PositionalText():
+            _ = parser.add_argument(argument.name, help=argument.help)
+        case TextOption():
+            _ = parser.add_argument(
+                argument.flag,
+                dest=argument.destination,
+                help=argument.help,
+                default=argument.default,
+            )
+        case PageLimitOption():
+            if not isinstance(policy, QueryPolicy):
+                raise TypeError("Page limits require a query policy.")
+            _ = parser.add_argument(
+                argument.flag,
+                dest=argument.destination,
+                help=f"{argument.help} (maximum: {policy.maximum_limit})",
+                type=_bounded_positive_integer(policy.maximum_limit),
+                default=policy.default_limit,
+            )
+        case OutputOption():
+            _ = parser.add_argument(
+                "--format",
+                dest="output_format",
+                choices=[mode.value for mode in output_modes],
+                default=default_output_mode.value,
+                help=f"output format (default: {default_output_mode.value})",
+            )
+        case FlagOption():
+            _ = parser.add_argument(
+                argument.flag,
+                dest=argument.destination,
+                action="store_true",
+                help=argument.help,
+            )
+
+
+def _bounded_positive_integer(maximum: int) -> Callable[[str], int]:
+    def parse(raw: str) -> int:
+        try:
+            value = int(raw)
+        except ValueError as error:
+            raise argparse.ArgumentTypeError("must be an integer") from error
+        if not 1 <= value <= maximum:
+            raise argparse.ArgumentTypeError(f"must be between 1 and {maximum}")
+        return value
+
+    return parse
+
+
+def _parse(argv: Sequence[str], *, parser: _ContractParser) -> CliRequest:
+    raw = _RawArguments()
+    _ = parser.parse_args(list(argv), namespace=raw)
+    match raw.command:
+        case CommandName.ADD:
+            return AddRequest(
+                raw_name=raw.name,
+                output_mode=OutputMode(raw.output_format),
+                debug=raw.debug,
+            )
+        case CommandName.CAPABILITIES:
+            return CapabilitiesRequest(
+                limit=raw.limit,
+                continuation=raw.continuation,
+                output_mode=OutputMode(raw.output_format),
+                debug=raw.debug,
+            )
+        case CommandName.LIST:
+            return ListRequest(
+                limit=raw.limit,
+                continuation=raw.continuation,
+                output_mode=OutputMode(raw.output_format),
+                debug=raw.debug,
+            )
+        case _:
+            raise AssertionError("The parser accepted a command absent from the closed catalog.")
 
 
 def run(
@@ -28,24 +210,31 @@ def run(
     out: TextIO,
     err: TextIO,
 ) -> int:
-    """Translate one command-line invocation into use-case calls."""
-    match list(argv):
-        case ["add", raw_name]:
-            return _add(raw_name, create_item=create_item, out=out, err=err)
-        case ["list"]:
-            for item in list_items():
-                _ = out.write(f"{item.item_id.value}\t{item.name.value}\n")
-            return 0
-        case _:
-            _ = err.write(USAGE)
-            return 2
-
-
-def _add(raw_name: str, *, create_item: CreateItem, out: TextIO, err: TextIO) -> int:
+    """Translate argv into a typed request, then execute it at the application seam."""
     try:
-        event = create_item(CreateItemCommand(name=raw_name))
-    except DomainError as error:
-        _ = err.write(f"error: {error}\n")
-        return 1
-    _ = out.write(f"created {event.item_id.value}\t{event.name.value}\n")
-    return 0
+        request = _parse(argv, parser=_parser(out=out))
+    except _ParserExitError as error:
+        if error.status == ExitCode.SUCCESS:
+            return ExitCode.SUCCESS
+        command = argv[0] if argv and argv[0] in CommandName else "cli"
+        help_invocation = (
+            f"python -m {{ package }} {command} --help"
+            if command != "cli"
+            else "python -m {{ package }} --help"
+        )
+        write_failure(
+            command=str(command),
+            code="invalid_syntax",
+            message=error.message,
+            retryable=False,
+            hint=f"Run '{help_invocation}' and correct the invocation.",
+            err=err,
+        )
+        return ExitCode.SYNTAX
+    return execute(
+        request,
+        create_item=create_item,
+        list_items=list_items,
+        out=out,
+        err=err,
+    )

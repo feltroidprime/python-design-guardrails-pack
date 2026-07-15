@@ -1,0 +1,50 @@
+"""Typed bounded-query requests and results shared across application ports."""
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from {{ package }}.domain.entities import Item
+    from {{ package }}.domain.value_objects import ItemId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class FirstPage:
+    """Start a bounded query at the first item."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AfterItem:
+    """Continue a bounded query after a stable item identifier."""
+
+    item_id: ItemId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class NoMoreItems:
+    """Mark a complete page sequence without a wire-format sentinel."""
+
+
+type PageStart = FirstPage | AfterItem
+type PageContinuation = AfterItem | NoMoreItems
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ListItemsQuery:
+    """Bounded item-list request received from an inbound adapter."""
+
+    limit: int
+    start: PageStart
+
+    def __post_init__(self) -> None:
+        if self.limit < 1:
+            raise ValueError("List limit must be positive.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ItemPage:
+    """One bounded, stable page returned to an inbound adapter."""
+
+    items: tuple[Item, ...]
+    truncated: bool
+    continuation: PageContinuation

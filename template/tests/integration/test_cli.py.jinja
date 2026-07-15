@@ -1,15 +1,18 @@
 import io
-from typing import TYPE_CHECKING
+import json
+import sqlite3
+import subprocess
+import sys
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
 from {{ package }}.adapters.inbound.cli import run
-from {{ package }}.bootstrap import main, memory_application
+from {{ package }}.adapters.outbound.sqlite_repository import SqliteItemRepository
+from {{ package }}.bootstrap import Application, build_application, main, memory_application
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from {{ package }}.bootstrap import Application
 
 
 def run_cli(application: Application, argv: list[str]) -> tuple[int, str, str]:
@@ -22,6 +25,33 @@ def run_cli(application: Application, argv: list[str]) -> tuple[int, str, str]:
         err=err,
     )
     return exit_code, out.getvalue(), err.getvalue()
+
+
+def run_process(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0003
+        [sys.executable, "-m", "{{ package }}", *args],
+        cwd=cwd,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+
+def document(raw: str) -> dict[str, object]:
+    value = cast("object", json.loads(raw))
+    assert isinstance(value, dict)
+    return cast("dict[str, object]", value)
+
+
+def mapping(value: object) -> dict[str, object]:
+    assert isinstance(value, dict)
+    return cast("dict[str, object]", value)
+
+
+def error_document(raw: str) -> dict[str, object]:
+    return mapping(document(raw)["error"])
 
 
 @pytest.mark.integration
@@ -38,20 +68,64 @@ def test_add_then_list_round_trip() -> None:
 
 
 @pytest.mark.integration
-def test_invalid_name_translates_to_domain_error_and_exit_code_one() -> None:
+def test_invalid_name_is_a_permanent_machine_rejection() -> None:
     exit_code, out, err = run_cli(memory_application(), ["add", "   "])
 
-    assert exit_code == 1
+    assert exit_code == 3
     assert out == ""
-    assert "must not be blank" in err
+    assert error_document(err)["code"] == "invalid_item_name"
 
 
 @pytest.mark.integration
-def test_unknown_command_prints_usage() -> None:
-    exit_code, _, err = run_cli(memory_application(), ["frobnicate"])
+def test_syntax_errors_are_stable_and_actionable() -> None:
+    exit_code, out, err = run_cli(memory_application(), ["list", "--limit", "many"])
 
     assert exit_code == 2
-    assert "usage:" in err
+    assert out == ""
+    assert error_document(err)["code"] == "invalid_syntax"
+
+
+@pytest.mark.integration
+def test_help_uses_the_injected_streams() -> None:
+    exit_code, out, err = run_cli(memory_application(), ["add", "--help"])
+
+    assert exit_code == 0
+    assert "Automation example:" in out
+    assert err == ""
+
+
+@pytest.mark.integration
+def test_detailed_query_and_human_modes_use_the_in_process_seam() -> None:
+    application = memory_application()
+    for name in ("One", "Two", "Three"):
+        assert run_cli(application, ["add", name])[0] == 0
+
+    exit_code, out, err = run_cli(application, ["list"])
+    first = document(out)
+    first_metadata = mapping(first["metadata"])
+    continuation = first_metadata["continuation"]
+    assert isinstance(continuation, str)
+
+    assert exit_code == 0
+    assert err == ""
+    assert first_metadata["truncated"] is True
+    assert run_cli(application, ["list", "--continuation", continuation])[0] == 0
+
+    list_human = run_cli(application, ["list", "--format", "human"])
+    capabilities = run_cli(application, ["capabilities"])
+    capabilities_human = run_cli(
+        application, ["capabilities", "--format", "human", "--limit", "100"]
+    )
+    add_human = run_cli(application, ["add", "Human", "--format", "human"])
+
+    assert list_human[0] == 0
+    assert list_human[1].count("\n") == 2
+    assert capabilities[0] == 0
+    assert '"command":"capabilities"' in capabilities[1]
+    assert capabilities_human[0] == 0
+    assert "capabilities" in capabilities_human[1]
+    assert add_human[0] == 0
+    assert add_human[1].startswith("created ")
 
 
 @pytest.mark.integration
@@ -63,3 +137,73 @@ def test_main_runs_against_a_local_database(
     assert main(["add", "From main"]) == 0
     assert main(["list"]) == 0
     assert "From main" in capsys.readouterr().out
+
+
+@pytest.mark.integration
+def test_dependency_failure_has_a_temporary_exit_classification() -> None:
+    connection = sqlite3.connect(":memory:")
+    application = build_application(SqliteItemRepository(connection))
+    connection.close()
+
+    exit_code, out, err = run_cli(application, ["add", "Unavailable"])
+    error = error_document(err)
+
+    assert exit_code == 4
+    assert out == ""
+    assert error["code"] == "dependency_unavailable"
+    assert error["retryable"] is True
+
+    human_exit, _, human_error = run_cli(application, ["add", "Unavailable", "--format", "human"])
+    assert human_exit == 4
+    assert human_error.startswith("error:")
+
+
+@pytest.mark.integration
+def test_human_failures_are_explicit_prose() -> None:
+    exit_code, out, err = run_cli(memory_application(), ["add", "   ", "--format", "human"])
+
+    assert exit_code == 3
+    assert out == ""
+    assert err.startswith("error:")
+
+
+@pytest.mark.integration
+def test_unexpected_failures_are_hidden_unless_debug_is_explicit(tmp_path: Path) -> None:
+    connection = sqlite3.connect(tmp_path / "items.db")
+    _ = connection.execute("CREATE TABLE items (item_id TEXT PRIMARY KEY, name TEXT NOT NULL)")
+    _ = connection.execute("INSERT INTO items (item_id, name) VALUES ('', 'broken')")
+    connection.commit()
+    connection.close()
+
+    hidden = run_process(["list"], cwd=tmp_path)
+    error = error_document(hidden.stderr)
+
+    assert hidden.returncode == 70
+    assert hidden.stdout == ""
+    assert error["code"] == "unexpected_failure"
+    assert error["retryable"] is False
+    assert "--debug" in cast("str", error["hint"])
+    assert "Traceback" not in hidden.stderr
+
+    debug = run_process(["list", "--debug"], cwd=tmp_path)
+    assert debug.returncode == 70
+    assert "Traceback" in debug.stderr
+
+
+@pytest.mark.integration
+def test_unexpected_translation_and_debug_also_use_the_in_process_seam() -> None:
+    connection = sqlite3.connect(":memory:")
+    repository = SqliteItemRepository(connection)
+    _ = connection.execute("INSERT INTO items (item_id, name) VALUES ('', 'broken')")
+    application = build_application(repository)
+
+    exit_code, out, err = run_cli(application, ["list"])
+    assert exit_code == 70
+    assert out == ""
+    assert error_document(err)["code"] == "unexpected_failure"
+
+    debug_exit, debug_out, debug_error = run_cli(application, ["list", "--debug"])
+    assert debug_exit == 70
+    assert debug_out == ""
+    assert "ValueError: Item identifier must not be blank." in debug_error
+    connection.close()

@@ -61,9 +61,20 @@ repository's existing guard and full gate before committing:
 ## Try the example application
 
 ```bash
-uv run python -m {{ package }} add "First item"   # persists to ./items.db
-uv run python -m {{ package }} list
+uv run python -m {{ package }} --help
+uv run python -m {{ package }} capabilities --limit 100
+uv run python -m {{ package }} add "First item"   # versioned JSON; persists to ./items.db
+uv run python -m {{ package }} list               # bounded JSON with continuation metadata
+uv run python -m {{ package }} list --format human
 ```
+
+Every command is registered in the closed catalog at
+`src/{{ package }}/adapters/inbound/cli_catalog.py` and has one independent
+case in `tests/contract/cli_contract_cases.py`. The quality gate compares those
+sets exactly and invokes every case as a detached real process. JSON is the
+automation default; `--format human` is explicit. See
+`docs/adr/0003-agent-native-cli-protocol.md` before changing schema versions,
+exit classes, command kinds, bounds, or retry policy.
 
 ## What to replace, what to keep
 

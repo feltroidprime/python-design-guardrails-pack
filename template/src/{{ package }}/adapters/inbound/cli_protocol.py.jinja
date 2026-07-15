@@ -1,0 +1,170 @@
+"""Versioned machine protocol for the command-line adapter."""
+
+from enum import IntEnum
+import json
+from typing import TYPE_CHECKING
+
+from {{ package }}.adapters.inbound.cli_catalog import (
+    BulkPolicy,
+    CommandPolicy,
+    CommandSpec,
+    InteractivePolicy,
+    MutationPolicy,
+    QueryPolicy,
+    StreamingPolicy,
+)
+from {{ package }}.application.query_models import AfterItem, NoMoreItems
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+    from typing import TextIO
+
+    from {{ package }}.application.query_models import ItemPage, PageContinuation
+    from {{ package }}.domain.events import ItemCreatedEvent
+
+SCHEMA_VERSION = "1.0"
+PROTOCOL_DECISION = "ADR-0003"
+
+
+class ExitCode(IntEnum):
+    """Stable process classifications; fine-grained meaning stays in error codes."""
+
+    SUCCESS = 0
+    SYNTAX = 2
+    PERMANENT_REJECTION = 3
+    TEMPORARY_UNAVAILABLE = 4
+    UNEXPECTED_FAILURE = 70
+
+
+def _policy_document(policy: CommandPolicy) -> dict[str, object]:
+    match policy:
+        case QueryPolicy():
+            return {
+                "bounds": {
+                    "default_limit": policy.default_limit,
+                    "maximum_limit": policy.maximum_limit,
+                    "stable_order": policy.stable_order,
+                    "continuation": policy.continuation,
+                }
+            }
+        case MutationPolicy():
+            return {"mutation": {"retry": policy.retry.value, "dry_run": policy.dry_run}}
+        case StreamingPolicy():
+            return {
+                "streaming": {
+                    "filters": list(policy.filters),
+                    "termination_controls": list(policy.termination_controls),
+                }
+            }
+        case InteractivePolicy():
+            return {"automation": {"required_inputs": list(policy.automation_inputs)}}
+        case BulkPolicy():
+            return {
+                "bulk": {
+                    "required_scope": list(policy.required_scope),
+                    "destination_required": policy.destination_required,
+                }
+            }
+
+
+def capability_document(spec: CommandSpec) -> dict[str, object]:
+    """Expose one catalog entry without leaking parser implementation details."""
+    document: dict[str, object] = {
+        "name": spec.name.value,
+        "kind": spec.kind.value,
+        "purpose": spec.purpose,
+        "automation_example": spec.automation_example,
+        "output_modes": [mode.value for mode in spec.output_modes],
+        "default_output_mode": spec.default_output_mode.value,
+    }
+    document.update(_policy_document(spec.policy))
+    return document
+
+
+def write_success(
+    *,
+    command: str,
+    data: object,
+    metadata: Mapping[str, object],
+    out: TextIO,
+) -> None:
+    """Write one machine-readable success document and nothing else."""
+    document = {
+        "schema_version": SCHEMA_VERSION,
+        "command": command,
+        "data": data,
+        "metadata": dict(metadata),
+    }
+    _ = out.write(json.dumps(document, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+
+def write_failure(
+    *,
+    command: str,
+    code: str,
+    message: str,
+    retryable: bool,
+    hint: str,
+    err: TextIO,
+) -> None:
+    """Write one stable machine error envelope exclusively to stderr."""
+    document = {
+        "schema_version": SCHEMA_VERSION,
+        "command": command,
+        "error": {
+            "code": code,
+            "message": message,
+            "retryable": retryable,
+            "hint": hint,
+        },
+    }
+    _ = err.write(json.dumps(document, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+
+def write_capabilities(
+    catalog: Sequence[CommandSpec],
+    *,
+    truncated: bool,
+    continuation: str,
+    out: TextIO,
+) -> None:
+    """Write the public command inventory in stable catalog order."""
+    write_success(
+        command="capabilities",
+        data={"commands": [capability_document(spec) for spec in catalog]},
+        metadata={"truncated": truncated, "continuation": continuation},
+        out=out,
+    )
+
+
+def write_item_page(page: ItemPage, *, out: TextIO) -> None:
+    """Write one bounded item query result."""
+    write_success(
+        command="list",
+        data={
+            "items": [{"id": item.item_id.value, "name": item.name.value} for item in page.items]
+        },
+        metadata={
+            "truncated": page.truncated,
+            "continuation": _continuation_token(page.continuation),
+        },
+        out=out,
+    )
+
+
+def _continuation_token(continuation: PageContinuation) -> str:
+    match continuation:
+        case AfterItem(item_id=item_id):
+            return item_id.value
+        case NoMoreItems():
+            return ""
+
+
+def write_created(event: ItemCreatedEvent, *, out: TextIO) -> None:
+    """Write the result of one explicitly non-idempotent create operation."""
+    write_success(
+        command="add",
+        data={"item": {"id": event.item_id.value, "name": event.name.value}},
+        metadata={"operation_id": event.item_id.value, "retry_safe": False},
+        out=out,
+    )

@@ -1,74 +1,95 @@
-# Validation record — 2026-07-15
+# Validation record — 2026-07-16
 
-Validated on macOS in the repository worktree with Python 3.14.6, uv,
-just 1.56.0, bun 1.3.9, git 2.55.0, and prek 0.4.9.
+Validated on macOS in a clean detached worktree of the exact implementation
+commit, with Python 3.14.6, uv 0.11.28, just 1.56.0, bun 1.3.9, and git 2.55.0.
+The generated repository resolved prek 0.4.9 through its pinned development
+group; a system-wide `prek` command was not installed in the validation
+environment.
 
 ## Change validated
 
-The pack root and generated repositories now use j178/prek as their only Git
-hook manager. Both native `prek.toml` configurations preserve the previous
-commit and pre-push stages, while the generated project resolves prek from its
-uv dev group and uses native `prek install`, `prek run`, and `prek update`
-commands.
+Generated repositories now expose an agent-native CLI whose construction
+prevents command drift. A closed command catalog owns command names, kinds,
+arguments, output modes, paging limits, continuation policy, and retry
+metadata. Parser construction, runtime dispatch, focused help, and the
+versioned capabilities document derive from that catalog, while an independent
+closed contract-case set must cover the same command set at the detached
+process seam.
 
-The legacy `.pre-commit-config.yaml` files and `pre-commit` dependency and
-commands were removed. The Copier answer key remains `precommit` so existing
-answer files and update workflows keep their public contract; it now controls
-whether the prek policy is rendered.
+The sample application now uses bounded list queries and repository reads with
+stable ordering and continuation tokens. Machine output uses versioned JSON
+success and error envelopes with stable exit classes; human output remains
+separate. Non-idempotent mutation behavior, invalid-input non-mutation,
+dependency failures, unexpected-failure redaction, and opt-in debug details are
+covered at both process and in-process seams.
 
-Root and downstream documentation, benchmark fixture manifests, agent
-contracts, CLI next steps, version-coherence instructions, and deterministic
-generation expectations were synchronized.
+New AST rules reject prompts, uncontrolled process exits, CLI-framework
+leakage, and production command registration outside the catalog. ADR-0003,
+the exception ledger, downstream agent guidance, generated architecture model,
+and the pack's design-to-guardrail documentation describe the contract and its
+versioning policy.
 
 ## Commands and results
 
-- `tmpdir="$(mktemp -d)"; cp 'template/{% if precommit %}prek.toml{% endif %}'
-  "$tmpdir/prek.toml"; uvx --from prek==0.4.9 prek validate-config prek.toml
-  "$tmpdir/prek.toml"` — passed: both native TOML configurations were valid.
-- `uv run --no-project --python 3.14 --with pytest==9.1.1 --with
-  copier==9.17.0 --with grimp==3.15 pytest -q tests/test_instantiate.py
-  tests/test_benchmark_config.py` — passed: 83 tests in 30.69s; five expected
-  `DirtyLocalWarning` instances reported the uncommitted template changes.
-- `uvx --from prek==0.4.9 prek run pack-tests --all-files` — passed after
-  synchronizing one stale benchmark wording assertion; prek executed the root
-  `pack-tests` hook successfully.
+- Targeted red/green contract slices were run throughout implementation for
+  capabilities, bounded pagination, mutation replay, invalid-input safety,
+  help discovery, catalog completeness, process error redaction, effectful
+  streaming controls, readback after every invalid case, indirect parser
+  registration, unpacked parser keywords, and the four new CLI architecture
+  rules. Each slice failed for the intended missing behavior before its
+  implementation and passed afterward.
+- `uv run ruff format --check .` and `uv run ruff check .` in an intermediate
+  generated repository — passed: 48 files formatted and all lint checks clean.
+- `uv run basedpyright --project pyproject.toml` in the generated repository —
+  passed: 0 errors, 0 warnings, 0 notes. The downstream gate now supplies the
+  project explicitly so an unrelated parent configuration cannot capture it.
 - `just validate` — passed.
-  - Pack tests: 206 passed in 64.21s; 20 expected `DirtyLocalWarning`
-    instances reported the uncommitted template changes.
+  - Pack tests: 225 passed in 71.79s; one expected `DirtyLocalWarning` came
+    from the test that deliberately exercises dirty-template identity.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: no unrendered Jinja syntax or stray
     `.jinja` suffix survived.
-  - Dependency resolution installed `prek==0.4.9` with the generated dev group.
   - Generated repository full quality gate: passed.
-  - Offline Copier update round trip: 1 passed in 15.55s.
+  - Copier update round trip with the downstream gate enabled: 1 passed in
+    17.79s.
 
 ## Tests added or updated
 
-- Added a generated-repository invariant test for `prek.toml`, the minimum
-  prek version, installed hook stages, dev dependency, and native justfile
-  commands.
-- Updated the expected generated tree and the exact `precommit=false` file
-  delta from `.pre-commit-config.yaml` to `prek.toml`.
-- Updated CLI next-step and hooks-first benchmark assertions to enforce prek
-  wording and commands.
-- Updated benchmark fixture manifests so the template arm copies `prek.toml`.
+- Added an independent, typed CLI contract-case catalog and exhaustive
+  completeness checks against the production catalog.
+- Added detached-process tests for every current command's success and failure
+  contracts, bounded paging, mutation replay/readback, no-effect readback after
+  invalid cases, human output, focused help, JSON schemas, and hidden versus
+  debug unexpected failures.
+- Added closed contract variants for query, mutation, streaming,
+  interactive-bootstrap, and bulk-export commands. The last three tests skip
+  until a command of that kind is registered, then become mandatory through
+  catalog completeness. Streaming cases require a contrasting unfiltered,
+  over-limit baseline; bulk invalid cases require an absent destination probe.
+- Added protocol serialization unit tests for every closed command kind and
+  root tests for CLI AST guard violations and documented suppressions.
+- Updated repository contracts, application tests, wiring tests, generated-file
+  inventory, and the deterministic generated-tree digest for bounded queries
+  and the new CLI modules.
 
 ## Generated repository gate
 
-- Ruff format: 40 files already formatted; lint passed.
+- Ruff format: 48 files already formatted; lint passed.
 - BasedPyright: 0 errors, 0 warnings, 0 notes.
 - Architecture and documentation guards: passed.
-- Import Linter: 2 contracts kept, 0 broken.
-- Derived diagram sync and LikeC4 validation: passed.
-- Tests: 23 passed in 2.53s.
-- Branch-aware coverage: 93.30%, above the 90% floor.
+- Import Linter: 2 contracts kept, 0 broken across 26 files and 35
+  dependencies.
+- Derived diagram sync and pinned LikeC4 validation: passed.
+- Tests: 58 passed and 3 intentionally dormant command-kind cases skipped in
+  3.61s.
+- Branch-aware coverage: 91.19%, above the 90% floor.
 
 ## Remaining portability notes
 
-- The first full validation on a machine may need network access to resolve
-  Python hook environments and warm the pinned LikeC4 cache.
-- Root contributors install prek once with `uv tool install prek`; generated
-  repositories receive it through `uv sync --all-groups`.
-- Existing clones that installed legacy pre-commit shims must run
-  `prek install -f` once; the documented bootstrap command performs this
-  replacement.
+- The first full validation on a machine may need network access to resolve the
+  pinned Python and LikeC4 toolchains.
+- Process-contract tests require a platform that supports subprocess timeouts
+  and detached standard input; they do not require a TTY.
+- Unexpected-failure debug details are intentionally diagnostic and are not a
+  stable machine protocol. The default JSON error envelope is the supported
+  automation contract.

@@ -14,13 +14,26 @@ from typing import TYPE_CHECKING
 
 from scripts.architecture_policy import load_policy
 from scripts.architecture_rules import Violation, check_source, python_files
+from scripts.cli_discipline import check_cli_discipline
 from scripts.none_discipline import check_none_discipline
 from scripts.path_discipline import check_path_discipline
 
 if TYPE_CHECKING:
     from scripts.architecture_policy import Policy
 
-MARKER_SUPPRESSIBLE_CODES = frozenset({"ARCH016", "ARCH017", "ARCH018", "ARCH019", "ARCH020"})
+MARKER_SUPPRESSIBLE_CODES = frozenset(
+    {
+        "ARCH016",
+        "ARCH017",
+        "ARCH018",
+        "ARCH019",
+        "ARCH020",
+        "ARCH021",
+        "ARCH022",
+        "ARCH023",
+        "ARCH024",
+    }
+)
 
 
 def suppressed(item: Violation, lines: list[str], policy: Policy) -> bool:
@@ -46,6 +59,7 @@ def check_file(path: Path, policy: Policy) -> list[Violation]:
     violations = check_source(path, text, tree, policy)
     violations.extend(check_none_discipline(path, tree, policy))
     violations.extend(check_path_discipline(path, tree))
+    violations.extend(check_cli_discipline(path, tree, policy))
     lines = text.splitlines()
     return [item for item in violations if not suppressed(item, lines, policy)]
 

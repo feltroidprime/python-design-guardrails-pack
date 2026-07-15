@@ -1,0 +1,265 @@
+"""Closed catalog of supported command-line capabilities."""
+
+from dataclasses import dataclass
+from enum import StrEnum
+
+
+class CommandName(StrEnum):
+    """Stable identities for every exposed command."""
+
+    ADD = "add"
+    CAPABILITIES = "capabilities"
+    LIST = "list"
+
+
+class CommandKind(StrEnum):
+    """Closed behavioral classes with distinct automation obligations."""
+
+    QUERY = "query"
+    MUTATION = "mutation"
+    STREAMING = "streaming"
+    INTERACTIVE = "interactive/bootstrap"
+    BULK = "bulk/export"
+
+
+class OutputMode(StrEnum):
+    """Formats a command may expose."""
+
+    JSON = "json"
+    JSON_LINES = "jsonl"
+    HUMAN = "human"
+
+
+class RetryPolicy(StrEnum):
+    """Whether replaying an identical mutation is safe."""
+
+    IDEMPOTENT = "idempotent"
+    NON_IDEMPOTENT = "non-idempotent"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class QueryPolicy:
+    default_limit: int
+    maximum_limit: int
+    stable_order: str
+    continuation: bool
+
+    def __post_init__(self) -> None:
+        if self.default_limit < 1 or self.maximum_limit < self.default_limit:
+            raise ValueError("Query limits must be positive and ordered default <= maximum.")
+        if not self.stable_order.strip() or not self.continuation:
+            raise ValueError("Queries require stable ordering and continuation.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MutationPolicy:
+    retry: RetryPolicy
+    dry_run: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StreamingPolicy:
+    filters: tuple[str, ...]
+    termination_controls: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        controls = (*self.filters, *self.termination_controls)
+        if not self.filters or not self.termination_controls:
+            raise ValueError("Streams require filters and termination controls.")
+        if not all(control.startswith("--") for control in controls):
+            raise ValueError("Stream controls must be automation flags.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InteractivePolicy:
+    automation_inputs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.automation_inputs or not all(
+            control.startswith("--") for control in self.automation_inputs
+        ):
+            raise ValueError("Interactive automation inputs must be non-empty flags.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BulkPolicy:
+    required_scope: tuple[str, ...]
+    destination_required: bool
+
+    def __post_init__(self) -> None:
+        if not self.required_scope or not all(
+            control.startswith("--") for control in self.required_scope
+        ):
+            raise ValueError("Bulk scope controls must be non-empty automation flags.")
+
+
+type CommandPolicy = QueryPolicy | MutationPolicy | StreamingPolicy | InteractivePolicy | BulkPolicy
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PositionalText:
+    name: str
+    help: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TextOption:
+    flag: str
+    destination: str
+    help: str
+    default: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PageLimitOption:
+    flag: str
+    destination: str
+    help: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class OutputOption:
+    """Expose the command's declared output modes through ``--format``."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class FlagOption:
+    flag: str
+    destination: str
+    help: str
+
+
+type ArgumentSpec = PositionalText | TextOption | PageLimitOption | OutputOption | FlagOption
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CommandSpec:
+    """One supported capability and its automation contract."""
+
+    name: CommandName
+    kind: CommandKind
+    purpose: str
+    automation_example: str
+    output_modes: tuple[OutputMode, ...]
+    default_output_mode: OutputMode
+    policy: CommandPolicy
+    arguments: tuple[ArgumentSpec, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.purpose.strip() or not self.automation_example.strip():
+            raise ValueError("Every command requires a purpose and automation example.")
+        if self.name.value not in self.automation_example:
+            raise ValueError("The automation example must invoke its command name.")
+        if len(self.output_modes) != len(set(self.output_modes)):
+            raise ValueError("Output modes must be unique.")
+        if self.default_output_mode not in self.output_modes:
+            raise ValueError("The default output mode must be one of the declared modes.")
+        if (
+            self.default_output_mode == OutputMode.HUMAN
+            or OutputMode.HUMAN not in self.output_modes
+        ):
+            raise ValueError("Commands require machine-default and explicit human output.")
+        if sum(isinstance(argument, OutputOption) for argument in self.arguments) != 1:
+            raise ValueError("Commands require exactly one cataloged output option.")
+        if DEBUG_OPTION not in self.arguments:
+            raise ValueError("Commands require the cataloged debug safety modifier.")
+        self._validate_kind_policy()
+
+    def _validate_kind_policy(self) -> None:
+        match self.kind, self.policy:
+            case CommandKind.QUERY, QueryPolicy():
+                if sum(isinstance(item, PageLimitOption) for item in self.arguments) != 1:
+                    raise ValueError("Query commands require exactly one page-limit option.")
+            case CommandKind.MUTATION, MutationPolicy():
+                return
+            case CommandKind.STREAMING, StreamingPolicy():
+                return
+            case CommandKind.INTERACTIVE, InteractivePolicy():
+                return
+            case CommandKind.BULK, BulkPolicy():
+                return
+            case _:
+                raise ValueError("Command kind and policy variant must agree.")
+
+
+DEBUG_OPTION = FlagOption(
+    flag="--debug",
+    destination="debug",
+    help="show a traceback for unexpected failures",
+)
+
+
+COMMAND_CATALOG = (
+    CommandSpec(
+        name=CommandName.ADD,
+        kind=CommandKind.MUTATION,
+        purpose="Create one item.",
+        automation_example='python -m {{ package }} add "First item"',
+        output_modes=(OutputMode.JSON, OutputMode.HUMAN),
+        default_output_mode=OutputMode.JSON,
+        policy=MutationPolicy(retry=RetryPolicy.NON_IDEMPOTENT, dry_run=False),
+        arguments=(
+            PositionalText(name="name", help="item name"),
+            OutputOption(),
+            DEBUG_OPTION,
+        ),
+    ),
+    CommandSpec(
+        name=CommandName.CAPABILITIES,
+        kind=CommandKind.QUERY,
+        purpose="Describe the versioned command catalog for automation.",
+        automation_example="python -m {{ package }} capabilities",
+        output_modes=(OutputMode.JSON, OutputMode.HUMAN),
+        default_output_mode=OutputMode.JSON,
+        policy=QueryPolicy(
+            default_limit=2,
+            maximum_limit=100,
+            stable_order="command name",
+            continuation=True,
+        ),
+        arguments=(
+            PageLimitOption(
+                flag="--limit",
+                destination="limit",
+                help="positive page size",
+            ),
+            TextOption(
+                flag="--continuation",
+                destination="continuation",
+                help="continue after the command name returned by the previous page",
+                default="",
+            ),
+            OutputOption(),
+            DEBUG_OPTION,
+        ),
+    ),
+    CommandSpec(
+        name=CommandName.LIST,
+        kind=CommandKind.QUERY,
+        purpose="List stored items in stable identifier order.",
+        automation_example="python -m {{ package }} list",
+        output_modes=(OutputMode.JSON, OutputMode.HUMAN),
+        default_output_mode=OutputMode.JSON,
+        policy=QueryPolicy(
+            default_limit=2,
+            maximum_limit=200,
+            stable_order="item identifier",
+            continuation=True,
+        ),
+        arguments=(
+            PageLimitOption(
+                flag="--limit",
+                destination="limit",
+                help="positive page size",
+            ),
+            TextOption(
+                flag="--continuation",
+                destination="continuation",
+                help="continue after the item identifier returned by the previous page",
+                default="",
+            ),
+            OutputOption(),
+            DEBUG_OPTION,
+        ),
+    ),
+)

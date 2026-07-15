@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from {{ package }}.application.query_models import FirstPage, ListItemsQuery
 from {{ package }}.application.use_cases import CreateItemCommand
 from {{ package }}.bootstrap import memory_application, sqlite_application
 
@@ -20,7 +21,8 @@ def test_sqlite_slice_persists_across_lifecycles(tmp_path: Path) -> None:
         assert event.occurred_at.tzinfo is not None
 
     with sqlite_application(database) as application:
-        assert [item.name.value for item in application.list_items()] == ["Wired item"]
+        page = application.list_items(ListItemsQuery(limit=10, start=FirstPage()))
+        assert [item.name.value for item in page.items] == ["Wired item"]
 
 
 @pytest.mark.integration

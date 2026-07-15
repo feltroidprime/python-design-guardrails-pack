@@ -3,13 +3,17 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from {{ package }}.application.query_models import (
+    AfterItem,
+    ItemPage,
+    ListItemsQuery,
+    NoMoreItems,
+)
 from {{ package }}.domain.entities import Item
 from {{ package }}.domain.events import ItemCreatedEvent
 from {{ package }}.domain.value_objects import ItemName
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from {{ package }}.application.ports import (
         Clock,
         EventPublisher,
@@ -50,10 +54,14 @@ class CreateItem:
 
 
 class ListItems:
-    """Stream every stored item without materializing the collection."""
+    """Read one bounded page without materializing the full collection."""
 
     def __init__(self, *, repository: ItemRepository) -> None:
         self._repository: ItemRepository = repository
 
-    def __call__(self) -> Iterator[Item]:
-        yield from self._repository.list_all()
+    def __call__(self, query: ListItemsQuery) -> ItemPage:
+        fetched = self._repository.list_page(start=query.start, limit=query.limit + 1)
+        visible = fetched[: query.limit]
+        truncated = len(fetched) > query.limit
+        continuation = AfterItem(item_id=visible[-1].item_id) if truncated else NoMoreItems()
+        return ItemPage(items=visible, truncated=truncated, continuation=continuation)

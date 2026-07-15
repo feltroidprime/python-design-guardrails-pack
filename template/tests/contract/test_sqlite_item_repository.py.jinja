@@ -11,6 +11,7 @@ import pytest
 
 from {{ package }}.adapters.outbound.sqlite_repository import SqliteItemRepository
 from {{ package }}.application.errors import RepositoryError
+from {{ package }}.application.query_models import FirstPage
 from {{ package }}.domain.entities import Item
 from {{ package }}.domain.value_objects import ItemId, ItemName
 from tests.contract.item_repository_contract import ItemRepositoryContract
@@ -34,19 +35,15 @@ class TestSqliteItemRepository(ItemRepositoryContract):
         with pytest.raises(RepositoryError, match="Could not save"):
             repository.save(Item(item_id=ItemId(value="x"), name=ItemName(value="X")))
         with pytest.raises(RepositoryError, match="rejected the operation"):
-            _ = list(repository.list_all())
+            _ = repository.list_page(start=FirstPage(), limit=1)
 
-    def test_streaming_read_requires_a_live_connection(self) -> None:
-        """list_all streams lazily, so its cursor depends on the injected lifecycle."""
+    def test_bounded_page_survives_connection_cleanup(self) -> None:
         connection = sqlite3.connect(":memory:")
         repository = SqliteItemRepository(connection)
         repository.save(Item(item_id=ItemId(value="a"), name=ItemName(value="A")))
         repository.save(Item(item_id=ItemId(value="b"), name=ItemName(value="B")))
 
-        items = repository.list_all()
-        first = next(items)
-        assert first.item_id == ItemId(value="a")
+        items = repository.list_page(start=FirstPage(), limit=1)
         connection.close()
 
-        with pytest.raises(RepositoryError, match="next items row"):
-            _ = next(items)
+        assert [item.item_id for item in items] == [ItemId(value="a")]

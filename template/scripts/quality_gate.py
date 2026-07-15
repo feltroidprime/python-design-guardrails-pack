@@ -41,7 +41,7 @@ def checks(root: Path) -> tuple[Check, ...]:
         Check(name="lockfile", command=("uv", "lock", "--check")),
         Check(name="format", command=("ruff", "format", "--check", ".")),
         Check(name="lint", command=("ruff", "check", ".")),
-        Check(name="types", command=("basedpyright",)),
+        Check(name="types", command=("basedpyright", "--project", "pyproject.toml")),
         Check(
             name="architecture AST", command=(sys.executable, "-m", "scripts.architecture_guard")
         ),
