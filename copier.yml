@@ -40,7 +40,7 @@ package:
 
 precommit:
   type: bool
-  help: Include the pre-commit and pre-push hook policy
+  help: Include the prek commit and pre-push hook policy
   default: true
 
 agents_contract:

@@ -205,7 +205,7 @@ variants each change one policy:
 
 | Variant | Copier answers | Generated effect |
 |---|---|---|
-| `baseline` | default answers | full agent contract and pre-commit/pre-push policy |
+| `baseline` | default answers | full agent contract and prek commit/pre-push policy |
 | `no-precommit` | `precommit = false` | hook config, dependency, install/update commands, and hook guidance are absent |
 | `no-agents-md` | `agents_contract = "none"` | `AGENTS.md` is absent |
 | `checks-via-commit` | `agents_contract = "hooks-first"` | `AGENTS.md` uses only justfile commands for verification and says to commit so the hooks run the gate |

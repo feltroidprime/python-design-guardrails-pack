@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 
 import pytest
 from copier import run_copy
@@ -27,14 +28,14 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "111f6a338189d67dd1dc941655cab8916c6958970fb436c3d3496c930f6787c7"
+EXPECTED_GENERATED_TREE_SHA256 = "fdffdcadcf7b4b364fc6ceaea1156bfbb27b83c63c4208d10f0aaa5bfd9bbfe0"
 INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", "")
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
 
 EXPECTED_FILES = (
     ".github/workflows/quality.yml",
     ".gitignore",
-    ".pre-commit-config.yaml",
+    "prek.toml",
     ".python-version",
     ".vscode/settings.json",
     "AGENTS.md",
@@ -106,6 +107,27 @@ def test_valid_generation_reports_success_and_next_steps(generated: Path) -> Non
     assert result.returncode == 0
     assert f"Created {PROJECT_NAME}" in result.stdout
     assert "uv sync --all-groups" in result.stdout
+    assert "uv run prek install -f" in result.stdout
+
+
+def test_generated_repository_uses_prek_for_git_hooks(generated: Path) -> None:
+    config = tomllib.loads((generated / "prek.toml").read_text(encoding="utf-8"))
+    pyproject = tomllib.loads((generated / "pyproject.toml").read_text(encoding="utf-8"))
+    justfile = (generated / "justfile").read_text(encoding="utf-8")
+
+    assert config["minimum_prek_version"] == "0.4.9"
+    assert config["default_install_hook_types"] == ["pre-commit", "pre-push"]
+    assert {hook["id"] for repo in config["repos"] for hook in repo["hooks"]} >= {
+        "architecture-guard",
+        "full-quality-gate",
+        "ruff-check",
+        "ruff-format",
+        "uv-lock",
+    }
+    assert "prek>=0.4.9" in pyproject["dependency-groups"]["dev"]
+    assert "uv run prek install -f" in justfile
+    assert "uv run prek update" in justfile
+    assert "uv run pre-commit" not in justfile
 
 
 def test_generation_records_copier_template_and_answers(generated: Path) -> None:
@@ -194,13 +216,13 @@ def test_no_precommit_has_exact_file_delta(tmp_path: Path) -> None:
         _generate_with_answers(tmp_path / "no-precommit", {"precommit": False})
     )
 
-    assert set(baseline) - set(variant) == {".pre-commit-config.yaml"}
+    assert set(baseline) - set(variant) == {"prek.toml"}
     assert set(variant) - set(baseline) == set()
     assert {
         path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
     } == {".copier-answers.yml", "README.md", "justfile", "pyproject.toml"}
     for path in ("README.md", "justfile", "pyproject.toml"):
-        assert b"pre-commit" not in variant[path]
+        assert b"prek" not in variant[path]
         assert b"pre-push" not in variant[path]
 
 
@@ -248,8 +270,8 @@ def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> Non
         b"Before claiming completion:\n\n"
         b"1. Use only `just fix`, `just check`, `just test`, and `just arch` for repository "
         b"checks; never invoke their underlying tools directly.\n"
-        b"2. Commit; the hooks run the gate: pre-commit checks the change and pre-push runs the "
-        b"full quality gate before publication.\n"
+        b"2. Commit; the prek hooks run the gate: commit checks validate the change and pre-push "
+        b"runs the full quality gate before publication.\n"
         b"3. Report the behavior changed, tests added, architecture impact, and remaining risks.\n"
         b"4. Never claim success over a failing or weakened gate; report the failure instead.",
     ).replace(

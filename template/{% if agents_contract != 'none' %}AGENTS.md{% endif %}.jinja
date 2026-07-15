@@ -33,7 +33,7 @@ While editing:
 Before claiming completion:
 
 {% if agents_contract == 'hooks-first' %}1. Use only `just fix`, `just check`, `just test`, and `just arch` for repository checks; never invoke their underlying tools directly.
-2. Commit; the hooks run the gate: pre-commit checks the change and pre-push runs the full quality gate before publication.
+2. Commit; the prek hooks run the gate: commit checks validate the change and pre-push runs the full quality gate before publication.
 3. Report the behavior changed, tests added, architecture impact, and remaining risks.
 4. Never claim success over a failing or weakened gate; report the failure instead.
 {% else %}1. Run `uv run python scripts/quality_gate.py` to green.

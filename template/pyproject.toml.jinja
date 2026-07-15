@@ -12,7 +12,7 @@ dependencies = []
 
 # Dev tooling floats: floors are the last versions this repository's toolchain
 # was validated against, and the first `uv sync` resolves the latest releases.
-{% if precommit %}# Reproducibility comes from uv.lock (kept current by the uv-lock pre-commit
+{% if precommit %}# Reproducibility comes from uv.lock (kept current by the uv-lock Git
 # hook), not from exact pins here.
 {% else %}# Reproducibility comes from uv.lock, not from exact pins here.
 {% endif %}[dependency-groups]
@@ -22,7 +22,7 @@ dev = [
   "grimp>=3.15",
   "hypothesis>=6.156.6",
   "import-linter>=2.13",
-{% if precommit %}  "pre-commit>=4.6.0",
+{% if precommit %}  "prek>=0.4.9",
 {% endif %}  "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
   "pytest-socket>=0.8.0",

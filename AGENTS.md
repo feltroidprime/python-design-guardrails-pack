@@ -68,9 +68,11 @@ repository, not this one.
    update to `DESIGN_MASTERY_MAPPING.md` when the mapping changes.
 4. **Keep version pins coherent.** The pinned toolchain appears in several
    places that must move together: `template/pyproject.toml.jinja` (dev group and
-   `tool.uv.required-version`), the conditional `.pre-commit-config.yaml`
-   template (hook
-   revisions), and `template/.github/workflows/quality.yml` (uv version).
+   `tool.uv.required-version`), the conditional `prek.toml` template (hook
+   revisions), and `template/.github/workflows/quality.yml` (uv version). The
+   prek minimum/floor appears in the root `prek.toml`,
+   `template/pyproject.toml.jinja`, and the conditional `prek.toml` template;
+   move all three together.
    Two diagram-toolchain pins join this rule: the grimp pin appears in
    `template/pyproject.toml.jinja` (dev group) **and** the root `justfile`
    (`--with grimp==…` for the diagram-sync tests) — move both together. The

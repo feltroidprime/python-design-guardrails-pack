@@ -52,7 +52,7 @@ exclude = [
   "CLAUDE.md",
   "architecture.toml",
   "justfile",
-  ".pre-commit-config.yaml",
+  "prek.toml",
   ".python-version",
   ".gitignore",
   ".copier-answers.yml",

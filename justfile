@@ -1,7 +1,7 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 # Keep bytecode caches out of the source tree: every Python run through these
-# recipes (and the pre-commit hooks, which call them) writes its __pycache__
+# recipes (and the prek hooks, which call them) writes its __pycache__
 # mirror under .venv instead.
 export PYTHONPYCACHEPREFIX := justfile_directory() / ".venv/pycache"
 

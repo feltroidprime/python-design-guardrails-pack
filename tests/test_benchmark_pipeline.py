@@ -821,7 +821,7 @@ class TestOrchestration:
             for key, value in recorded_answers.items()
             if not key.startswith("_")
         } == expected_answers
-        assert "Commit; the hooks run the gate" in (
+        assert "Commit; the prek hooks run the gate" in (
             workspace / "AGENTS.md"
         ).read_text(encoding="utf-8")
 

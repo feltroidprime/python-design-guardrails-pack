@@ -59,7 +59,7 @@ the pinned Copier engine; generated repositories do not need Copier at runtime.
 python-repo init my-product .        # creates ./my-product, package my_product
 cd my-product
 uv sync --all-groups
-uv run pre-commit install --hook-type pre-commit --hook-type pre-push
+uv run prek install -f
 uv run python scripts/quality_gate.py
 ```
 
@@ -107,7 +107,7 @@ The generated project contains a small vertical slice built on **foundation bric
 - `architecture.toml`: deterministic architecture policy.
 - `scripts/architecture_guard.py`: AST-level fitness functions.
 - `pyproject.toml`: Ruff, BasedPyright, pytest, Coverage, Import Linter, and dependencies.
-- `.pre-commit-config.yaml`: optional fast commit checks and full pre-push gate (`precommit = true`).
+- `prek.toml`: optional fast commit checks and full pre-push gate (`precommit = true`).
 - `.vscode/settings.json`: hides derived artifacts (caches, coverage, `.venv`) from the VS Code explorer and search.
 - `docs/README.md`: the documentation map — one row per document (who reads it, when, freshness mode) plus the admission rule for new documents; kept true by `scripts/docs_guard.py`.
 - `docs/architecture/`: pattern admission rules, ADRs, migration and exception templates.
@@ -153,16 +153,17 @@ not part of `just validate`.
 
 ## Maintaining the pack
 
-Prerequisites: `python3` (3.14), [`uv`](https://docs.astral.sh/uv/), [`just`](https://github.com/casey/just), and [`bun`](https://bun.sh) (pack validation runs the downstream quality gate, which validates the LikeC4 diagrams through a pinned `bunx` invocation). The root `pyproject.toml` exists only to package the `python-repo` CLI (`uv tool install`) and its pinned Copier runtime dependency. The root intentionally has no virtualenv or lock file; Copier, pytest, and grimp are supplied ephemerally to maintainer entry points by `uv run --no-project --with`.
+Prerequisites: `python3` (3.14), [`uv`](https://docs.astral.sh/uv/), [`just`](https://github.com/casey/just), [`prek`](https://prek.j178.dev/), and [`bun`](https://bun.sh) (pack validation runs the downstream quality gate, which validates the LikeC4 diagrams through a pinned `bunx` invocation). The root `pyproject.toml` exists only to package the `python-repo` CLI (`uv tool install`) and its pinned Copier runtime dependency. The root intentionally has no virtualenv or lock file; Copier, pytest, and grimp are supplied ephemerally to maintainer entry points by `uv run --no-project --with`.
 
 ```bash
 just test       # generator unit tests (fast inner loop)
 just validate   # canonical validation — required before claiming any template change done
 just release vX.Y.Z  # verify CHANGELOG.md and create the annotated release tag
-pre-commit install --hook-type pre-commit --hook-type pre-push   # once per clone
+uv tool install prek  # once per machine
+prek install -f       # once per clone; replaces legacy pre-commit shims
 ```
 
-The pack's own `.pre-commit-config.yaml` (local hooks only, through the
+The pack's own `prek.toml` (local hooks only, through the
 justfile) runs `just test` on every commit — a broken template cannot be
 committed — and `just validate` on every push.
 

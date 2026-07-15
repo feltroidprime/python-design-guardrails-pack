@@ -191,7 +191,7 @@ def print_next_steps(project_name: str, output: Path) -> None:
     print("Next:")
     print(f"  cd {output}")
     print("  uv sync --all-groups")
-    print("  uv run pre-commit install --hook-type pre-commit --hook-type pre-push")
+    print("  uv run prek install -f")
     print("  uv run python scripts/quality_gate.py")
 
 
