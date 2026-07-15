@@ -3,6 +3,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .codebase-memory/
+.smithers/
+smithers.db*
 .venv/
 # The generator root is intentionally lock-file-free (stdlib-only, no runtime
 # deps); ignore any uv.lock an ad-hoc `uv run` leaves behind.

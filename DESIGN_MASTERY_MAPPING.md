@@ -57,7 +57,7 @@ and test controls remain available through the justfile and quality gate.
 | Architecture communication without drift | diagrams derived from the code, not drawn | LikeC4 model generated from the grimp import graph (same library Import Linter uses); gate fails on model drift and on views referencing missing elements; free-form views stay team-owned |
 | Documentation that stays true | one owner per fact; freshness ladder (derived > checked > dated); registry with admission rule | documentation map (`docs/README.md`) + docs guard (DOC001–DOC007): broken path references, dangling `ARCH-EXCEPTION` markers, malformed or non-contiguous ADRs, and unregistered documents fail the gate |
 | Trade-offs under pressure | ADR with forces, rejected options, cost, revisit trigger | mandatory ADR triggers and explicit exception expiry |
-| AI speed vs long-term risk | AI proposes; deterministic tools and humans retain design authority | agent contract forbids architecture invention without evidence and requires gate output |
+| AI speed vs long-term risk | AI proposes; deterministic tools and humans retain design authority | agent contract forbids architecture invention without evidence and requires gate output; opt-in Langfuse tracing, full-session export, and multi-session diagnostic counts turn repeated agent pain into transcript-backed benchmark hypotheses without committing credentials; ADR-0003 scopes Ruff's S606/S603/S310 exceptions to the shell-free pinned-source runner, process replacement, and HTTP(S)-validated Langfuse client without weakening application code |
 
 ## Python 3.14-specific stance
 

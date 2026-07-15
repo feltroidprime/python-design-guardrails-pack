@@ -11,6 +11,10 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Add an explicit project-local Langfuse opt-in for complete Codex and Claude
+  Code session tracing, pinned hook/plugin sources, credential-safe status and
+  disable flows, full-session JSON export, and multi-session recurring
+  diagnostic analysis for evidence-backed agent retrospectives.
 - Ship `CLAUDE.md` (`@AGENTS.md`) whenever `agents_contract != "none"`. Claude
   Code reads `CLAUDE.md` and never `AGENTS.md`, so the operating contract was
   invisible to it unless a prompt told the agent to open the file; the import
