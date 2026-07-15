@@ -103,6 +103,7 @@ The generated project contains a small vertical slice built on **foundation bric
 ## Key files in a generated repository
 
 - `AGENTS.md`: optional operational contract for coding agents (`agents_contract != "none"`).
+- `CLAUDE.md`: `@AGENTS.md`, shipped alongside it (`agents_contract != "none"`). Claude Code reads `CLAUDE.md` and never `AGENTS.md`, so without this import the contract would be invisible to it; the import keeps `AGENTS.md` the single owner of the contract.
 - `architecture.toml`: deterministic architecture policy.
 - `scripts/architecture_guard.py`: AST-level fitness functions.
 - `pyproject.toml`: Ruff, BasedPyright, pytest, Coverage, Import Linter, and dependencies.

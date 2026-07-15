@@ -27,7 +27,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "21cc02c89be70383e3ca368f8445d5b6791ad28234fcdb31d4df71a332ecda96"
+EXPECTED_GENERATED_TREE_SHA256 = "111f6a338189d67dd1dc941655cab8916c6958970fb436c3d3496c930f6787c7"
 INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", "")
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
 
@@ -38,6 +38,7 @@ EXPECTED_FILES = (
     ".python-version",
     ".vscode/settings.json",
     "AGENTS.md",
+    "CLAUDE.md",
     "README.md",
     "architecture.toml",
     "docs/README.md",
@@ -209,12 +210,14 @@ def test_no_agents_md_has_exact_file_delta(tmp_path: Path) -> None:
         _generate_with_answers(tmp_path / "no-agents-md", {"agents_contract": "none"})
     )
 
-    assert set(baseline) - set(variant) == {"AGENTS.md"}
+    assert set(baseline) - set(variant) == {"AGENTS.md", "CLAUDE.md"}
     assert set(variant) - set(baseline) == set()
     assert {
         path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
-    } == {".copier-answers.yml", "README.md"}
-    assert b"AGENTS.md" not in variant["README.md"]
+    } == {".copier-answers.yml", "README.md", "docs/README.md"}
+    for path in ("README.md", "docs/README.md"):
+        assert b"AGENTS.md" not in variant[path]
+        assert b"CLAUDE.md" not in variant[path]
 
 
 def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> None:

@@ -11,6 +11,14 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Ship `CLAUDE.md` (`@AGENTS.md`) whenever `agents_contract != "none"`. Claude
+  Code reads `CLAUDE.md` and never `AGENTS.md`, so the operating contract was
+  invisible to it unless a prompt told the agent to open the file; the import
+  makes the contract load in every session while `AGENTS.md` stays its single
+  owner.
+- Fix `agents_contract = "none"`: the documentation map is now rendered, so its
+  `AGENTS.md` rows disappear with the file. The variant previously generated a
+  repository that failed its own `docs guard` with two DOC001 violations.
 - Document downstream Copier update checks, inline conflict resolution, and the
   generated repository's merge-conflict guard.
 - Wire the template's empty migration list for future versioned update steps.

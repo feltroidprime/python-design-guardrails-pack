@@ -1,0 +1,3 @@
+<!-- Claude Code reads CLAUDE.md and never AGENTS.md, so the contract is imported rather than copied: one file stays authoritative for every agent. Block comments are stripped before Claude loads this file, so this note costs no context. -->
+
+@AGENTS.md
