@@ -23,6 +23,7 @@ just bootstrap
 ```bash
 just check      # deterministic repairs followed by the full acceptance gate
 just diagrams   # browse live architecture diagrams (LikeC4 viewer)
+just session-log <transcript> [output] [agent]  # preserve Claude/Codex evidence
 just scaffold-update  # merge the newest tagged scaffold release
 just update     # update dependencies and hook revisions intentionally
 ```
@@ -54,6 +55,39 @@ repository's existing guard and full gate before committing:
 {% else %}git diff --check
 {% endif %}just check
 ```
+
+## Coding-agent session evidence
+
+Preserve a complete Claude Code or Codex CLI session for harness analysis:
+
+```bash
+# Codex: use a rollout, never ~/.codex/history.jsonl
+just session-log ~/.codex/sessions/YYYY/MM/DD/rollout-SESSION.jsonl .agent-sessions/codex
+
+# Claude: the matching session-stem/subagents tree is included recursively
+just session-log ~/.claude/projects/PROJECT/SESSION.jsonl .agent-sessions/claude
+```
+
+To exercise the importer against private local logs, run `just session-e2e`.
+This opt-in test chooses one primary transcript at random from each of five size
+quantiles under `~/.claude/projects/` and `~/.codex/sessions/`; it skips an agent
+when no matching local sessions exist. The standard quality gate excludes it so
+routine tests never inspect personal logs unexpectedly.
+
+The command auto-detects the agent; pass the optional third argument `claude`
+or `codex` to require one format. It writes ATIF-v1.7, a tab-separated compact
+profile, a chronological/hierarchical route, SHA-256 blobs, and a self-checking
+manifest. Transformation is deterministic and performs no semantic analysis.
+Raw JSONL is preserved byte-for-byte. The ignored .agent-sessions default may
+contain sensitive prompts, source, and tool output; on POSIX it is written with
+owner-only permissions. Other platforms still require an access-control check
+before sharing it deliberately.
+The implementation comes from a private Git dependency pinned to an immutable
+commit; this repository keeps only a lazy compatibility facade. Standard
+bootstrap, `just check`, and CI do not resolve it. Before either opt-in session
+command, authenticate [`gh`](https://cli.github.com/) for the private repository
+and run `gh auth setup-git`; no credential is stored in this repository.
+`docs/adr/0004-agent-session-evidence.md` owns the format and invariants.
 
 ## Try the example application
 

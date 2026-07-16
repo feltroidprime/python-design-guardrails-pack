@@ -87,6 +87,11 @@ repository, not this one.
    version is the wheel fallback for Copier's `_commit`, so release wheels must
    use the corresponding template tag version. The pytest-xdist pin appears in
    both root `justfile` test invocations; move both together.
+   The private session-profiler commit appears in `template/justfile.jinja`,
+   `template/docs/adr/0004-agent-session-evidence.md`, and
+   `tests/test_instantiate.py`; move all three together. Keep it out of the
+   generated dependency groups and lockfile so baseline bootstrap and CI remain
+   credential-free.
 5. **No local artifacts in `template/`.** Runtime caches (`.ruff_cache`,
    `__pycache__`, `.pytest_cache`, …) must never exist there; the authoritative
    pattern list is `_exclude` in `copier.yml`. Note that

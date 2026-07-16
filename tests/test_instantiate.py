@@ -28,9 +28,14 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "c27724b062a177bbceed132055b57517103670c62cc36a984e45e6f397178065"
+EXPECTED_GENERATED_TREE_SHA256 = "100844b8a86675734ffaf3d6c75a25317c1b369510a545a022f96d24eb27b2fd"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
+)
+SESSION_PROFILER_DEPENDENCY = (
+    "session-profiler-optimizer @ "
+    "git+https://github.com/feltroidprime/session-profiler-optimizer.git"
+    "@6ace879e8642777658576a47e0f53b32a1ddc0f7"
 )
 INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", "")
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
@@ -50,6 +55,7 @@ EXPECTED_FILES = (
     "docs/adr/0001-derived-architecture-diagrams.md",
     "docs/adr/0002-foundation-ports-and-reference-adapters.md",
     "docs/adr/0003-agent-native-cli-protocol.md",
+    "docs/adr/0004-agent-session-evidence.md",
     "docs/architecture/EXCEPTIONS.md",
     "docs/architecture/likec4/generated/baseline-views.c4",
     "docs/architecture/likec4/generated/model.c4",
@@ -60,11 +66,15 @@ EXPECTED_FILES = (
     "pyproject.toml",
     "scripts/architecture_guard.py",
     "scripts/architecture_rules.py",
+    "scripts/__init__.py",
+    "scripts/agent_sessions.py",
     "scripts/cli_discipline.py",
     "scripts/docs_guard.py",
     "scripts/none_discipline.py",
     "scripts/quality_gate.py",
     "scripts/sync_architecture_diagrams.py",
+    "tests/e2e/session_contract.py",
+    "tests/e2e/test_real_agent_sessions.py",
     f"src/{PACKAGE_NAME}/__main__.py",
     f"src/{PACKAGE_NAME}/adapters/inbound/cli_catalog.py",
     f"src/{PACKAGE_NAME}/adapters/inbound/cli_protocol.py",
@@ -78,6 +88,7 @@ EXPECTED_FILES = (
     "tests/contract/item_repository_contract.py",
     "tests/contract/cli_contract_cases.py",
     "tests/integration/test_cli_contract.py",
+    "tests/e2e/test_session_evidence.py",
     "tests/unit/adapters/test_cli_protocol.py",
     "tests/unit/domain/test_value_objects.py",
 )
@@ -143,7 +154,9 @@ def test_generated_repository_uses_prek_for_git_hooks(generated: Path) -> None:
     assert hooks["full-quality-gate"]["entry"].endswith("python scripts/quality_gate.py")
 
 
-def test_generated_justfile_has_one_repair_and_verification_route(generated: Path) -> None:
+def test_generated_justfile_has_one_routine_gate_and_one_private_e2e_route(
+    generated: Path,
+) -> None:
     justfile = (generated / "justfile").read_text(encoding="utf-8")
 
     assert re.findall(r"(?m)^([a-z][a-z-]*):(?:\s|$)", justfile) == [
@@ -159,8 +172,30 @@ def test_generated_justfile_has_one_repair_and_verification_route(generated: Pat
         "env -u PYTHONPYCACHEPREFIX uvx --from copier==9.17.0 copier update "
         "--defaults --conflict inline" in justfile
     )
-    assert "uv run pytest" not in justfile
+    assert justfile.count('uv run --with "$SESSION_PROFILER_DEPENDENCY" pytest') == 1
+    assert "-m session_e2e" in justfile
     assert "scripts.architecture_guard" not in justfile
+
+
+def test_generated_repository_can_preserve_complete_agent_sessions(
+    generated: Path,
+) -> None:
+    pyproject = tomllib.loads((generated / "pyproject.toml").read_text(encoding="utf-8"))
+    justfile = (generated / "justfile").read_text(encoding="utf-8")
+    gitignore = (generated / ".gitignore").read_text(encoding="utf-8").splitlines()
+    dependencies = pyproject["dependency-groups"]["dev"]
+
+    assert SESSION_PROFILER_DEPENDENCY not in dependencies
+    assert not any(dependency.startswith("harbor") for dependency in dependencies)
+    assert not any(dependency.startswith("litellm") for dependency in dependencies)
+    assert justfile.count(SESSION_PROFILER_DEPENDENCY) == 1
+    assert "session-log input output=\".agent-sessions\" agent=\"auto\":" in justfile
+    assert 'uv run --with "$SESSION_PROFILER_DEPENDENCY" session-profiler' in justfile
+    assert "session-e2e:" in justfile
+    assert 'uv run --with "$SESSION_PROFILER_DEPENDENCY" pytest' in justfile
+    assert "not session_e2e" in pyproject["tool"]["pytest"]["ini_options"]["addopts"]
+    assert ".agent-sessions/" in gitignore
+    assert "output/" not in gitignore
 
 
 def test_scaffold_update_does_not_create_an_invalid_project_venv(
