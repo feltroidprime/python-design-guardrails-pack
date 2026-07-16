@@ -24,7 +24,7 @@ diagrams:
 
 # Apply the newest tagged scaffold release with Copier's three-way merge.
 scaffold-update:
-    uvx --from copier==9.17.0 copier update --conflict inline
+    uvx --from copier==9.17.0 copier update --defaults --conflict inline
 
 update:
     uv lock --upgrade

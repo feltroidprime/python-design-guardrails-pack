@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "b333939a27b4f2d6e8abb0e1a19cc5f9c40f7980bb049f4409ae8d908300bd6b"
+EXPECTED_GENERATED_TREE_SHA256 = "4c953039fa518ab06ef34306cb363d5c9bcd2eee62e80305a61432cba7cd99dc"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -156,7 +156,8 @@ def test_generated_justfile_has_one_repair_and_verification_route(generated: Pat
     ]
     assert "uv run python scripts/quality_gate.py --fix" in justfile
     assert (
-        "uvx --from copier==9.17.0 copier update --conflict inline" in justfile
+        "uvx --from copier==9.17.0 copier update --defaults --conflict inline"
+        in justfile
     )
     assert "uv run pytest" not in justfile
     assert "scripts.architecture_guard" not in justfile

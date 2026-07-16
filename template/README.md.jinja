@@ -37,8 +37,9 @@ uvx --from copier==9.17.0 copier check-update --quiet
 ```
 
 Exit status `0` means the repository is current, while exit status `2` means
-an update is available. Any other status is an error. Apply the update with
-Copier's three-way merge and explicit inline conflicts:
+an update is available. Any other status is an error. Apply the update
+non-interactively from the recorded answers with Copier's three-way merge and
+explicit inline conflicts:
 
 ```bash
 just scaffold-update
