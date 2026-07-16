@@ -112,14 +112,15 @@ The example application separates two kinds of code (see ADR-0002):
 | Resource lifecycle | `bootstrap.sqlite_application` context manager; acquire at the edge, release deterministically |
 | Certify a port implementation | subclass the port's contract in `tests/contract/` (see `item_repository_contract.py`) and provide a `repository` fixture |
 | New port | single operation → callable `type` alias; multiple operations → `Protocol` (both in `application/ports.py`) |
-| Expose a CLI command | add one `CommandSpec` in `adapters/inbound/cli_catalog.py` and one matching closed case in `tests/contract/cli_contract_cases.py`; preserve ADR-0003 |
+| Expose a CLI command | add one `CommandSpec` in `adapters/inbound/cli_catalog.py` and matching independent command/outcome process cases; preserve ADR-0003 and ADR-0005 |
 
 A cross-cutting need with no matching brick requires an ADR before the code exists.
 
 ## Agent-native CLI contract
 
-The CLI is an automation protocol, not a collection of parser handlers. ADR-0003
-owns its compatibility rules.
+The CLI is an automation protocol, not a collection of parser handlers.
+ADR-0003 owns the base protocol; ADR-0005 owns its input, retry, safety,
+outcome, and composition extension.
 
 - `adapters/inbound/cli_catalog.py` is the only command registration surface.
   Parser construction and `capabilities` both derive from it; never call
@@ -129,26 +130,47 @@ owns its compatibility rules.
   query, mutation, streaming, interactive/bootstrap, or bulk/export. The case
   must supply that kind's bounds, retry, termination, automation, or scope
   scenario before completeness can pass.
+- Every command declares ordinary typed arguments as its primary automation
+  input and declares stdin forbidden, optional, or required. Accepted stdin
+  uses the documented `-` marker. Structured file/stdin input may be additive;
+  it cannot replace the mandatory typed-argument process case. Required-stdin
+  cases exercise those arguments with the declared payload; optional and
+  forbidden cases exercise them with closed stdin. Removing the argument path
+  requires a new evidence-backed ADR. Accepted-stdin cases must observe
+  payload-derived semantics, not only process success. ARCH025 rejects
+  argument-primary drift.
 - Machine JSON is the default for data-bearing commands. Successful data uses
   stdout only; diagnostics use stderr only. Human output requires
   `--format human`. Never make wording, wrapping, option order, JSON key order,
   generated IDs, or timestamps compatibility surfaces.
-- Queries declare positive defaults and maxima, stable order, truncation, and
-  continuation. Apply the bound in the use case and outbound port, not after
-  rendering an unbounded collection.
-- Mutations declare whether identical replay is safe. Non-idempotent operations
-  return an operation ID; invalid input must fail before effects. Dry-run is not
-  evidence of idempotence.
+- Queries declare positive defaults and maxima, stable order, truncation,
+  continuation, filters, selectable fields, and quiet support. Apply filters,
+  selection, and bounds in the use case and outbound port. Quiet mode requires
+  exactly one field and emits only undecorated single-line values. Every
+  declared filter and selectable field needs its exact independent case.
+- Mutations declare unconditional, conditional, or unsafe replay. Conditional
+  idempotency belongs at an atomic application-owned port; unsafe operations
+  return an operation ID. Destructive safety is a separate closed policy that
+  requires categorized domain/persistence/event/audit/destination probes with
+  explicit applicability and confirmed-change expectations, a no-effect
+  structured preview, and explicit confirmation bypass.
+- Every expected failure is a cataloged outcome with code, exit class,
+  retryability, safe details, and recovery guidance. Add an independent case
+  for every command-owned and shared outcome; never construct public codes ad
+  hoc. Use the closed constant/computed/argument detail-source variants; never
+  source public details from sensitive argument values.
 - Automation invocations never prompt, decorate machine output, or depend on a
   TTY. Streams require filters plus termination; bulk/export requires scope and
   destination; interactive conveniences require a complete flag-driven path.
 - Argparse stays private to `adapters/inbound/cli.py`. It produces typed
   requests immediately; application and domain APIs never accept namespaces or
-  framework objects. ARCH021–024 enforce inbound non-interactivity, controlled
-  exits, framework isolation, and catalog-owned command names and aliases.
-- Breaking envelope, exit-classification, command identity/kind, or required
-  policy changes require a new ADR and protocol version. Run the full quality
-  gate; there is no parallel CLI-only acceptance command.
+  framework objects. ARCH021–025 enforce inbound non-interactivity, controlled
+  exits, framework isolation, catalog-owned command names/aliases, and
+  argument-primary input.
+- Breaking envelope, exit-classification, default, command identity/kind, or
+  removal of an argument path requires a new ADR and protocol version.
+  Backward-compatible capability fields and explicit output modes remain 1.x.
+  Run the full quality gate; there is no parallel CLI-only acceptance command.
 
 ## Architecture diagrams (derived, never drawn)
 

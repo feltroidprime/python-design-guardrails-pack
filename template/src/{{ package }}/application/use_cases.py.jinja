@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from {{ package }}.application.idempotency import IdempotencyKey, RequestFingerprint
 from {{ package }}.application.query_models import (
     AfterItem,
     ItemPage,
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
         ItemIdFactory,
         ItemRepository,
     )
+    from {{ package }}.domain.value_objects import ItemId
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -27,6 +29,24 @@ class CreateItemCommand:
     """Input accepted by the create-item use case."""
 
     name: str
+    idempotency_key: str = ""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CreateItemResult:
+    """One observable create result, whether new, replayed, or unsafe."""
+
+    item: Item
+    replayed: bool
+    retry_safe: bool
+
+    @property
+    def item_id(self) -> ItemId:
+        return self.item.item_id
+
+    @property
+    def name(self) -> ItemName:
+        return self.item.name
 
 
 class CreateItem:
@@ -45,12 +65,29 @@ class CreateItem:
         self._clock: Clock = clock
         self._events: EventPublisher = events
 
-    def __call__(self, command: CreateItemCommand) -> ItemCreatedEvent:
-        item = Item(item_id=self._id_factory(), name=ItemName(value=command.name))
-        self._repository.save(item)
+    def __call__(self, command: CreateItemCommand) -> CreateItemResult:
+        name = ItemName(value=command.name)
+        if not command.idempotency_key:
+            item = self._new_item(name)
+            self._repository.save(item)
+            self._publish(item)
+            return CreateItemResult(item=item, replayed=False, retry_safe=False)
+        key = IdempotencyKey(value=command.idempotency_key)
+        result = self._repository.create_once(
+            key=key,
+            fingerprint=RequestFingerprint.for_item_name(name),
+            create=lambda: self._new_item(name),
+        )
+        if not result.replayed:
+            self._publish(result.item)
+        return CreateItemResult(item=result.item, replayed=result.replayed, retry_safe=True)
+
+    def _new_item(self, name: ItemName) -> Item:
+        return Item(item_id=self._id_factory(), name=name)
+
+    def _publish(self, item: Item) -> None:
         event = ItemCreatedEvent(item_id=item.item_id, name=item.name, occurred_at=self._clock())
         self._events.publish(event)
-        return event
 
 
 class ListItems:
@@ -60,8 +97,13 @@ class ListItems:
         self._repository: ItemRepository = repository
 
     def __call__(self, query: ListItemsQuery) -> ItemPage:
-        fetched = self._repository.list_page(start=query.start, limit=query.limit + 1)
+        fetched = self._repository.list_page(
+            start=query.start,
+            limit=query.limit + 1,
+            name_contains=query.name_contains,
+            fields=query.fields,
+        )
         visible = fetched[: query.limit]
         truncated = len(fetched) > query.limit
-        continuation = AfterItem(item_id=visible[-1].item_id) if truncated else NoMoreItems()
+        continuation = AfterItem(item_id=visible[-1].position) if truncated else NoMoreItems()
         return ItemPage(items=visible, truncated=truncated, continuation=continuation)

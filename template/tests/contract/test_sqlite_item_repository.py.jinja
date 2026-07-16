@@ -18,6 +18,7 @@ from tests.contract.item_repository_contract import ItemRepositoryContract
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
 
 
 class TestSqliteItemRepository(ItemRepositoryContract):
@@ -26,6 +27,23 @@ class TestSqliteItemRepository(ItemRepositoryContract):
         connection = sqlite3.connect(":memory:")
         yield SqliteItemRepository(connection)
         connection.close()
+
+    @pytest.fixture
+    def concurrent_repositories(
+        self, tmp_path: Path
+    ) -> Iterator[tuple[SqliteItemRepository, SqliteItemRepository]]:
+        database = tmp_path / "concurrent.db"
+        connections: tuple[sqlite3.Connection, sqlite3.Connection] = (
+            sqlite3.connect(database, check_same_thread=False),
+            sqlite3.connect(database, check_same_thread=False),
+        )
+        repositories: tuple[SqliteItemRepository, SqliteItemRepository] = (
+            SqliteItemRepository(connections[0]),
+            SqliteItemRepository(connections[1]),
+        )
+        yield repositories
+        for connection in connections:
+            connection.close()
 
     def test_driver_failure_surfaces_as_repository_error(self) -> None:
         connection = sqlite3.connect(":memory:")

@@ -16,6 +16,8 @@ class ItemId:
     def __post_init__(self) -> None:
         if not self.value.strip():
             raise ValueError("Item identifier must not be blank.")
+        if any(character in self.value for character in "\r\n"):
+            raise ValueError("Item identifier must be a single line.")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -32,4 +34,6 @@ class ItemName:
             raise InvalidItemNameError(
                 f"Item name must contain at most {MAX_ITEM_NAME_LENGTH} characters."
             )
+        if any(character in normalized for character in "\r\n"):
+            raise InvalidItemNameError("Item name must be a single line.")
         object.__setattr__(self, "value", normalized)

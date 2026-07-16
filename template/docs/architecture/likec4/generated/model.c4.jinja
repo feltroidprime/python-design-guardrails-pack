@@ -14,6 +14,7 @@ model {
     }
     application = layer 'application' {
       errors = module 'errors'
+      idempotency = module 'idempotency'
       ports = module 'ports'
       query_models = module 'query_models'
       use_cases = module 'use_cases'
@@ -32,9 +33,13 @@ model {
   {{ package }}.adapters.inbound -> {{ package }}.domain.errors
   {{ package }}.adapters.inbound -> {{ package }}.domain.value_objects
   {{ package }}.adapters.outbound -> {{ package }}.application.errors
+  {{ package }}.adapters.outbound -> {{ package }}.application.idempotency
   {{ package }}.adapters.outbound -> {{ package }}.application.query_models
   {{ package }}.adapters.outbound -> {{ package }}.domain.entities
   {{ package }}.adapters.outbound -> {{ package }}.domain.value_objects
+  {{ package }}.application.idempotency -> {{ package }}.application.errors
+  {{ package }}.application.ports -> {{ package }}.application.query_models
+  {{ package }}.application.use_cases -> {{ package }}.application.idempotency
   {{ package }}.application.use_cases -> {{ package }}.application.query_models
   {{ package }}.application.use_cases -> {{ package }}.domain.entities
   {{ package }}.application.use_cases -> {{ package }}.domain.events

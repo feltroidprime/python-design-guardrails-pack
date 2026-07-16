@@ -1,0 +1,340 @@
+"""Closed policy and declaration types used by the command catalog."""
+
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import TYPE_CHECKING
+
+from {{ package }}.adapters.inbound.cli_outcomes import (
+    SHARED_OUTCOMES,
+    ArgumentDetail,
+    OutcomeCode,
+    OutcomeSpec,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+
+class CommandName(StrEnum):
+    ADD = "add"
+    CAPABILITIES = "capabilities"
+    LIST = "list"
+
+
+class CommandKind(StrEnum):
+    QUERY = "query"
+    MUTATION = "mutation"
+    STREAMING = "streaming"
+    INTERACTIVE = "interactive/bootstrap"
+    BULK = "bulk/export"
+
+
+class OutputMode(StrEnum):
+    JSON = "json"
+    JSON_LINES = "jsonl"
+    QUIET = "quiet"
+    HUMAN = "human"
+
+
+class RetryPolicy(StrEnum):
+    UNCONDITIONAL = "unconditional"
+    CONDITIONAL = "conditional"
+    UNSAFE = "unsafe"
+
+
+class InputMode(StrEnum):
+    ARGUMENTS = "arguments"
+
+
+class StdinMode(StrEnum):
+    FORBIDDEN = "forbidden"
+    OPTIONAL = "optional"
+    REQUIRED = "required"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InputPolicy:
+    primary: InputMode
+    stdin: StdinMode
+    stdin_marker: str = ""
+
+    def __post_init__(self) -> None:
+        accepts_stdin = self.stdin in {StdinMode.OPTIONAL, StdinMode.REQUIRED}
+        if accepts_stdin != (self.stdin_marker == "-"):
+            raise ValueError("Commands accepting stdin require the documented '-' marker.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class QueryPolicy:
+    default_limit: int
+    maximum_limit: int
+    stable_order: str
+    continuation: bool
+    filters: tuple[str, ...] = ()
+    selectable_fields: tuple[str, ...] = ()
+    quiet: bool = False
+
+    def __post_init__(self) -> None:
+        if self.default_limit < 1 or self.maximum_limit < self.default_limit:
+            raise ValueError("Query limits must be positive and ordered default <= maximum.")
+        if not self.stable_order.strip() or not self.continuation:
+            raise ValueError("Queries require stable ordering and continuation.")
+        if not all(control.startswith("--") for control in self.filters):
+            raise ValueError("Query filters must be automation flags.")
+        if not all(field.strip() for field in self.selectable_fields):
+            raise ValueError("Selectable query fields must be non-empty.")
+        if self.quiet and not self.selectable_fields:
+            raise ValueError("Quiet queries require selectable fields.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MutationPolicy:
+    retry: RetryPolicy
+    retry_control: str = ""
+    unsafe_without_control: bool = False
+
+    def __post_init__(self) -> None:
+        conditional = self.retry == RetryPolicy.CONDITIONAL
+        if conditional != self.retry_control.startswith("--"):
+            raise ValueError("Conditional retry requires one automation control.")
+        if self.unsafe_without_control != conditional:
+            raise ValueError("Only conditional retries may become unsafe without their control.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StreamingPolicy:
+    filters: tuple[str, ...]
+    termination_controls: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        controls = (*self.filters, *self.termination_controls)
+        if not self.filters or not self.termination_controls:
+            raise ValueError("Streams require filters and termination controls.")
+        if not all(control.startswith("--") for control in controls):
+            raise ValueError("Stream controls must be automation flags.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InteractivePolicy:
+    automation_inputs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.automation_inputs or not all(
+            control.startswith("--") for control in self.automation_inputs
+        ):
+            raise ValueError("Interactive automation inputs must be non-empty flags.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BulkPolicy:
+    required_scope: tuple[str, ...]
+    destination_required: bool
+
+    def __post_init__(self) -> None:
+        if not self.required_scope or not all(
+            control.startswith("--") for control in self.required_scope
+        ):
+            raise ValueError("Bulk scope controls must be non-empty automation flags.")
+
+
+type CommandPolicy = QueryPolicy | MutationPolicy | StreamingPolicy | InteractivePolicy | BulkPolicy
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class NonDestructiveSafety:
+    """A command that requires no preview or confirmation controls."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DestructiveSafety:
+    preview_control: str
+    confirmation_control: str
+    plan_fields: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        controls = (self.preview_control, self.confirmation_control)
+        if not all(control.startswith("--") for control in controls) or len(set(controls)) != len(
+            controls
+        ):
+            raise ValueError("Destructive safety controls must be automation flags.")
+        if (
+            not self.plan_fields
+            or not all(field.strip() for field in self.plan_fields)
+            or len(self.plan_fields) != len(set(self.plan_fields))
+        ):
+            raise ValueError("Destructive commands require a structured preview plan.")
+
+
+type SafetyPolicy = NonDestructiveSafety | DestructiveSafety
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PositionalText:
+    name: str
+    help: str
+    sensitive: bool = False
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TextOption:
+    flag: str
+    destination: str
+    help: str
+    default: str
+    sensitive: bool = False
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PageLimitOption:
+    flag: str
+    destination: str
+    help: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class OutputOption:
+    """Expose the command's declared output modes through ``--format``."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class FlagOption:
+    flag: str
+    destination: str
+    help: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ChoiceOption:
+    flag: str
+    destination: str
+    help: str
+    choices: tuple[str, ...]
+    repeatable: bool = False
+    default: str | None = None
+    sensitive: bool = False
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class QuietOption:
+    """Expose undecorated one-value-per-line query output."""
+
+
+type ArgumentSpec = (
+    PositionalText
+    | TextOption
+    | PageLimitOption
+    | OutputOption
+    | FlagOption
+    | ChoiceOption
+    | QuietOption
+)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CommandSpec:
+    name: CommandName
+    kind: CommandKind
+    purpose: str
+    automation_example: str
+    output_modes: tuple[OutputMode, ...]
+    default_output_mode: OutputMode
+    policy: CommandPolicy
+    input_policy: InputPolicy
+    safety: SafetyPolicy
+    outcomes: tuple[OutcomeSpec, ...]
+    arguments: tuple[ArgumentSpec, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.purpose.strip() or not self.automation_example.strip():
+            raise ValueError("Every command requires a purpose and automation example.")
+        if any(character in self.purpose for character in "\r\n"):
+            raise ValueError("Command purposes must be single-line quiet-selectable values.")
+        if self.name.value not in self.automation_example:
+            raise ValueError("The automation example must invoke its command name.")
+        if len(self.output_modes) != len(set(self.output_modes)):
+            raise ValueError("Output modes must be unique.")
+        if self.default_output_mode not in self.output_modes:
+            raise ValueError("The default output mode must be declared.")
+        human_is_default = self.default_output_mode == OutputMode.HUMAN
+        if human_is_default or OutputMode.HUMAN not in self.output_modes:
+            raise ValueError("Commands require machine-default and explicit human output.")
+        if sum(isinstance(argument, OutputOption) for argument in self.arguments) != 1:
+            raise ValueError("Commands require exactly one output option.")
+        has_debug = any(
+            isinstance(item, FlagOption) and item.flag == "--debug" for item in self.arguments
+        )
+        if not has_debug:
+            raise ValueError("Commands require the debug safety modifier.")
+        if len(self.outcomes) != len({outcome.code for outcome in self.outcomes}):
+            raise ValueError("Command outcomes must be unique.")
+        self._validate_outcome_details()
+        self._validate_kind_policy()
+        self._validate_safety()
+
+    def _validate_kind_policy(self) -> None:
+        match self.kind, self.policy:
+            case CommandKind.QUERY, QueryPolicy():
+                if sum(isinstance(item, PageLimitOption) for item in self.arguments) != 1:
+                    raise ValueError("Query commands require exactly one page-limit option.")
+                has_quiet = any(isinstance(item, QuietOption) for item in self.arguments)
+                if self.policy.quiet != has_quiet or self.policy.quiet != (
+                    OutputMode.QUIET in self.output_modes
+                ):
+                    raise ValueError("Query quiet policy, mode, and argument must agree.")
+            case CommandKind.MUTATION, MutationPolicy():
+                return
+            case CommandKind.STREAMING, StreamingPolicy():
+                if self.default_output_mode != OutputMode.JSON_LINES:
+                    raise ValueError("Streaming commands require JSON Lines as machine default.")
+                return
+            case CommandKind.INTERACTIVE, InteractivePolicy():
+                return
+            case CommandKind.BULK, BulkPolicy():
+                return
+            case _:
+                raise ValueError("Command kind and policy variant must agree.")
+
+    def _validate_safety(self) -> None:
+        if isinstance(self.safety, NonDestructiveSafety):
+            return
+        if self.kind != CommandKind.MUTATION:
+            raise ValueError("Only mutations may declare destructive safety.")
+        flags = {item.flag for item in self.arguments if isinstance(item, FlagOption)}
+        if {self.safety.preview_control, self.safety.confirmation_control} - flags:
+            raise ValueError("Destructive safety controls must be cataloged arguments.")
+
+    def _validate_outcome_details(self) -> None:
+        sources = dict(_argument_source(argument) for argument in self.arguments)
+        for outcome in self.outcomes:
+            for detail in outcome.details:
+                if not isinstance(detail, ArgumentDetail):
+                    continue
+                if detail.argument_source not in sources:
+                    raise ValueError("Outcome detail sources must name a declared argument.")
+                if sources[detail.argument_source]:
+                    raise ValueError("Outcome details cannot expose a sensitive argument.")
+
+
+def _argument_source(argument: ArgumentSpec) -> tuple[str, bool]:
+    match argument:
+        case PositionalText():
+            return argument.name, argument.sensitive
+        case TextOption() | ChoiceOption():
+            return argument.destination, argument.sensitive
+        case PageLimitOption() | FlagOption():
+            return argument.destination, False
+        case OutputOption():
+            return "output_format", False
+        case QuietOption():
+            return "quiet", False
+
+
+def outcome_for(
+    catalog: Sequence[CommandSpec], command: CommandName, code: OutcomeCode
+) -> OutcomeSpec:
+    spec = next(item for item in catalog if item.name == command)
+    return next(outcome for outcome in (*SHARED_OUTCOMES, *spec.outcomes) if outcome.code == code)
+
+
+def shared_outcome(code: OutcomeCode) -> OutcomeSpec:
+    return next(outcome for outcome in SHARED_OUTCOMES if outcome.code == code)

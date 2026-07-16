@@ -3,6 +3,14 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
+from tests.contract.cli_case_primitives import (
+    EffectProbe,
+    InputContractCase,
+    NotApplicableEffectProbe,
+    QueryFieldCase,
+    QueryFilterCase,
+)
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -37,6 +45,14 @@ class QueryContractCase:
     maximum_limit: int
     expected_count: int
     stable_order: str
+    quiet: bool
+    input: InputContractCase
+    declared_filters: tuple[str, ...]
+    selectable_fields: tuple[str, ...]
+    filter_cases: tuple[QueryFilterCase, ...]
+    field_cases: tuple[QueryFieldCase, ...]
+    quiet_args: tuple[str, ...]
+    quiet_expected_values: tuple[str, ...]
     kind: Literal["query"] = "query"
 
     def __post_init__(self) -> None:
@@ -47,6 +63,16 @@ class QueryContractCase:
             raise ValueError("Query cases must observe more than the default page.")
         if not self.stable_order.strip():
             raise ValueError("Query cases require a stable-order declaration.")
+        if self.declared_filters != tuple(case.control for case in self.filter_cases):
+            raise ValueError("Every query filter declaration requires one exact behavior case.")
+        if self.selectable_fields != tuple(case.field for case in self.field_cases):
+            raise ValueError("Every selectable field requires one exact projection case.")
+        if self.quiet != bool(self.quiet_args):
+            raise ValueError("Quiet declarations require one exact behavior case.")
+        if self.quiet and ("--quiet" not in self.quiet_args and "-q" not in self.quiet_args):
+            raise ValueError("Quiet behavior cases must exercise the quiet control.")
+        if self.quiet and not self.quiet_expected_values:
+            raise ValueError("Quiet behavior cases require observable one-line values.")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -63,18 +89,73 @@ class MutationContractCase:
     machine_format: Literal["json", "jsonl"]
     readback_args: tuple[str, ...]
     readback_collection_key: str
-    retry_policy: Literal["idempotent", "non-idempotent"]
+    retry_policy: Literal["unconditional", "conditional", "unsafe"]
+    retry_control: str
+    unsafe_without_control: bool
     expected_after_replay: int
-    dry_run: bool
+    input: InputContractCase
+    safety_kind: Literal["non-destructive", "destructive"] = "non-destructive"
+    setup_args: tuple[tuple[str, ...], ...] = ()
+    preview_control: str = ""
+    confirmation_control: str = ""
+    preview_args: tuple[str, ...] = ()
+    confirmed_args: tuple[str, ...] = ()
+    unconfirmed_args: tuple[str, ...] = ()
+    preview_plan_fields: tuple[str, ...] = ()
+    unconfirmed_exit_code: Literal[2, 3] = 2
+    unconfirmed_error_code: str = ""
+    effect_probes: tuple[EffectProbe, ...] = ()
     kind: Literal["mutation"] = "mutation"
 
     def __post_init__(self) -> None:
         _validate_invalid_observation(self.invalid_args, self.invalid_readback_args)
         if self.invalid_readback_args != self.readback_args:
             raise ValueError("Mutation invalid scenarios must use the mutation readback.")
-        minimum_effects = 1 if self.retry_policy == "idempotent" else 2
+        minimum_effects = 2 if self.retry_policy == "unsafe" else 1
         if self.expected_after_replay < minimum_effects:
             raise ValueError("Mutation replay must have an observable readback effect.")
+        if (self.retry_policy == "conditional") != self.retry_control.startswith("--"):
+            raise ValueError("Conditional mutation cases require their retry control.")
+        self._validate_safety_scenarios()
+
+    def _validate_safety_scenarios(self) -> None:
+        safety_values = (
+            self.setup_args,
+            self.preview_control,
+            self.confirmation_control,
+            self.preview_args,
+            self.confirmed_args,
+            self.unconfirmed_args,
+            self.preview_plan_fields,
+            self.unconfirmed_error_code,
+            self.effect_probes,
+        )
+        if self.safety_kind == "non-destructive":
+            if any(safety_values):
+                raise ValueError("Non-destructive cases cannot declare destructive scenarios.")
+            return
+        controls = (self.preview_control, self.confirmation_control)
+        if not self.setup_args or not all(control.startswith("--") for control in controls):
+            raise ValueError("Destructive cases require setup, preview, and confirmation controls.")
+        if self.preview_control not in self.preview_args:
+            raise ValueError("The preview scenario must use its declared control.")
+        if self.confirmation_control not in self.confirmed_args:
+            raise ValueError("Confirmed execution must use the confirmation bypass.")
+        if self.confirmation_control in self.unconfirmed_args:
+            raise ValueError("Fail-closed execution must omit the confirmation bypass.")
+        if not self.preview_plan_fields or not self.unconfirmed_error_code:
+            raise ValueError("Destructive cases require plan fields and a fail-closed outcome.")
+        self._validate_effect_probes()
+
+    def _validate_effect_probes(self) -> None:
+        categories = tuple(probe.category for probe in self.effect_probes)
+        if categories != ("domain", "persistence", "event", "audit", "destination"):
+            raise ValueError("Destructive cases require every categorized effect probe.")
+        applicable = tuple(
+            probe for probe in self.effect_probes if not isinstance(probe, NotApplicableEffectProbe)
+        )
+        if not applicable or not any(probe.changes_on_confirmation for probe in applicable):
+            raise ValueError("Destructive cases require an applicable confirmed-effect probe.")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -97,6 +178,7 @@ class StreamingContractCase:
     termination_maximum: int
     declared_filters: tuple[str, ...]
     termination_controls: tuple[str, ...]
+    input: InputContractCase
     kind: Literal["streaming"] = "streaming"
 
     def __post_init__(self) -> None:
@@ -123,6 +205,8 @@ class StreamingContractCase:
             raise ValueError("Streaming baselines must omit filters and termination controls.")
         if not self.filter_key or not self.filter_value or self.termination_maximum < 1:
             raise ValueError("Streaming observations must be non-empty and positively bounded.")
+        if self.machine_format != "jsonl":
+            raise ValueError("Streaming behavior cases require JSON Lines output.")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -140,6 +224,7 @@ class InteractiveContractCase:
     automation_args: tuple[str, ...]
     missing_automation_args: tuple[str, ...]
     automation_inputs: tuple[str, ...]
+    input: InputContractCase
     kind: Literal["interactive/bootstrap"] = "interactive/bootstrap"
 
     def __post_init__(self) -> None:
@@ -175,6 +260,7 @@ class BulkContractCase:
     missing_scope_args: tuple[str, ...]
     required_scope: tuple[str, ...]
     destination_required: bool
+    input: InputContractCase
     kind: Literal["bulk/export"] = "bulk/export"
 
     def __post_init__(self) -> None:
@@ -221,7 +307,7 @@ CLI_CONTRACT_CASES: tuple[CliContractCase, ...] = (
     MutationContractCase(
         name="add",
         purpose="Create one item.",
-        success_args=("add", "Contract item"),
+        success_args=("add", "Contract item", "--idempotency-key", "contract-key"),
         invalid_args=("add", "   "),
         invalid_readback_args=("list", "--limit", "10"),
         invalid_exit_code=3,
@@ -231,9 +317,18 @@ CLI_CONTRACT_CASES: tuple[CliContractCase, ...] = (
         machine_format="json",
         readback_args=("list", "--limit", "10"),
         readback_collection_key="items",
-        retry_policy="non-idempotent",
-        expected_after_replay=2,
-        dry_run=False,
+        retry_policy="conditional",
+        retry_control="--idempotency-key",
+        unsafe_without_control=True,
+        expected_after_replay=1,
+        input=InputContractCase(
+            primary="arguments",
+            stdin="forbidden",
+            stdin_marker="",
+            ordinary_args=("add", "Open stdin item"),
+            stdin_args=("add", "Open stdin item"),
+            payload=b"stdin-must-remain-unread\n",
+        ),
     ),
     QueryContractCase(
         name="capabilities",
@@ -253,6 +348,65 @@ CLI_CONTRACT_CASES: tuple[CliContractCase, ...] = (
         maximum_limit=100,
         expected_count=3,
         stable_order="command name",
+        quiet=True,
+        input=InputContractCase(
+            primary="arguments",
+            stdin="forbidden",
+            stdin_marker="",
+            ordinary_args=("capabilities", "--limit", "100"),
+            stdin_args=("capabilities", "--limit", "100"),
+            payload=b"stdin-must-remain-unread\n",
+        ),
+        declared_filters=("--name-contains", "--kind"),
+        selectable_fields=("name", "kind", "purpose"),
+        filter_cases=(
+            QueryFilterCase(
+                control="--name-contains",
+                args=(
+                    "capabilities",
+                    "--name-contains",
+                    "list",
+                    "--limit",
+                    "100",
+                    "--field",
+                    "name",
+                    "--quiet",
+                ),
+                expected_values=("list",),
+            ),
+            QueryFilterCase(
+                control="--kind",
+                args=(
+                    "capabilities",
+                    "--kind",
+                    "mutation",
+                    "--limit",
+                    "100",
+                    "--field",
+                    "name",
+                    "--quiet",
+                ),
+                expected_values=("add",),
+            ),
+        ),
+        field_cases=tuple(
+            QueryFieldCase(
+                field=field,
+                args=("capabilities", "--limit", "100", "--field", field),
+            )
+            for field in ("name", "kind", "purpose")
+        ),
+        quiet_args=(
+            "capabilities",
+            "--name-contains",
+            "list",
+            "--limit",
+            "100",
+            "--field",
+            "name",
+            "--quiet",
+        ),
+        quiet_expected_values=("list",),
     ),
     QueryContractCase(
         name="list",
@@ -272,5 +426,50 @@ CLI_CONTRACT_CASES: tuple[CliContractCase, ...] = (
         maximum_limit=200,
         expected_count=3,
         stable_order="item identifier",
+        quiet=True,
+        input=InputContractCase(
+            primary="arguments",
+            stdin="forbidden",
+            stdin_marker="",
+            ordinary_args=("list",),
+            stdin_args=("list",),
+            payload=b"stdin-must-remain-unread\n",
+        ),
+        declared_filters=("--name-contains",),
+        selectable_fields=("id", "name"),
+        filter_cases=(
+            QueryFilterCase(
+                control="--name-contains",
+                args=(
+                    "list",
+                    "--name-contains",
+                    "T",
+                    "--limit",
+                    "200",
+                    "--field",
+                    "name",
+                    "--quiet",
+                ),
+                expected_values=("Two", "Three"),
+            ),
+        ),
+        field_cases=tuple(
+            QueryFieldCase(
+                field=field,
+                args=("list", "--limit", "200", "--field", field),
+            )
+            for field in ("id", "name")
+        ),
+        quiet_args=(
+            "list",
+            "--name-contains",
+            "T",
+            "--limit",
+            "200",
+            "--field",
+            "name",
+            "--quiet",
+        ),
+        quiet_expected_values=("Two", "Three"),
     ),
 )

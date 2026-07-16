@@ -19,6 +19,14 @@ def test_item_name_rejects_overlong_value() -> None:
         _ = ItemName(value="x" * (MAX_ITEM_NAME_LENGTH + 1))
 
 
+@pytest.mark.parametrize("value", ["two\nlines", "two\rlines"])
+def test_quiet_selectable_values_reject_physical_line_breaks(value: str) -> None:
+    with pytest.raises((InvalidItemNameError, ValueError), match="single line"):
+        _ = ItemName(value=value)
+    with pytest.raises(ValueError, match="single line"):
+        _ = ItemId(value=value)
+
+
 @given(st.text().filter(lambda value: not value.strip()))
 def test_item_name_rejects_every_blank_string(value: str) -> None:
     with pytest.raises(InvalidItemNameError):

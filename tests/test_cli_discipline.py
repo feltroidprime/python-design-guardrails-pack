@@ -1,4 +1,4 @@
-"""Tests for agent-native CLI architecture rules (ARCH021-ARCH024)."""
+"""Tests for agent-native CLI architecture rules (ARCH021-ARCH025)."""
 
 from pathlib import Path
 
@@ -156,6 +156,75 @@ def test_arch024_rejects_command_specs_outside_the_catalog(policy: Policy) -> No
         "def register() -> object:\n    return CommandSpec(name='hidden')\n",
     )
     assert codes == ["ARCH024"]
+
+
+@pytest.mark.parametrize(
+    "input_policy",
+    [
+        "",
+        ", input_policy=InputPolicy(primary=InputMode.INLINE_JSON, stdin=StdinMode.FORBIDDEN)",
+    ],
+)
+def test_arch025_rejects_catalog_entries_without_argument_primary_input(
+    policy: Policy, input_policy: str
+) -> None:
+    codes = run_check(
+        policy,
+        "src/pkg/adapters/inbound/cli_catalog.py",
+        f"COMMAND_CATALOG = (CommandSpec(name='hidden'{input_policy}),)\n",
+    )
+    assert codes == ["ARCH025"]
+
+
+def test_arch025_accepts_explicit_argument_primary_input(policy: Policy) -> None:
+    codes = run_check(
+        policy,
+        "src/pkg/adapters/inbound/cli_catalog.py",
+        "COMMAND_CATALOG = (CommandSpec(\n"
+        "    name='visible',\n"
+        "    input_policy=InputPolicy(\n"
+        "        primary=InputMode.ARGUMENTS, stdin=StdinMode.FORBIDDEN\n"
+        "    ),\n"
+        "),)\n",
+    )
+    assert codes == []
+
+
+def test_arch025_cannot_be_bypassed_by_aliasing_command_spec(policy: Policy) -> None:
+    codes = run_check(
+        policy,
+        "src/pkg/adapters/inbound/cli_catalog.py",
+        "from pkg.adapters.inbound.cli_contract import CommandSpec as Spec\n"
+        "COMMAND_CATALOG = (Spec(name='hidden'),)\n",
+    )
+    assert codes == ["ARCH025"]
+
+
+def test_arch025_cannot_be_bypassed_by_rebinding_command_spec(policy: Policy) -> None:
+    codes = run_check(
+        policy,
+        "src/pkg/adapters/inbound/cli_catalog.py",
+        "Spec = CommandSpec\nCOMMAND_CATALOG = (Spec(name='hidden'),)\n",
+    )
+    assert codes == ["ARCH025"]
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        "Spec = cli_contract.CommandSpec",
+        "Spec: type[CommandSpec] = CommandSpec",
+    ],
+)
+def test_arch025_cannot_be_bypassed_by_qualified_or_annotated_rebinding(
+    policy: Policy, binding: str
+) -> None:
+    codes = run_check(
+        policy,
+        "src/pkg/adapters/inbound/cli_catalog.py",
+        f"{binding}\nCOMMAND_CATALOG = (Spec(name='hidden'),)\n",
+    )
+    assert codes == ["ARCH025"]
 
 
 def test_catalog_driven_parser_construction_stays_silent(policy: Policy) -> None:

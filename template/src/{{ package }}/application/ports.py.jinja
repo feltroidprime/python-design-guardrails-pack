@@ -7,10 +7,18 @@ callable ``type`` alias; a multi-operation boundary is a ``Protocol``.
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Protocol
 
+from {{ package }}.application.query_models import DEFAULT_ITEM_FIELDS
+
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from {{ package }}.application.query_models import PageStart
+    from {{ package }}.application.idempotency import (
+        IdempotencyKey,
+        IdempotentCreateResult,
+        ItemFactory,
+        RequestFingerprint,
+    )
+    from {{ package }}.application.query_models import ItemField, ItemProjection, PageStart
     from {{ package }}.domain.entities import Item
     from {{ package }}.domain.events import DomainEvent
     from {{ package }}.domain.value_objects import ItemId
@@ -27,7 +35,24 @@ class ItemRepository(Protocol):
         """Persist the current aggregate state."""
         ...
 
-    def list_page(self, *, start: PageStart, limit: int) -> tuple[Item, ...]:
+    def create_once(
+        self,
+        *,
+        key: IdempotencyKey,
+        fingerprint: RequestFingerprint,
+        create: ItemFactory,
+    ) -> IdempotentCreateResult:
+        """Atomically commit one item and its conditional-replay record."""
+        ...
+
+    def list_page(
+        self,
+        *,
+        start: PageStart,
+        limit: int,
+        name_contains: str = "",
+        fields: tuple[ItemField, ...] = DEFAULT_ITEM_FIELDS,
+    ) -> tuple[ItemProjection, ...]:
         """Return at most ``limit`` items in stable identifier order."""
         ...
 

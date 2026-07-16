@@ -94,7 +94,8 @@ and run `gh auth setup-git`; no credential is stored in this repository.
 ```bash
 uv run python -m {{ package }} --help
 uv run python -m {{ package }} capabilities --limit 100
-uv run python -m {{ package }} add "First item"   # versioned JSON; persists to ./items.db
+uv run python -m {{ package }} add "First item" --idempotency-key first-item
+uv run python -m {{ package }} list --name-contains First --field name --quiet
 uv run python -m {{ package }} list               # bounded JSON with continuation metadata
 uv run python -m {{ package }} list --format human
 ```
@@ -102,10 +103,18 @@ uv run python -m {{ package }} list --format human
 Every command is registered in the closed catalog at
 `src/{{ package }}/adapters/inbound/cli_catalog.py` and has one independent
 case in `tests/contract/cli_contract_cases.py`. The quality gate compares those
-sets exactly and invokes every case as a detached real process. JSON is the
-automation default; `--format human` is explicit. See
-`docs/adr/0003-agent-native-cli-protocol.md` before changing schema versions,
-exit classes, command kinds, bounds, or retry policy.
+sets exactly, requires cases for each input/filter/field/outcome declaration,
+requires an ordinary-argument success even when structured input is additive,
+and invokes every case as a detached real process. JSON is the
+automation default; `--format human` is explicit. Ordinary arguments are the
+primary input and every current command forbids stdin. Capabilities publishes
+argument shapes, query controls, safety, retry preconditions, and recoverable
+outcomes. Conditional idempotency atomically couples the item and replay
+record across both shipped repositories; durable event delivery would require
+an application outbox. See `docs/adr/0003-agent-native-cli-protocol.md` and
+`docs/adr/0005-agent-input-retry-and-composition-contract.md` before changing
+input paths, schema versions, exit classes, command kinds, bounds, outcomes,
+or retry and safety policy.
 
 ## What to replace, what to keep
 
