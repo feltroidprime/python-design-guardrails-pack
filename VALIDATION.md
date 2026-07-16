@@ -34,9 +34,9 @@ new Copier pin location.
   recipe, missing non-interactive defaults, and inherited bytecode-prefix
   behavior; each passed after its corresponding implementation.
 - `just test` before the integration proof — passed: 226 tests. The final
-  commit hook passed with the new regression included: 227 tests.
+  validation included the recipe and agent-contract regressions: 229 tests.
 - Final `just validate` — passed.
-  - Pack tests: 227 passed in 83.17s; 21 expected `DirtyLocalWarning`
+  - Pack tests: 229 passed in 91.55s; 21 expected `DirtyLocalWarning`
     instances.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: fully rendered, dependencies resolved,
@@ -46,8 +46,9 @@ new Copier pin location.
     diagrams, and LikeC4 validation passed.
   - Generated tests: 58 passed, 3 intentionally dormant command-kind cases
     skipped, and branch coverage was 91.19% against the 90% floor.
-  - Copier previous-release update round trip with the downstream gate enabled:
-    1 passed in 17.33s.
+  - Copier update acceptance: the previous-release round trip with its
+    downstream gate plus a real generated-recipe transition both passed (2
+    tests in 22.11s).
 
 ## Real repository proof: `blerdis`
 
@@ -84,6 +85,8 @@ newest-tag selection and was deleted afterward.
   updated for the new workflow.
 - The existing release-to-release acceptance test continues to prove Copier's
   clean three-way update and the updated repository's full downstream gate.
+  A second two-tag acceptance test invokes the generated recipe against its
+  recorded Git source and proves the next tagged template artifact arrives.
 
 ## Remaining portability and release notes
 
