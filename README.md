@@ -132,7 +132,7 @@ See `benchmarks/README.md` for methodology, variants, bias controls, and all ben
 This is a meta-repository: `template/` is the product, `copier.yml` owns rendering, `instantiate.py` owns the CLI, and the root `AGENTS.md` is the maintainer contract.
 
 ```bash
-just test           # fast generator tests
+just test           # parallel generator tests
 just validate       # canonical full validation
 just release vX.Y.Z # verify and create an annotated release tag
 ```

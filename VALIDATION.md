@@ -1,11 +1,12 @@
 # Validation record — 2026-07-16
 
 Validated on macOS with Python 3.14.6, uv 0.11.28, just 1.56.0, Bun
-1.3.9, Git 2.55.0, and Copier 9.17.0. The pack branch's tracked tree was
-clean during final validation. An unrelated pre-existing untracked research
-document remained outside `template/`; Copier therefore emitted 21 honest
-`DirtyLocalWarning` instances, but the document was not part of any generated
-repository.
+1.3.9, Git 2.55.0, Copier 9.17.0, and pytest-xdist 3.8.0. The final run's
+tracked changes were the root-only parallel-test command, its deterministic
+concurrency regression, and their documentation; all template changes were
+committed. An unrelated pre-existing untracked research document also remained
+outside `template/`. Copier therefore emitted 21 honest `DirtyLocalWarning`
+instances, but none of that root-only dirt was part of a generated repository.
 
 ## Change validated
 
@@ -28,6 +29,11 @@ the clean-branch requirement, conflict resolution, and the downstream gate.
 Root maintainer documentation records the durable provenance behavior and the
 new Copier pin location.
 
+The root generator suite now uses adaptive pytest-xdist workers with
+module-scoped scheduling. The separate two-test update acceptance run uses two
+workers. Both commands remain venv-less and pinned through `uv run
+--no-project --with`.
+
 ## Pack commands and results
 
 - Targeted TDD slices failed first for the missing durable `_src_path`, missing
@@ -36,7 +42,7 @@ new Copier pin location.
 - `just test` before the integration proof — passed: 226 tests. The final
   validation included the recipe and agent-contract regressions: 229 tests.
 - Final `just validate` — passed.
-  - Pack tests: 229 passed in 91.55s; 21 expected `DirtyLocalWarning`
+  - Pack tests: 229 passed in 38.01s; 21 expected `DirtyLocalWarning`
     instances.
   - Template cleanliness: no excluded runtime artifacts under `template/`.
   - Fresh `orchard-billing` generation: fully rendered, dependencies resolved,
@@ -48,7 +54,25 @@ new Copier pin location.
     skipped, and branch coverage was 91.19% against the 90% floor.
   - Copier update acceptance: the previous-release round trip with its
     downstream gate plus a real generated-recipe transition both passed (2
-    tests in 22.11s).
+    tests in 17.80s).
+  - Total `just validate` wall time: 69.88s.
+
+## Parallel-test benchmark
+
+The same 229-test suite passed at every measured worker count:
+
+- Serial baseline: 91.55s.
+- 4 workers with `--dist loadscope`: 40.32s.
+- 8 workers with `--dist loadscope`: 38.01s.
+- Adaptive `-n auto --dist loadscope`: 39.80s during comparison and 38.01s
+  in the final canonical validation.
+
+The adaptive configuration was selected over a fixed eight workers because it
+retains nearly all of the speedup while scaling to the CPU count of other
+machines. The canonical test phase is 58.5% faster than the serial baseline.
+The first parallel commit hook exposed a scheduler-timing assumption in the
+matrix concurrency test; its fake runners now synchronize on the required
+two-worker peak, and the full parallel suite passed twice afterward.
 
 ## Real repository proof: `blerdis`
 

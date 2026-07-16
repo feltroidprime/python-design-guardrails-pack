@@ -195,20 +195,39 @@ def _judge_payload() -> dict[str, object]:
 
 
 class _Concurrency:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        required_peaks: tuple[tuple[str, int], ...] = (),
+    ) -> None:
         self.lock = threading.Lock()
         self.active: defaultdict[str, int] = defaultdict(int)
         self.peaks: defaultdict[str, int] = defaultdict(int)
         self.build_prompts: list[str] = []
         self.build_calls = 0
+        self.required_peaks = dict(required_peaks)
+        self.required_peak_events = {
+            provider: threading.Event() for provider in self.required_peaks
+        }
 
     def enter(self, provider: str, prompt: str, *, build: bool) -> None:
         with self.lock:
             self.active[provider] += 1
             self.peaks[provider] = max(self.peaks[provider], self.active[provider])
+            required_peak = self.required_peaks.get(provider)
+            if required_peak is not None and self.active[provider] >= required_peak:
+                self.required_peak_events[provider].set()
             if build:
                 self.build_prompts.append(prompt)
                 self.build_calls += 1
+
+    def wait_for_required_peak(self, provider: str) -> None:
+        event = self.required_peak_events.get(provider)
+        if event is not None:
+            assert event.wait(timeout=5), (
+                f"{provider} never reached required concurrency "
+                f"{self.required_peaks[provider]}"
+            )
 
     def leave(self, provider: str) -> None:
         with self.lock:
@@ -232,6 +251,7 @@ class _FakeRunner:
         build = output_schema is None
         self.concurrency.enter(self.role.provider, prompt, build=build)
         try:
+            self.concurrency.wait_for_required_peak(self.role.provider)
             time.sleep(0.01)
             if build:
                 assert working_directory is not None
@@ -278,7 +298,7 @@ def test_small_matrix_completes_with_full_identity_and_fair_prompts(
     matrix = load_matrix_config(
         _matrix_config(tmp_path, _apps(tmp_path)), repo_root=REPO_ROOT
     )
-    concurrency = _Concurrency()
+    concurrency = _Concurrency(required_peaks=(("codex", 2),))
 
     result = run_matrix(
         matrix,

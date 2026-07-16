@@ -80,12 +80,13 @@ repository, not this one.
    `template/pyproject.toml.jinja`; never introduce a second copy. The Copier
    pin appears in the root `pyproject.toml`, both generating recipes in the root
    `justfile`, the benchmark bootstraps in `benchmarks/run.py` and
-   `benchmarks/matrix.py`, `_min_copier_version` in `copier.yml`, and the
-   downstream update recipe in `template/justfile.jinja`, and the downstream
+   `benchmarks/matrix.py`, `_min_copier_version` in `copier.yml`, the downstream
+   update recipe in `template/justfile.jinja`, and the downstream
    check command in `template/README.md.jinja`; move all together. The root
    project
    version is the wheel fallback for Copier's `_commit`, so release wheels must
-   use the corresponding template tag version.
+   use the corresponding template tag version. The pytest-xdist pin appears in
+   both root `justfile` test invocations; move both together.
 5. **No local artifacts in `template/`.** Runtime caches (`.ruff_cache`,
    `__pycache__`, `.pytest_cache`, …) must never exist there; the authoritative
    pattern list is `_exclude` in `copier.yml`. Note that
@@ -128,9 +129,9 @@ loop, not a completion criterion for template changes.
 Prerequisites: `python3` (3.14), `uv`, `just`, `bun`, and network access for
 the first dependency resolution (including the first `bunx` download of the
 pinned LikeC4 CLI, exercised by the downstream gate's `diagram views` check).
-`uv run --no-project --with` supplies Copier, pytest, and grimp; the root
-`pyproject.toml` is packaging-only (Copier is its sole runtime dependency; it
-has no dev tooling) and the
+`uv run --no-project --with` supplies Copier, pytest, pytest-xdist, and grimp;
+the root `pyproject.toml` is packaging-only (Copier is its sole runtime
+dependency; it has no dev tooling) and the
 root intentionally has no virtualenv or lock file, so IDE warnings about
 unresolved `pytest`/`validate_pack`/`grimp` imports are expected. If you
 change what a wheel must ship (new top-level template asset, renamed
