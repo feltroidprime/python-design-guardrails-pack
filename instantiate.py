@@ -25,6 +25,7 @@ from plumbum import local
 
 PACKAGE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 DISTRIBUTION_NAME = "python-design-guardrails-pack"
+TEMPLATE_SOURCE = "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 GIT_CONTEXT_LOCK = threading.RLock()
 LOCAL_GIT_ENVIRONMENT = (
     "GIT_ALTERNATE_OBJECT_DIRECTORIES",
@@ -108,6 +109,7 @@ def generate(project_name: str, package_name: str, output: Path) -> str | None:
                     "project_name": project_name,
                     "package": package_name,
                     "_packaged_template_version": packaged_template_version(),
+                    "_packaged_template_source": TEMPLATE_SOURCE,
                 },
                 vcs_ref="HEAD",
                 defaults=True,

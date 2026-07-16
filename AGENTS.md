@@ -80,8 +80,9 @@ repository, not this one.
    `template/pyproject.toml.jinja`; never introduce a second copy. The Copier
    pin appears in the root `pyproject.toml`, both generating recipes in the root
    `justfile`, the benchmark bootstraps in `benchmarks/run.py` and
-   `benchmarks/matrix.py`, and `_min_copier_version` in `copier.yml`; move all
-   together. The root project
+   `benchmarks/matrix.py`, `_min_copier_version` in `copier.yml`, and the
+   downstream update recipe in `template/justfile.jinja`; move all together.
+   The root project
    version is the wheel fallback for Copier's `_commit`, so release wheels must
    use the corresponding template tag version.
 5. **No local artifacts in `template/`.** Runtime caches (`.ruff_cache`,

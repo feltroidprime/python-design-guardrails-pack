@@ -57,6 +57,10 @@ just bootstrap
 
 If GitHub creation fails, the local repository remains intact and the CLI prints the recovery command. Run `python-repo init --help` for the complete interface.
 
+Generated repositories retain the pack's durable GitHub provenance. From a
+clean branch, `just scaffold-update` applies the newest tagged pack release
+through Copier's three-way merge; `just update` remains dependency-only.
+
 ## Features that change the outcome
 
 One opinionated stack. One reason for every choice.
@@ -66,7 +70,7 @@ One opinionated stack. One reason for every choice.
 | Installable `python-repo` CLI | Replace copy-and-clean setup with one stable command. |
 | Pinned Copier engine | Use maintained generation with controlled renderer behavior. |
 | Validated answers and strict Jinja | Reject bad package names, unknown data, and half-rendered output immediately. |
-| Copier provenance and three-way updates | Pull template releases without blindly replacing local changes. |
+| Copier provenance and `just scaffold-update` | Pull tagged template releases with a three-way merge instead of blindly replacing local changes. |
 | Automatic Git and optional GitHub setup | Start from a committed baseline and publish without manual remote wiring. |
 | Python 3.14 only | Use current typing and language semantics without compatibility branches. |
 | No third-party runtime dependencies by default | Add only what the product needs; keep guardrails in the development group. |

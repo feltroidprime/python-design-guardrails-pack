@@ -28,7 +28,10 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "0a30f4fab55b979d920e202af3687b13215672858dfbf142464dd8960769bd42"
+EXPECTED_GENERATED_TREE_SHA256 = "b333939a27b4f2d6e8abb0e1a19cc5f9c40f7980bb049f4409ae8d908300bd6b"
+EXPECTED_TEMPLATE_SOURCE = (
+    "https://github.com/feltroidprime/python-design-guardrails-pack.git"
+)
 INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", "")
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
 
@@ -148,9 +151,13 @@ def test_generated_justfile_has_one_repair_and_verification_route(generated: Pat
         "bootstrap",
         "check",
         "diagrams",
+        "scaffold-update",
         "update",
     ]
     assert "uv run python scripts/quality_gate.py --fix" in justfile
+    assert (
+        "uvx --from copier==9.17.0 copier update --conflict inline" in justfile
+    )
     assert "uv run pytest" not in justfile
     assert "scripts.architecture_guard" not in justfile
 
@@ -158,7 +165,10 @@ def test_generated_justfile_has_one_repair_and_verification_route(generated: Pat
 def test_generation_records_copier_template_and_answers(generated: Path) -> None:
     answers = (generated / ".copier-answers.yml").read_text(encoding="utf-8")
 
-    assert re.search(r"(?m)^_src_path: .+$", answers)
+    assert re.search(
+        rf"(?m)^_src_path: ['\"]?{re.escape(EXPECTED_TEMPLATE_SOURCE)}['\"]?$",
+        answers,
+    )
     assert re.search(r"(?m)^_commit: .+$", answers)
     assert re.search(rf"(?m)^project_name: ['\"]?{PROJECT_NAME}['\"]?$", answers)
     assert re.search(rf"(?m)^package: ['\"]?{PACKAGE_NAME}['\"]?$", answers)
@@ -167,9 +177,9 @@ def test_generation_records_copier_template_and_answers(generated: Path) -> None
 def test_generated_readme_documents_copier_update_workflow(generated: Path) -> None:
     readme = (generated / "README.md").read_text(encoding="utf-8")
 
-    assert "copier check-update --quiet" in readme
+    assert "uvx --from copier==9.17.0 copier check-update --quiet" in readme
     assert "exit status `2`" in readme
-    assert "copier update --conflict inline" in readme
+    assert "just scaffold-update" in readme
     assert "check-merge-conflict" in readme
 
 
@@ -722,6 +732,10 @@ def test_packaged_template_records_distribution_version_without_git_metadata(
 
     answers = (output / ".copier-answers.yml").read_text(encoding="utf-8")
     assert re.search(r"(?m)^_commit: ['\"]?v1\.2\.3['\"]?$", answers)
+    assert re.search(
+        rf"(?m)^_src_path: ['\"]?{re.escape(EXPECTED_TEMPLATE_SOURCE)}['\"]?$",
+        answers,
+    )
 
 
 def test_artifact_exclusions_have_one_configuration_source() -> None:

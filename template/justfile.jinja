@@ -22,6 +22,10 @@ diagrams:
     version="$(uv run python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['tool']['likec4']['version'])")"
     exec bunx "likec4@${version}" serve docs/architecture/likec4
 
+# Apply the newest tagged scaffold release with Copier's three-way merge.
+scaffold-update:
+    uvx --from copier==9.17.0 copier update --conflict inline
+
 update:
     uv lock --upgrade
 {% if precommit %}    uv run prek update
