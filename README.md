@@ -61,6 +61,21 @@ Generated repositories retain the pack's durable GitHub provenance. From a
 clean branch, `just scaffold-update` applies the newest tagged pack release
 through Copier's three-way merge; `just update` remains dependency-only.
 
+Repositories generated before `scaffold-update` existed can bootstrap it by
+running the recipe body once from a clean branch:
+
+```bash
+env -u PYTHONPYCACHEPREFIX uvx --from copier==9.17.0 copier update --defaults --conflict inline
+```
+
+That command can only follow a reachable tagged Git source. If the older
+`.copier-answers.yml` records a temporary or installed local `_src_path`, first
+replace only that value with
+`https://github.com/feltroidprime/python-design-guardrails-pack.git` on the
+clean migration branch. The update then records the durable source and adds
+`just scaffold-update`; Copier owns the answers file again after this one-time
+provenance repair.
+
 ## Features that change the outcome
 
 One opinionated stack. One reason for every choice.
