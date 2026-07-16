@@ -1,8 +1,10 @@
-# Software Design Mastery → deterministic repository controls
+# Design concerns → deterministic repository controls
 
-## Epistemic status
+## Scope
 
-The public page describes a program launching in 2026 and exposes a detailed curriculum, but not the lessons themselves. The first column below is explicit. The probable Python techniques are informed inference from the curriculum and ArjanCodes' public teaching. The final column is this pack's independent enforcement design.
+This document maps software-design concerns to Python 3.14 techniques and the
+concrete controls shipped by this pack. It distinguishes mechanically
+observable rules from decisions that still require engineering judgment.
 
 Rows that cite the generated `AGENTS.md` or Git hooks describe the default
 `full`/`precommit = true` materialization. The named benchmark ablations may
@@ -10,9 +12,9 @@ remove the agent contract, switch it to hooks-first verification, or omit the
 hook configuration; deterministic architecture, documentation, type, lint,
 and test controls remain available through the justfile and quality gate.
 
-## Core Designer
+## Code-level design
 
-| Public topic | Probable Python 3.14 technique | Deterministic materialization |
+| Design concern | Python 3.14 approach | Deterministic materialization |
 |---|---|---|
 | Coupling, cohesion, SRP, DRY, KISS, YAGNI in context | modules organized by reason to change; small functions; no speculative abstractions | module/function/class ceilings; Ruff complexity rules; forbidden dumping-ground modules; pattern admission checklist |
 | Law of Demeter | expose intention-revealing operations rather than object-navigation chains | Ruff design rules plus review rule in `AGENTS.md`; tests at public boundaries |
@@ -26,11 +28,11 @@ and test controls remain available through the justfile and quality gate.
 | None at the edge, strict core | better defaults over `Optional`; parse raw data into strict domain types at the boundary; explicit state types; null objects over `port \| None` | "None discipline" decision ladder in the template `AGENTS.md`, enforced by guard rules ARCH016–ARCH018 |
 | Primitive obsession: paths | `pathlib.Path` from first touch; `str` paths are wire data parsed at the adapter edge and serialized only in the final external call | "Path discipline" decision ladder in the template `AGENTS.md`; Ruff `PTH` rejects the `os.path` API; guard rules ARCH019–ARCH020 reject path-named `str` declarations, letting BasedPyright propagate `Path` to every caller |
 | Agent-native CLI boundaries | typed inbound requests; versioned envelopes; progressive help; bounded queries; explicit mutation retry semantics | closed `CommandSpec` catalog drives argparse and machine-readable `capabilities`; independent closed contract cases must match it exactly; every command runs with detached stdin, isolated cwd, captured streams, and a timeout; ARCH021–ARCH024 reject prompt drift, uncontrolled exits, framework leakage, and catalog bypass |
-| AI-generated structural problems | explicit scope, minimal diffs, no parallel abstractions, proof via gate | `AGENTS.md` workflow; one quality command; no completion claim without evidence |
+| AI-generated structural problems | explicit scope, minimal diffs, no parallel abstractions, proof via gate | `AGENTS.md` check loop; `just check` is the single repair and verification route, with green as its completion criterion |
 
-## System Designer
+## Boundary and system design
 
-| Public topic | Probable Python 3.14 technique | Deterministic materialization |
+| Design concern | Python 3.14 approach | Deterministic materialization |
 |---|---|---|
 | Classes vs simple functions | functions for stateless transformations; classes for state, polymorphism, identity, or lifecycle | class admission questions in `AGENTS.md`; complexity ceilings discourage god objects |
 | Strategies and higher-order functions | `Callable`, generic callables, closures, `Protocol.__call__` | strict typing and examples; avoid framework DI containers by default |
@@ -45,9 +47,9 @@ and test controls remain available through the justfile and quality gate.
 | Event-driven decoupling | immutable typed events; handlers as callables; events used across real workflow boundaries | event modules must contain frozen/slotted/keyword-only dataclasses; `EventPublisher` port + in-process publisher with a real subscribed consumer (ADR-0002); event adoption checklist |
 | Build vs buy | dependency decision includes maintenance, lockfile, replacement boundary | ADR required for foundational dependency; `uv.lock --check`; dependency audit workflow |
 
-## Master Designer
+## Evolution and governance
 
-| Public topic | Probable Python 3.14 technique | Deterministic materialization |
+| Design concern | Python 3.14 approach | Deterministic materialization |
 |---|---|---|
 | Context managers | `contextmanager`, `ExitStack`, `AsyncExitStack` for lifecycle guarantees | lifecycle resources must be acquired at edges and tested for cleanup; `bootstrap.sqlite_application` is the shipped exemplar (integration test reopens the database) |
 | Decorator vs Proxy | decorator for call-level augmentation; proxy for object-level substitution/control | pattern admission matrix in architecture docs |
@@ -57,7 +59,7 @@ and test controls remain available through the justfile and quality gate.
 | Strangler Pattern | old/new implementations behind one port, traffic or call-path migration | migration ADR template with coexistence, rollback, telemetry, and deletion criteria |
 | Branch by Abstraction | introduce seam, dual implementation, switch, remove old path | dedicated migration checklist and expiring exception ledger |
 | Prevent architectural drift | fitness functions executed locally and in CI | AST guard + Import Linter + strict type/lint/test gate |
-| Architecture communication without drift | diagrams derived from the code, not drawn | LikeC4 model generated from the grimp import graph (same library Import Linter uses); gate fails on model drift and on views referencing missing elements; free-form views stay team-owned |
+| Architecture communication without drift | diagrams derived from the code, not drawn | local `just check` regenerates the LikeC4 model from the grimp import graph (same library Import Linter uses); strict hook/CI gates fail on model drift and views referencing missing elements; free-form views stay team-owned |
 | Documentation that stays true | one owner per fact; freshness ladder (derived > checked > dated); registry with admission rule | documentation map (`docs/README.md`) + docs guard (DOC001–DOC007): broken path references, dangling `ARCH-EXCEPTION` markers, malformed or non-contiguous ADRs, and unregistered documents fail the gate |
 | Trade-offs under pressure | ADR with forces, rejected options, cost, revisit trigger | mandatory ADR triggers and explicit exception expiry |
 | AI speed vs long-term risk | AI proposes; deterministic tools and humans retain design authority | agent contract forbids architecture invention without evidence and requires gate output |

@@ -49,7 +49,7 @@ repository, not this one.
 | Downstream agent contract | `template/{% if agents_contract != 'none' %}AGENTS.md{% endif %}.jinja` |
 | Downstream quality gate | `template/scripts/quality_gate.py` (mirrored by `template/.github/workflows/quality.yml` and the pre-push hook) |
 | Pack validation loop | `justfile` (root) + `scripts/validate_pack.py` + `tests/test_instantiate.py` |
-| Curriculum-to-guardrail rationale | `DESIGN_MASTERY_MAPPING.md` |
+| Design-to-guardrail rationale | `DESIGN_GUARDRAILS.md` |
 | Last executed validation record | `VALIDATION.md` |
 
 ## Change protocol
@@ -65,7 +65,7 @@ repository, not this one.
 3. **Never weaken a downstream guardrail silently.** Loosening any ceiling,
    lint rule, type setting, coverage floor, or architecture rule in
    `template/` requires an explicit rationale in the change description and an
-   update to `DESIGN_MASTERY_MAPPING.md` when the mapping changes.
+   update to `DESIGN_GUARDRAILS.md` when the mapping changes.
 4. **Keep version pins coherent.** The pinned toolchain appears in several
    places that must move together: `template/pyproject.toml.jinja` (dev group and
    `tool.uv.required-version`), the conditional `prek.toml` template (hook
@@ -142,7 +142,7 @@ When behavior changes, update the documents that state it, in the same change:
 - root `README.md`: maintainer commands and the instantiation walkthrough;
 - `template/README.md.jinja` and the conditional `AGENTS.md` template: downstream commands, only if
   downstream behavior changed;
-- `DESIGN_MASTERY_MAPPING.md`: when a guardrail is added, removed, or
+- `DESIGN_GUARDRAILS.md`: when a guardrail is added, removed, or
   materially changed;
 - `VALIDATION.md`: replace the record when you re-run full validation after a
   material change; date it and state the environment honestly.
@@ -159,6 +159,22 @@ A completion report must state:
 
 Never claim a validation you did not execute. If the gate fails, report the
 failure verbatim rather than narrowing the claim.
+
+## Agent skills
+
+### Issue tracker
+
+Specs and tickets live in GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The repository uses the five standard triage labels, including
+`ready-for-agent`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+The repository uses a single-context domain documentation layout. See
+`docs/agents/domain.md`.
 
 <!-- vendored-docs:begin -->
 ## Vendored documentation

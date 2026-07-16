@@ -7,7 +7,7 @@ The loop:
 2. instantiate a throwaway repository inside a temporary directory;
 3. verify no unrendered Jinja survives in file names or contents;
 4. resolve the generated repository's pinned dependencies with uv;
-5. run the generated repository's own full quality gate;
+5. seed deterministic repair probes and run the generated check loop;
 6. delete the throwaway repository.
 
 Every failure message states what broke and how to fix it, so both humans
@@ -82,6 +82,28 @@ def find_unrendered_jinja(root: Path) -> list[str]:
     return occurrences
 
 
+def seed_repair_probes(root: Path) -> dict[Path, str]:
+    """Introduce lint/format and diagram drift for the downstream loop to repair."""
+    entry_point = root / "src" / PACKAGE_NAME / "__main__.py"
+    model = root / "docs" / "architecture" / "likec4" / "generated" / "model.c4"
+    expected: dict[Path, str] = {}
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            expected[path] = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+    broken_entry_point = expected[entry_point].replace(
+        'if __name__ == "__main__":', 'if  __name__=="__main__":'
+    )
+    if broken_entry_point == expected[entry_point]:
+        raise ValueError("repair probe could not find the generated __main__ guard")
+    _ = entry_point.write_text(broken_entry_point, encoding="utf-8")
+    _ = model.write_text(f"{expected[model]}\n", encoding="utf-8")
+    return expected
+
+
 def fail(step: str, details: list[str], fix: str) -> int:
     print(f"\nVALIDATION FAILED at step: {step}", file=sys.stderr)
     for detail in details:
@@ -147,6 +169,7 @@ def main() -> int:
             )
         print("No unrendered Jinja survives in the generated repository.")
 
+        expected_after_repairs = seed_repair_probes(target)
         exit_code = run_step("resolve dependencies", ["uv", "sync", "--all-groups"], target)
         if exit_code != 0:
             return fail(
@@ -157,20 +180,31 @@ def main() -> int:
             )
 
         exit_code = run_step(
-            "downstream quality gate",
-            ["uv", "run", "python", "scripts/quality_gate.py"],
+            "downstream check loop",
+            ["just", "check"],
             target,
         )
         if exit_code != 0:
             return fail(
-                "downstream quality gate",
-                [f"quality_gate.py exited with {exit_code}."],
-                "The generated repository fails its own gate. Fix the canonical source "
+                "downstream check loop",
+                [f"'just check' exited with {exit_code}."],
+                "The generated repository fails its own check loop. Fix the canonical source "
                 "under template/ (never a generated copy) and re-run 'just validate'.",
+            )
+        stale_probes = [
+            str(path.relative_to(target))
+            for path, expected in expected_after_repairs.items()
+            if path.read_text(encoding="utf-8") != expected
+        ]
+        if stale_probes:
+            return fail(
+                "downstream repair probes",
+                stale_probes,
+                "Make 'just check' apply deterministic Ruff and diagram repairs before its gate.",
             )
 
     print("\nPack validation passed: template is clean, instantiation is fully rendered,")
-    print("and the generated repository passes its full quality gate.")
+    print("and the generated check loop repairs deterministic drift before its full gate.")
     return 0
 
 

@@ -1,8 +1,6 @@
 # AGENTS.md — repository operating contract
 
-{% if agents_contract == 'hooks-first' %}Normative for every coding agent and human contributor. For verification, use only the repository's justfile commands; do not invoke their underlying tools directly. A change is complete only after its commit and pre-push hooks succeed.
-{% else %}Normative for every coding agent and human contributor. A change is complete only when `uv run python scripts/quality_gate.py` passes.
-{% endif %}
+Normative for every coding agent and human contributor.
 ## Objective hierarchy
 
 When goals conflict, the higher rule wins:
@@ -28,17 +26,14 @@ While editing:
 2. Write or update tests with the production code.
 3. Keep domain logic synchronous, deterministic, and framework-free.
 4. Inject time, randomness, identifiers, persistence, network clients, and side effects through application-owned ports.
-5. Run `just fix` after a coherent edit, not after every line.
+5. Finish a coherent edit before entering the check loop.
 
-Before claiming completion:
+### Check loop
 
-{% if agents_contract == 'hooks-first' %}1. Use only `just fix`, `just check`, `just test`, and `just arch` for repository checks; never invoke their underlying tools directly.
-2. Commit; the prek hooks run the gate: commit checks validate the change and pre-push runs the full quality gate before publication.
-3. Report the behavior changed, tests added, architecture impact, and remaining risks.
-4. Never claim success over a failing or weakened gate; report the failure instead.
-{% else %}1. Run `uv run python scripts/quality_gate.py` to green.
-2. Report the behavior changed, tests added, architecture impact, and remaining risks.
-3. Never claim success over a failing or weakened gate; report the failure instead.
+1. Run `just check`, the single repair and verification command. It applies deterministic repairs, then executes the full acceptance gate.
+2. On red, resolve the first remaining failure and rerun `just check`.
+3. Green means the unmodified gate exits zero. Then report the behavior changed, tests added, architecture impact, and remaining risks.
+{% if agents_contract == 'hooks-first' %}4. Commit and push. Publication is complete when the commit and pre-push hooks succeed.
 {% endif %}
 ## Layer ownership
 
@@ -124,14 +119,14 @@ owns its compatibility rules.
   framework objects. ARCH021–024 enforce inbound non-interactivity, controlled
   exits, framework isolation, and catalog-owned command names and aliases.
 - Breaking envelope, exit-classification, command identity/kind, or required
-  changes require a new ADR and protocol version. Run the full quality gate;
-  there is no parallel CLI-only acceptance command.
+  policy changes require a new ADR and protocol version. Run the full quality
+  gate; there is no parallel CLI-only acceptance command.
 
 ## Architecture diagrams (derived, never drawn)
 
 The LikeC4 model under `docs/architecture/likec4/generated/` is derived from the import-linter contracts and the real import graph (grimp). See `docs/adr/0001-derived-architecture-diagrams.md`.
 
-- Never edit files under `docs/architecture/likec4/generated/`; when the gate's `diagram sync` check fails, run {% if agents_contract == 'hooks-first' %}`just fix`.{% else %}`just fix` (or `uv run python -m scripts.sync_architecture_diagrams --write`).{% endif %}
+- Never edit files under `docs/architecture/likec4/generated/`; the check loop regenerates them before validating them.
 - Declare layers in exactly one place: the import-linter `layers` contract in `pyproject.toml`. Adding a layer there updates the linter and the diagrams simultaneously.
 - Put hand-written views in `docs/architecture/likec4/views.c4` (never regenerated). The gate's `diagram views` check validates them against the generated model, so renaming or deleting a module moves the views in the same commit. Extend `specification.c4` only deliberately.
 - The LikeC4 CLI version is pinned in exactly one place, `[tool.likec4]` in `pyproject.toml`; every invocation goes through `bunx likec4@<version>` (Bun is a toolchain prerequisite). Do not introduce `package.json`, JavaScript lockfiles, or `node_modules`. A version bump moves that single pin and must pass the full gate.

@@ -27,12 +27,7 @@ from scripts.architecture_policy import mapping, string
 GENERATED_DIR = Path("docs") / "architecture" / "likec4" / "generated"
 MODEL_FILE = "model.c4"
 VIEWS_FILE = "baseline-views.c4"
-FIX_COMMAND = "uv run python -m scripts.sync_architecture_diagrams --write"
-HEADER = (
-    "// GENERATED FILE — do not edit by hand.\n"
-    f"// Regenerate with 'just fix' (or: {FIX_COMMAND}).\n"
-    "\n"
-)
+HEADER = "// GENERATED FILE — do not edit by hand.\n// Regenerate with 'just check'.\n\n"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -256,7 +251,7 @@ def check_files(root: Path, files: dict[Path, str]) -> int:
     print("Derived diagram files are out of date with the code:", file=sys.stderr)
     for path in stale:
         print(f"  {path.relative_to(root)}", file=sys.stderr)
-    print(f"FIX: run 'just fix' (or: {FIX_COMMAND})", file=sys.stderr)
+    print("FIX: run 'just check'", file=sys.stderr)
     return 1
 
 

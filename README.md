@@ -6,178 +6,133 @@ independent typed case set must cover every command at the detached process
 seam. JSON envelopes, exit classes, bounds, continuations, and retry policy are
 versioned in generated ADR-0003.
 
-A reusable Python 3.14 repository template that turns software-design principles into executable constraints for humans and coding agents.
+## Ship Python faster without letting the codebase rot
 
-## Two ways to be here
+Generate an opinionated Python 3.14 repository where architecture, typing, tests, documentation, diagrams, coding-agent behavior, hooks, and CI agree from the first commit.
 
-- **Using the pack**: run `python-repo init` (or the legacy `instantiate.py` seam) to create a new repository, then work inside that repository with its justfile and quality gate, plus its optional `AGENTS.md`. See "Create a new repository" below.
-- **Maintaining the pack**: this repository is a meta-repository; `template/` is the canonical Copier template, `copier.yml` is its rendering policy, and `instantiate.py` preserves the generator and CLI interfaces. Read the root `AGENTS.md` before changing anything — the conditional `AGENTS.md` template under `template/` is downstream content, not the contract for working here.
+You keep the product decisions. The repository automates the rules a machine can verify, so structural shortcuts fail now instead of becoming expensive archaeology later.
 
-This pack is inspired by the public curriculum of ArjanCodes' **Software Design Mastery** program, but it is an independent implementation. The course is still presented publicly as a 2026 waitlist; this repository therefore separates:
+**Move fast today. Stay changeable tomorrow.**
 
-- what the public curriculum states explicitly;
-- what is inferred from ArjanCodes' established Python teaching;
-- the concrete guardrails designed in this pack.
+## The expensive part starts after “it works”
 
-## What is enforced
+A blank repository feels fast. Then the deadline arrives.
 
-### Core Designer — always on
+Time and UUID calls leak into domain logic. Database details cross boundaries. `utils.py` becomes a junk drawer. Tests certify mocks instead of real adapters. The diagram stops matching the code.
 
-- strict Python 3.14 typing with BasedPyright;
-- no explicit `Any`, blanket ignores, wildcard imports, generic dumping-ground modules, or hidden dependencies;
-- cohesive size and complexity ceilings;
-- immutable value objects and events in declared modules;
-- fail-fast domain validation;
-- deterministic tests, property tests, branch coverage, and disabled network access.
+Coding agents amplify the same failure mode. Without a shared contract, they create parallel abstractions, hidden dependencies, optional-state sprawl, and confident inconsistency.
 
-### System Designer — default architecture profile
+Nothing necessarily breaks that day. That is what makes the drift dangerous.
 
-- inward dependency direction: `bootstrap -> adapters -> application -> domain`;
-- independent inbound and outbound adapters;
-- pure synchronous domain logic;
-- I/O, concurrency, wall-clock time, randomness, UUID generation, and frameworks kept outside the domain;
-- explicit `Protocol` ports and constructor injection;
-- one composition root.
+The bill arrives on the next feature:
 
-### Master Designer — decision discipline
+- a small change touches unrelated modules;
+- nobody knows which layer owns a decision;
+- every review repeats the same design arguments;
+- stale documentation misleads humans and agents;
+- refactoring feels unsafe because boundaries and tests disagree.
 
-- ADR required for architecture exceptions, new cross-layer dependencies, framework adoption, or migration strategies;
-- exception ledger with expiry/removal criteria;
-- Strangler and Branch-by-Abstraction migration templates;
-- a single local quality gate mirrored in CI;
-- architecture diagrams derived from the import graph (LikeC4 + grimp): the gate fails when the committed model lags the code or a hand-written view references a missing element, so stale diagrams are uncommittable;
-- a documentation contract (`docs/README.md`, the map) enforced by a docs guard: broken path references in prose, unregistered documents, malformed ADRs, and exception markers pointing at nonexistent ADRs all fail the gate.
+You lose time building the foundations, then lose it again repairing the drift those missing foundations allowed.
 
-## Install the generator system-wide (once)
+## The repository remembers, so you do not have to
+
+This pack turns design intent into an executable repository contract.
+
+Humans and coding agents follow the same rules. Reference implementations show the intended seams. One gate enforces the contract locally, before push, and in CI.
+
+The payoff is direct: less setup, less review churn, faster safe changes, and a codebase that remains legible after its original authors leave.
+
+## Start a repository
+
+Requires Python 3.14, [`uv`](https://docs.astral.sh/uv/), [`just`](https://github.com/casey/just), and [`bun`](https://bun.sh). Install `gh` only if you want automatic GitHub repository creation.
 
 ```bash
-just install    # runs: uv tool install --force --editable .
-```
-
-This puts a `python-repo` command on your PATH (via `~/.local/bin`). The
-install is editable, so template changes and `git pull` in this repository
-take effect immediately without reinstalling. The tool installation includes
-the pinned Copier engine; generated repositories do not need Copier at runtime.
-
-## Create a new repository
-
-```bash
-python-repo init my-product .        # creates ./my-product, package my_product
+just install
+python-repo init my-product .
 cd my-product
-uv sync --all-groups
-uv run prek install -f
-uv run python scripts/quality_gate.py
+just bootstrap
 ```
 
-`python-repo init <name> [directory] [--package NAME] [--public] [--no-github] [--no-git]`:
+`python-repo init` creates the project, initializes Git on `main`, commits the baseline, and pushes a private GitHub repository. Use `--public`, `--no-github`, `--no-git`, or `--package NAME` as needed.
 
-1. `name`: distribution/project name, such as `my-product`;
-2. `directory`: parent directory; the repository is created at
-   `<directory>/<name>` (default: current directory);
-3. `--package`: import package name; by default it is derived from the
-   project name (`my-product` → `my_product`).
+If GitHub creation fails, the local repository remains intact and the CLI prints the recovery command. Run `python-repo init --help` for the complete interface.
 
-After generating the files, `init` also initializes version control:
+## Features that change the outcome
 
-- `git init` on branch `main` plus an initial commit;
-- `gh repo create <name> --private --source . --remote origin --push` — a
-  **private** GitHub repository by default (requires an authenticated
-  [GitHub CLI](https://cli.github.com/); run `gh auth login` once).
+One opinionated stack. One reason for every choice.
 
-Flags: `--public` creates the GitHub repository public instead; `--no-github`
-keeps the repository local-only (git still initialized); `--no-git` skips
-version control entirely. If `gh` is missing or fails, the local repository
-is kept and the exact `gh repo create` command to run later is printed
-(missing `gh` exits 0; a failed `gh` exits 1).
+| Choice | Value |
+|---|---|
+| Installable `python-repo` CLI | Replace copy-and-clean setup with one stable command. |
+| Pinned Copier engine | Use maintained generation with controlled renderer behavior. |
+| Validated answers and strict Jinja | Reject bad package names, unknown data, and half-rendered output immediately. |
+| Copier provenance and three-way updates | Pull template releases without blindly replacing local changes. |
+| Automatic Git and optional GitHub setup | Start from a committed baseline and publish without manual remote wiring. |
+| Python 3.14 only | Use current typing and language semantics without compatibility branches. |
+| No third-party runtime dependencies by default | Add only what the product needs; keep guardrails in the development group. |
+| `uv`, not pip or Poetry | One tool owns Python, dependency resolution, environments, the lockfile, and builds. |
+| `just`, not Make | One repair-and-verification route, plus explicit setup, diagram-viewing, and dependency-update branches. |
+| `prek`, not pre-commit | Native TOML hook policy with fast commit checks and the full gate before push. |
+| Ruff from the project environment | Hooks, local commands, and CI use the exact Ruff version resolved in `uv.lock`. |
+| Broad Ruff policy | Enforce formatting, correctness, security, performance, modern Python, and complexity in one tool. |
+| BasedPyright with warnings as errors | Reject `Any`, missing types, unsafe overrides, incomplete matches, and stale ignores. |
+| One quality-gate script | Apply safe lint, format, and diagram repairs locally, then check lockfile, types, architecture, docs, imports, diagrams, tests, and coverage in order. |
+| Same gate locally, pre-push, and in CI | Remove the gap between “works here” and “accepted by the repository.” |
+| Ports-and-adapters layers | Enforce `bootstrap → adapters → application → domain` and independent adapter sides. |
+| Framework-free synchronous domain | Keep business rules deterministic and isolated from I/O, clocks, randomness, UUIDs, and concurrency. |
+| Application-owned `Protocol` ports | Make dependencies explicit and infrastructure replaceable through constructor injection. |
+| Single composition root | Keep production wiring visible and prevent hidden service location. |
+| Working vertical slice | Replace the sample `Item` domain while keeping proven cross-cutting foundations. |
+| Clock and ID ports | Make time and identifiers deterministic in tests. |
+| Typed events with a real audit consumer | Demonstrate decoupling through a working flow, not an unused abstraction. |
+| Memory and SQLite adapters | Show two interchangeable implementations behind the same port. |
+| Error translation and context-managed resources | Keep infrastructure failures out of the core and lifecycle cleanup explicit. |
+| Shared adapter contract tests | Prove every implementation obeys the same behavior. |
+| Versioned agent-native CLI contract | Provide stable JSON, exit codes, capabilities, bounded queries, and human output without prompts or TTY assumptions. |
+| AST architecture guard | Enforce domain purity, immutable messages, size limits, package surfaces, suppressions, and CLI boundaries. |
+| None and Path discipline | Parse uncertainty and filesystem text at the edge instead of infecting the core. |
+| Import Linter contracts | Make dependency direction and adapter independence build failures. |
+| pytest, Hypothesis, and deterministic integration tests | Cover examples, broad invariant spaces, adapter contracts, and real local wiring. |
+| Sockets disabled and 90% branch coverage floor | Block accidental live-network tests and expose untested decisions. |
+| Derived LikeC4 architecture model | Generate diagrams from the same import graph the gate enforces. |
+| Pinned LikeC4 through `bunx` | Get validated diagrams without `package.json`, `node_modules`, or a JavaScript lockfile. |
+| Documentation map and guard | Reject broken paths, unregistered docs, malformed ADRs, numbering gaps, and dangling exceptions. |
+| ADR, exception, pattern, and migration rules | Make design debt owned, scoped, revisitable, and removable. |
+| Optional `AGENTS.md` plus `CLAUDE.md` bridge | Give humans and coding agents one operating contract without duplicated instructions. |
+| Design-aware pull request template | Put ownership, invariants, evidence, change spread, migration, and rollback into review. |
+| Reproducible value benchmark | Compare the same LLM task with and without the template across build quality, effort, and maintenance. |
 
-The legacy positional form remains purely local (no git, no GitHub). From a
-pack checkout, provision the pinned renderer ephemerally:
+Replace the `Item` domain. Keep the foundation bricks. Their rationale lives in the generated `docs/adr/0002-foundation-ports-and-reference-adapters.md`.
+
+## Opinionated by design
+
+This is not an empty folder or a framework starter. It chooses Python 3.14, uv, just, prek, ports and adapters, a synchronous domain, deterministic tests, and executable documentation.
+
+No tool can prove that a name is good or an abstraction is worthwhile. Observable rules are enforced; irreducible trade-offs require an ADR; exceptions are explicit and expire.
+
+## Measure it
+
+`benchmarks/` gives the same LLM byte-identical tasks in a blank repository and a generated one, then compares behavior, analyzers, coverage, effort, blind judging, and later maintenance.
 
 ```bash
-uv run --no-project --with copier==9.17.0 python instantiate.py my-product my_product ../my-product
+just benchmark              # run one two-arm experiment
+just benchmark-matrix-plan  # inspect a campaign without spending
+just bench-report           # build the offline comparison report
+just bench-figures          # export article SVG/PNG/CSV figures
 ```
 
-Every generated repository records its template reference/version and all
-answers, including `project_name`, `package`, and feature toggles, in
-`.copier-answers.yml`. This provenance
-is managed by Copier. The generated README explains how to check for tagged
-releases, run `copier update` with inline conflicts, and verify that no merge
-markers survive before running the full quality gate.
+See `benchmarks/README.md` for methodology, variants, bias controls, and all benchmark commands.
 
-The generated project contains a small vertical slice built on **foundation bricks**: a replaceable example domain (`Item`) wired through keep-me exemplars of every cross-cutting capability — an injected clock and id factory, a typed in-process event publisher with an audit-log consumer, a SQLite reference adapter demonstrating error translation and context-managed lifecycle, a reusable repository contract-test kit, and a runnable `python -m` CLI through the single composition root. Replace the `Item` domain; keep the bricks (rationale: the generated `docs/adr/0002-foundation-ports-and-reference-adapters.md`).
+## Maintaining this pack
 
-## Key files in a generated repository
-
-- `AGENTS.md`: optional operational contract for coding agents (`agents_contract != "none"`).
-- `CLAUDE.md`: `@AGENTS.md`, shipped alongside it (`agents_contract != "none"`). Claude Code reads `CLAUDE.md` and never `AGENTS.md`, so without this import the contract would be invisible to it; the import keeps `AGENTS.md` the single owner of the contract.
-- `architecture.toml`: deterministic architecture policy.
-- `scripts/architecture_guard.py`: AST-level fitness functions.
-- `pyproject.toml`: Ruff, BasedPyright, pytest, Coverage, Import Linter, and dependencies.
-- `prek.toml`: optional fast commit checks and full pre-push gate (`precommit = true`).
-- `.vscode/settings.json`: hides derived artifacts (caches, coverage, `.venv`) from the VS Code explorer and search.
-- `docs/README.md`: the documentation map — one row per document (who reads it, when, freshness mode) plus the admission rule for new documents; kept true by `scripts/docs_guard.py`.
-- `docs/architecture/`: pattern admission rules, ADRs, migration and exception templates.
-- `docs/architecture/likec4/`: architecture diagrams — `generated/` is derived from the import graph by `scripts/sync_architecture_diagrams.py` (never hand-edited), `views.c4` is team-owned narration.
-- `scripts/quality_gate.py`: canonical one-command acceptance gate.
-
-See `DESIGN_MASTERY_MAPPING.md` for the detailed mapping from curriculum promises to repository mechanisms.
-
-## Does the template actually help? Measure it
-
-`benchmarks/` contains an end-to-end value benchmark: the same LLM receives
-byte-identical instructions per phase — in an empty repository and in a
-freshly generated one — and the harness compares the results with functional
-probes, pinned neutral analyzers (ruff, basedpyright, radon, coverage), agent
-effort statistics, and a blind cross-family LLM judge panel. For the real
-apps, fresh agent sessions then apply identical maintenance requests to the
-finished workspaces, so change safety is observed rather than inferred. A
-single TOML config makes the run reproducible, and its report and registry
-rows keep build and maintenance comparisons separate.
-
-The template arm can select a named Copier answer-set variant such as
-`no-precommit`, `no-agents-md`, or `checks-via-commit`. Default answers remain
-the full generated repository byte-for-byte; the bare arm never consumes
-variant settings.
+This is a meta-repository: `template/` is the product, `copier.yml` owns rendering, `instantiate.py` owns the CLI, and the root `AGENTS.md` is the maintainer contract.
 
 ```bash
-just benchmark                                 # full run (long, costs provider usage)
-just benchmark benchmarks/config/relay.toml    # event-sourced job queue
-just benchmark benchmarks/config/smoke.toml    # cheap plumbing check
-just benchmark-matrix-plan                     # validate/list campaign cells, no spend
-just benchmark-matrix                          # execute or resume the campaign
-just bench-report                              # offline cross-run comparison report
-just bench-figures                             # offline article SVG/PNG/CSV export
+just test           # fast generator tests
+just validate       # canonical full validation
+just release vX.Y.Z # verify and create an annotated release tag
 ```
 
-On a terminal, the run renders a live two-arm dashboard (probe checklist,
-judge verdicts revealed one by one); `--no-tui` keeps plain logs.
+`just validate` generates a throwaway repository, checks template cleanliness and rendering, resolves dependencies, runs the downstream gate, and tests an offline Copier update.
 
-See `benchmarks/README.md` for the methodology, judge-bias controls, publication
-figure inventory, and experiment workflow.
-It is a maintainer tool built on [`headless_llm`](../../headless_llm) and is
-not part of `just validate`.
-
-## Maintaining the pack
-
-Prerequisites: `python3` (3.14), [`uv`](https://docs.astral.sh/uv/), [`just`](https://github.com/casey/just), [`prek`](https://prek.j178.dev/), and [`bun`](https://bun.sh) (pack validation runs the downstream quality gate, which validates the LikeC4 diagrams through a pinned `bunx` invocation). The root `pyproject.toml` exists only to package the `python-repo` CLI (`uv tool install`) and its pinned Copier runtime dependency. The root intentionally has no virtualenv or lock file; Copier, pytest, and grimp are supplied ephemerally to maintainer entry points by `uv run --no-project --with`.
-
-```bash
-just test       # generator unit tests (fast inner loop)
-just validate   # canonical validation — required before claiming any template change done
-just release vX.Y.Z  # verify CHANGELOG.md and create the annotated release tag
-uv tool install prek  # once per machine
-prek install -f       # once per clone; replaces legacy pre-commit shims
-```
-
-The pack's own `prek.toml` (local hooks only, through the
-justfile) runs `just test` on every commit — a broken template cannot be
-committed — and `just validate` on every push.
-
-`just validate` runs the generator tests, then instantiates a throwaway repository in a temporary directory, verifies that `template/` carries no local runtime artifacts, that no unrendered Jinja or `.jinja` suffix survives generation, resolves the pinned dependencies, and runs the generated repository's own full quality gate before cleaning up. Artifact exclusions have one source of truth (`_exclude` in `copier.yml`), and strict undefined variables fail during generation. The last executed validation is recorded in `VALIDATION.md`.
-
-Template releases are annotated PEP 440 git tags (`vX.Y.Z`). Add the matching
-entry to `CHANGELOG.md`, commit it with the release contents, then run
-`just release vX.Y.Z`; the recipe refuses a missing entry, a dirty tree, an
-invalid version, or an existing tag. Local generation intentionally records
-Copier's `git describe` identity (including its dirty marker) for experimental
-work. Reproducible release benchmarks pin a release tag through `vcs_ref`.
+See `DESIGN_GUARDRAILS.md` for the design-to-enforcement rationale and `VALIDATION.md` for the last recorded full validation.

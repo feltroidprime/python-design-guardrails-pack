@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "557ea6c0bfb439a30deb42935bd26a9f3e46f1fe93d23ff8ab2ec7b728065d46"
+EXPECTED_GENERATED_TREE_SHA256 = "0a30f4fab55b979d920e202af3687b13215672858dfbf142464dd8960769bd42"
 INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", "")
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
 
@@ -115,18 +115,18 @@ def test_valid_generation_reports_success_and_next_steps(generated: Path) -> Non
     result = run_instantiate(PROJECT_NAME, PACKAGE_NAME, fresh)
     assert result.returncode == 0
     assert f"Created {PROJECT_NAME}" in result.stdout
-    assert "uv sync --all-groups" in result.stdout
-    assert "uv run prek install -f" in result.stdout
+    assert "just bootstrap" in result.stdout
 
 
 def test_generated_repository_uses_prek_for_git_hooks(generated: Path) -> None:
     config = tomllib.loads((generated / "prek.toml").read_text(encoding="utf-8"))
     pyproject = tomllib.loads((generated / "pyproject.toml").read_text(encoding="utf-8"))
     justfile = (generated / "justfile").read_text(encoding="utf-8")
+    hooks = {hook["id"]: hook for repo in config["repos"] for hook in repo["hooks"]}
 
     assert config["minimum_prek_version"] == "0.4.9"
     assert config["default_install_hook_types"] == ["pre-commit", "pre-push"]
-    assert {hook["id"] for repo in config["repos"] for hook in repo["hooks"]} >= {
+    assert set(hooks) >= {
         "architecture-guard",
         "full-quality-gate",
         "ruff-check",
@@ -137,6 +137,22 @@ def test_generated_repository_uses_prek_for_git_hooks(generated: Path) -> None:
     assert "uv run prek install -f" in justfile
     assert "uv run prek update" in justfile
     assert "uv run pre-commit" not in justfile
+    assert hooks["full-quality-gate"]["entry"].endswith("python scripts/quality_gate.py")
+
+
+def test_generated_justfile_has_one_repair_and_verification_route(generated: Path) -> None:
+    justfile = (generated / "justfile").read_text(encoding="utf-8")
+
+    assert re.findall(r"(?m)^([a-z][a-z-]*):(?:\s|$)", justfile) == [
+        "default",
+        "bootstrap",
+        "check",
+        "diagrams",
+        "update",
+    ]
+    assert "uv run python scripts/quality_gate.py --fix" in justfile
+    assert "uv run pytest" not in justfile
+    assert "scripts.architecture_guard" not in justfile
 
 
 def test_generation_records_copier_template_and_answers(generated: Path) -> None:
@@ -266,27 +282,11 @@ def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> Non
     } == {".copier-answers.yml", "AGENTS.md"}
 
     expected_agents = baseline["AGENTS.md"].replace(
-        b"Normative for every coding agent and human contributor. A change is complete only "
-        b"when `uv run python scripts/quality_gate.py` passes.",
-        b"Normative for every coding agent and human contributor. For verification, use only "
-        b"the repository's justfile commands; do not invoke their underlying tools directly. "
-        b"A change is complete only after its commit and pre-push hooks succeed.",
-    ).replace(
-        b"Before claiming completion:\n\n"
-        b"1. Run `uv run python scripts/quality_gate.py` to green.\n"
-        b"2. Report the behavior changed, tests added, architecture impact, and remaining risks.\n"
-        b"3. Never claim success over a failing or weakened gate; report the failure instead.",
-        b"Before claiming completion:\n\n"
-        b"1. Use only `just fix`, `just check`, `just test`, and `just arch` for repository "
-        b"checks; never invoke their underlying tools directly.\n"
-        b"2. Commit; the prek hooks run the gate: commit checks validate the change and pre-push "
-        b"runs the full quality gate before publication.\n"
-        b"3. Report the behavior changed, tests added, architecture impact, and remaining risks.\n"
-        b"4. Never claim success over a failing or weakened gate; report the failure instead.",
-    ).replace(
-        b"when the gate's `diagram sync` check fails, run `just fix` (or `uv run python -m "
-        b"scripts.sync_architecture_diagrams --write`).",
-        b"when the gate's `diagram sync` check fails, run `just fix`.",
+        b"3. Green means the unmodified gate exits zero. Then report the behavior changed, tests "
+        b"added, architecture impact, and remaining risks.\n\n",
+        b"3. Green means the unmodified gate exits zero. Then report the behavior changed, tests "
+        b"added, architecture impact, and remaining risks.\n"
+        b"4. Commit and push. Publication is complete when the commit and pre-push hooks succeed.\n\n",
     )
     assert variant["AGENTS.md"] == expected_agents
 
@@ -795,7 +795,7 @@ def test_diagram_sync_detects_drift_and_names_the_fix(tmp_path: Path) -> None:
 
     drifted = run_diagram_sync(output, "--check")
     assert drifted.returncode == 1, drifted.stdout + drifted.stderr
-    assert "sync_architecture_diagrams --write" in drifted.stdout + drifted.stderr
+    assert "just check" in drifted.stdout + drifted.stderr
 
     written = run_diagram_sync(output, "--write")
     assert written.returncode == 0, written.stdout + written.stderr

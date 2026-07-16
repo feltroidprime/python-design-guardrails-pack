@@ -246,7 +246,6 @@ class TestJudging:
             "guardrail",
             "baseline",
             "scaffold",
-            "arjan",
             "with and without",
         ):
             assert re.search(rf"\b{re.escape(marker)}\b", text) is None, marker
@@ -273,8 +272,6 @@ class TestJudging:
         lowered = bundle.text.lower()
         for marker in (
             "guardrail",
-            "arjan",
-            "design mastery",
             "template",
         ):
             assert marker not in lowered, f"provenance marker {marker!r} reached the judge"
@@ -821,7 +818,7 @@ class TestOrchestration:
             for key, value in recorded_answers.items()
             if not key.startswith("_")
         } == expected_answers
-        assert "Commit; the prek hooks run the gate" in (
+        assert "Publication is complete when the commit and pre-push hooks succeed" in (
             workspace / "AGENTS.md"
         ).read_text(encoding="utf-8")
 

@@ -15,18 +15,13 @@ quality contract.
 ## Bootstrap
 
 ```bash
-uv sync --all-groups
-{% if precommit %}uv run prek install -f
-{% endif %}uv run python scripts/quality_gate.py
+just bootstrap
 ```
 
 ## Daily commands
 
 ```bash
-just fix        # deterministic auto-fixes, including diagram regeneration
-just check      # full local acceptance gate
-just test       # tests only
-just arch       # architecture fitness functions only
+just check      # deterministic repairs followed by the full acceptance gate
 just diagrams   # browse live architecture diagrams (LikeC4 viewer)
 just update     # update dependencies and hook revisions intentionally
 ```
@@ -55,7 +50,7 @@ repository's existing guard and full gate before committing:
 ```bash
 {% if precommit %}uv run prek run check-merge-conflict --all-files
 {% else %}git diff --check
-{% endif %}uv run python scripts/quality_gate.py
+{% endif %}just check
 ```
 
 ## Try the example application
@@ -91,7 +86,7 @@ Diagrams are **derived from the code**, never hand-maintained
 
 - `docs/architecture/likec4/generated/` — model and baseline views,
   regenerated from the import graph. **Never edit these by hand**; the
-  quality gate fails on drift and `just fix` resolves it.
+  `just check` repair phase regenerates them before validation.
 - `docs/architecture/likec4/views.c4` — team-owned free-form views; add your
   own narration here. `specification.c4` is written once.
 

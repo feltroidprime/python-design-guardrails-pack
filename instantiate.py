@@ -190,9 +190,7 @@ def print_next_steps(project_name: str, output: Path) -> None:
     print(f"Created {project_name} in {output}")
     print("Next:")
     print(f"  cd {output}")
-    print("  uv sync --all-groups")
-    print("  uv run prek install -f")
-    print("  uv run python scripts/quality_gate.py")
+    print("  just bootstrap")
 
 
 def run_init(project_name: str, package_name: str, output: Path) -> int:

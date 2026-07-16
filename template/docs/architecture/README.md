@@ -41,6 +41,6 @@ This template uses the `system` profile. Tiny scripts may collapse layers only t
 
 ## Diagrams
 
-- `likec4/generated/` — derived model and baseline views. Never hand-edited; regenerate with `just fix`.
+- `likec4/generated/` — derived model and baseline views. Never hand-edited; `just check` regenerates and validates it.
 - `likec4/views.c4` — team-owned free-form views.
 - `just diagrams` serves the live viewer.

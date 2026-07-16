@@ -24,18 +24,17 @@ The LikeC4 architecture model is **derived from the code**, never edited:
   `independence` contract) in `pyproject.toml`, builds the real import graph
   with grimp — the same library import-linter uses — and regenerates
   `docs/architecture/likec4/generated/` (the model plus baseline views).
-- The quality gate fails when the committed model lags the code
-  (`--check`, pure Python) and when any view references elements that no
-  longer exist (`bunx likec4@<pinned> validate`). The same gate runs
-  locally, in pre-push, and in CI.
+- Local `just check` regenerates the committed model before the quality gate
+  checks drift (`--check`, pure Python). Pre-push and CI run the same gate in
+  strict mode, so an uncommitted stale model fails. Every mode rejects views
+  that reference missing elements (`bunx likec4@<pinned> validate`).
 - `docs/architecture/likec4/views.c4` is team-owned free-form narration;
   the generator never touches it. `specification.c4` is written once.
 - All LikeC4 CLI invocations go through `bunx likec4@<version>` with the
   version pinned in exactly one place: `[tool.likec4]` in `pyproject.toml`.
 
 **Files under `docs/architecture/likec4/generated/` must never be edited by
-hand.** Resolve drift with `just fix` (or
-`uv run python -m scripts.sync_architecture_diagrams --write`).
+hand.** `just check` regenerates them deterministically before validation.
 
 ## Alternatives considered
 

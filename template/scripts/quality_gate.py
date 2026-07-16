@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Canonical local and CI quality gate."""
+"""Canonical quality gate, with deterministic local repairs on request."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,6 +34,20 @@ def likec4_version(root: Path) -> str:
     if not isinstance(version, str):
         raise TypeError("tool.likec4.version must be a string")
     return version
+
+
+def repairs() -> tuple[Check, ...]:
+    return (
+        Check(
+            name="safe lint repairs",
+            command=("ruff", "check", "--fix", "--exit-zero", "--quiet", "."),
+        ),
+        Check(name="format repairs", command=("ruff", "format", "--quiet", ".")),
+        Check(
+            name="diagram regeneration",
+            command=(sys.executable, "-m", "scripts.sync_architecture_diagrams", "--write"),
+        ),
+    )
 
 
 def checks(root: Path) -> tuple[Check, ...]:
@@ -74,9 +88,21 @@ def run(check: Check, root: Path) -> int:
     return completed.returncode
 
 
-def main() -> int:
+def requested_checks(root: Path, argv: list[str]) -> tuple[Check, ...] | None:
+    if not argv:
+        return checks(root)
+    if argv == ["--fix"]:
+        return (*repairs(), *checks(root))
+    print("Usage: python scripts/quality_gate.py [--fix]", file=sys.stderr)
+    return None
+
+
+def main(argv: list[str]) -> int:
     root = Path(__file__).resolve().parents[1]
-    for check in checks(root):
+    selected = requested_checks(root, argv)
+    if selected is None:
+        return 2
+    for check in selected:
         exit_code = run(check, root)
         if exit_code != 0:
             print(f"\nFAILED: {check.name} (exit {exit_code})", file=sys.stderr)
@@ -86,4 +112,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

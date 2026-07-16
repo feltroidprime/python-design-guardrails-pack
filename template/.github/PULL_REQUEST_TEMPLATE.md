@@ -18,7 +18,7 @@ What invalid states, retries, cancellation, cleanup, or external failures were c
 - [ ] Regression/example tests
 - [ ] Property tests where invariants have a broad input space
 - [ ] Port contract tests for adapter changes
-- [ ] `uv run python scripts/quality_gate.py` passes
+- [ ] `just check` passes
 
 ## Change amplification
 

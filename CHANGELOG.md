@@ -11,6 +11,10 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Collapse downstream agent verification into one check loop: `just check`
+  applies safe Ruff fixes, formats code, regenerates derived diagrams, and then
+  runs the full gate. The narrower justfile removes the competing `fix`,
+  `test`, and `arch` routes while pre-push and CI keep the gate strict.
 - Remove the abandoned benchmark trace export and generated agent-session
   observability workflow. This deliberately removes the provider-specific
   transcript-evidence requirement from the downstream agent contract: its only
