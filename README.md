@@ -77,6 +77,49 @@ clean migration branch. The update then records the durable source and adds
 `just scaffold-update`; Copier owns the answers file again after this one-time
 provenance repair.
 
+## Workspace member mode
+
+Answer `workspace_member: true` (default `false`) when the generated project is
+a member of a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/)
+rather than a standalone repository. In that mode the workspace **root** owns the
+single lockfile, the virtualenv, the `dev` dependency group, and the shared tool
+configuration (`[tool.ruff]`, `[tool.basedpyright]`, `[tool.pytest.ini_options]`,
+`[tool.coverage]`). The generator therefore omits the standalone-only files and
+sections — `.python-version`, the pre-commit (`prek.toml`) policy, the dev
+dependency group, and those tool config tables — and drops the `uv sync`,
+`uv lock`, and hook-install steps from the generated `justfile`, so a member
+never creates its own environment or lockfile. Everything else is unchanged: the
+`src` layout, the `uv_build` build system, the README, the CLI contract, and the
+per-package **Import Linter** contracts (`[tool.importlinter]`) all stay, because
+dependency-direction rules belong to each package, not the root.
+
+## Consuming feltroid-py packages
+
+Member packages published from the `feltroid-py` monorepo are consumed by
+external projects as **git dependencies pinned to a monorepo tag**, using uv's
+`[tool.uv.sources]` with a `subdirectory` that points at the package under
+`packages/<name>` (the package keeps its original directory name). Depend on the
+package by its distribution name and pin an immutable release tag; move the tag
+deliberately when you want the newer code.
+
+For example, to consume `headless_llm`:
+
+```toml
+[project]
+dependencies = [
+  "headless-llm",
+]
+
+[tool.uv.sources]
+headless-llm = { git = "https://github.com/feltroidprime/feltroid-py", subdirectory = "packages/headless_llm", tag = "v0.2" }
+```
+
+The `[project].dependencies` entry and the `[tool.uv.sources]` key are the same
+distribution name; `subdirectory` selects the member inside the monorepo and
+`tag` pins the exact release. Other members follow the same recipe with their own
+`packages/<name>` subdirectory. This stanza is documentation, not something the
+template injects — a consuming project adds it by hand.
+
 ## Features that change the outcome
 
 One opinionated stack. One reason for every choice.
