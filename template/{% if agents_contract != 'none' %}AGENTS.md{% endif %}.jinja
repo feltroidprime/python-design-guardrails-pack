@@ -35,6 +35,13 @@ While editing:
 3. Green means the unmodified gate exits zero. Then report the behavior changed, tests added, architecture impact, and remaining risks.
 {% if agents_contract == 'hooks-first' %}4. Commit and push. Publication is complete when the commit and pre-push hooks succeed.
 {% endif %}
+### Scaffold updates
+
+From a clean branch, use `just scaffold-update` to merge the newest tagged
+pack release; `just update` remains dependency-only. Resolve Copier conflicts,
+then complete the same `just check` loop before committing the update. Never
+edit `.copier-answers.yml` by hand.
+
 ## Layer ownership
 
 ### `domain`

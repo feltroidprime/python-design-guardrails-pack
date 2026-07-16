@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "82dc9fd82752052fb5a17107dca5d70aff490e723dfc72212b10ff2781cadd34"
+EXPECTED_GENERATED_TREE_SHA256 = "c27724b062a177bbceed132055b57517103670c62cc36a984e45e6f397178065"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -216,6 +216,14 @@ def test_generated_readme_documents_copier_update_workflow(generated: Path) -> N
     assert "exit status `2`" in readme
     assert "just scaffold-update" in readme
     assert "check-merge-conflict" in readme
+
+
+def test_generated_agent_contract_routes_scaffold_updates(generated: Path) -> None:
+    contract = (generated / "AGENTS.md").read_text(encoding="utf-8")
+
+    assert "`just scaffold-update`" in contract
+    assert "`just update` remains dependency-only" in contract
+    assert "Resolve Copier conflicts" in contract
 
 
 def test_copier_migrations_are_wired() -> None:

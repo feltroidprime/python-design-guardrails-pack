@@ -11,6 +11,9 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Make scaffold updates executable through `just scaffold-update`. Packaged
+  generation records the durable GitHub source, and the pinned Copier command
+  reuses saved answers without inheriting the project's bytecode-cache path.
 - Collapse downstream agent verification into one check loop: `just check`
   applies safe Ruff fixes, formats code, regenerates derived diagrams, and then
   runs the full gate. The narrower justfile removes the competing `fix`,

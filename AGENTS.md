@@ -81,8 +81,9 @@ repository, not this one.
    pin appears in the root `pyproject.toml`, both generating recipes in the root
    `justfile`, the benchmark bootstraps in `benchmarks/run.py` and
    `benchmarks/matrix.py`, `_min_copier_version` in `copier.yml`, and the
-   downstream update recipe in `template/justfile.jinja`; move all together.
-   The root project
+   downstream update recipe in `template/justfile.jinja`, and the downstream
+   check command in `template/README.md.jinja`; move all together. The root
+   project
    version is the wheel fallback for Copier's `_commit`, so release wheels must
    use the corresponding template tag version.
 5. **No local artifacts in `template/`.** Runtime caches (`.ruff_cache`,

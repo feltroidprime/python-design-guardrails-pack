@@ -12,6 +12,8 @@ import instantiate
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS_RELEASE = "v0.1.0"
 CURRENT_RELEASE_CANDIDATE = "v0.1.1"
+RECIPE_BASE_RELEASE = "v1.2.3"
+RECIPE_NEXT_RELEASE = "v1.2.4"
 PROJECT_NAME = "roundtrip-project"
 PACKAGE_NAME = "roundtrip_project"
 
@@ -144,3 +146,54 @@ def test_previous_release_updates_cleanly_to_current_ref(tmp_path: Path) -> None
             offline_environment,
         )
         assert gate.returncode == 0, gate.stdout + gate.stderr
+
+
+def test_generated_recipe_updates_from_its_recorded_git_source(tmp_path: Path) -> None:
+    environment = instantiate.environment_without_local_git_context()
+    template = tmp_path / "template"
+    cloned = run(
+        ["git", "clone", "--quiet", "--no-hardlinks", str(REPO_ROOT), str(template)],
+        tmp_path,
+        environment,
+    )
+    assert cloned.returncode == 0, cloned.stdout + cloned.stderr
+    tagged_base = run(["git", "tag", RECIPE_BASE_RELEASE], template, environment)
+    assert tagged_base.returncode == 0, tagged_base.stdout + tagged_base.stderr
+
+    project = tmp_path / "recipe-project"
+    with instantiate.without_local_git_context():
+        run_copy(
+            str(template),
+            project,
+            data={
+                "project_name": PROJECT_NAME,
+                "package": PACKAGE_NAME,
+                "_packaged_template_source": str(template),
+            },
+            vcs_ref=RECIPE_BASE_RELEASE,
+            defaults=True,
+            quiet=True,
+            skip_tasks=True,
+        )
+    initialized = run(
+        ["git", "init", "--quiet", "--initial-branch=main"], project, environment
+    )
+    assert initialized.returncode == 0, initialized.stdout + initialized.stderr
+    commit_all(project, "Generate recipe update project", environment)
+
+    marker = template / "template" / "scaffold-update-proof.txt"
+    marker.write_text("updated through just scaffold-update\n", encoding="utf-8")
+    commit_all(template, "Add scaffold update proof", environment)
+    tagged_next = run(["git", "tag", RECIPE_NEXT_RELEASE], template, environment)
+    assert tagged_next.returncode == 0, tagged_next.stdout + tagged_next.stderr
+
+    updated = run(["just", "scaffold-update"], project, environment)
+    assert updated.returncode == 0, updated.stdout + updated.stderr
+    assert (project / "scaffold-update-proof.txt").read_text(encoding="utf-8") == (
+        "updated through just scaffold-update\n"
+    )
+    assert not (project / ".venv").exists()
+    answers = (project / ".copier-answers.yml").read_text(encoding="utf-8")
+    assert f"_commit: {RECIPE_NEXT_RELEASE}" in answers
+    assert f"_src_path: {template}" in answers
+    assert check_update(project, environment) == 0
