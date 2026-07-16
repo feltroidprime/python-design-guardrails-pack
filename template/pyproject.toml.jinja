@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = []
 
-# Dev tooling floats: floors are the last versions this repository's toolchain
+{% if not workspace_member %}# Dev tooling floats: floors are the last versions this repository's toolchain
 # was validated against, and the first `uv sync` resolves the latest releases.
 {% if precommit %}# Reproducibility comes from uv.lock (kept current by the uv-lock Git
 # hook), not from exact pins here.
@@ -29,7 +29,7 @@ dev = [
   "ruff>=0.15.21",
 ]
 
-[tool.uv]
+{% endif %}[tool.uv]
 required-version = ">=0.11.28,<0.12"
 
 # The only place the LikeC4 CLI version is pinned. Every invocation goes
@@ -38,7 +38,7 @@ required-version = ">=0.11.28,<0.12"
 [tool.likec4]
 version = "1.58.0"
 
-[tool.ruff]
+{% if not workspace_member %}[tool.ruff]
 target-version = "py314"
 line-length = 100
 src = ["src", "tests", "scripts"]
@@ -207,7 +207,7 @@ exclude_also = [
   "raise NotImplementedError",
 ]
 
-[tool.importlinter]
+{% endif %}[tool.importlinter]
 root_package = "{{ package }}"
 include_external_packages = false
 exclude_type_checking_imports = true

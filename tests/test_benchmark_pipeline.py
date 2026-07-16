@@ -767,6 +767,7 @@ class TestOrchestration:
                 "project_name": "demo",
                 "package": "configured_demo",
                 "precommit": True,
+                "workspace_member": False,
             },
         }
         manifest = json.loads(
@@ -808,6 +809,7 @@ class TestOrchestration:
             "package": "demo",
             "precommit": True,
             "project_name": "demo",
+            "workspace_member": False,
         }
         workspace = run.run_dir / "arms" / ARM_GUARDRAILS / "workspace"
         recorded_answers = safe_load(

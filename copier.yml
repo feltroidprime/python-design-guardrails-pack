@@ -51,3 +51,12 @@ agents_contract:
     - hooks-first
     - none
   default: full
+
+workspace_member:
+  type: bool
+  help: >-
+    Project is a member of a uv workspace: the workspace root owns the lockfile,
+    virtualenv, dev dependency group, and shared tool config (ruff, basedpyright,
+    pytest, coverage). When true, those standalone-only files and sections are
+    omitted so they live at the root; import-linter contracts stay per-package.
+  default: false

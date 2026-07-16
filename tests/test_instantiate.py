@@ -352,6 +352,36 @@ def test_no_precommit_has_exact_file_delta(tmp_path: Path) -> None:
         assert b"pre-push" not in variant[path]
 
 
+def test_workspace_member_has_exact_file_delta(tmp_path: Path) -> None:
+    baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
+    variant = _generated_snapshot(
+        _generate_with_answers(tmp_path / "workspace-member", {"workspace_member": True})
+    )
+
+    assert set(baseline) - set(variant) == {".python-version", "prek.toml"}
+    assert set(variant) - set(baseline) == set()
+    assert {
+        path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
+    } == {".copier-answers.yml", "justfile", "pyproject.toml"}
+
+    pyproject = tomllib.loads(variant["pyproject.toml"].decode("utf-8"))
+    # The workspace root owns the dev group and the shared tool config; a member
+    # keeps only its build system, project metadata, uv/likec4 pins, and its own
+    # per-package import-linter contracts.
+    assert "dependency-groups" not in pyproject
+    assert set(pyproject["tool"]) == {"uv", "likec4", "importlinter"}
+    assert {contract["id"] for contract in pyproject["tool"]["importlinter"]["contracts"]} == {
+        "layers",
+        "adapter-independence",
+    }
+
+    justfile = variant["justfile"].decode("utf-8")
+    assert "uv sync" not in justfile
+    assert "uv lock" not in justfile
+    assert "prek" not in justfile
+    assert "just check" in justfile
+
+
 def test_no_agents_md_has_exact_file_delta(tmp_path: Path) -> None:
     baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
     variant = _generated_snapshot(
