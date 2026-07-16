@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "4c953039fa518ab06ef34306cb363d5c9bcd2eee62e80305a61432cba7cd99dc"
+EXPECTED_GENERATED_TREE_SHA256 = "82dc9fd82752052fb5a17107dca5d70aff490e723dfc72212b10ff2781cadd34"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -156,11 +156,45 @@ def test_generated_justfile_has_one_repair_and_verification_route(generated: Pat
     ]
     assert "uv run python scripts/quality_gate.py --fix" in justfile
     assert (
-        "uvx --from copier==9.17.0 copier update --defaults --conflict inline"
-        in justfile
+        "env -u PYTHONPYCACHEPREFIX uvx --from copier==9.17.0 copier update "
+        "--defaults --conflict inline" in justfile
     )
     assert "uv run pytest" not in justfile
     assert "scripts.architecture_guard" not in justfile
+
+
+def test_scaffold_update_does_not_create_an_invalid_project_venv(
+    tmp_path: Path,
+) -> None:
+    project = _generate_with_answers(tmp_path / "project", {})
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    uvx = bin_dir / "uvx"
+    uvx.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        "[[ -z \"${PYTHONPYCACHEPREFIX+x}\" ]]\n"
+        "[[ \"$*\" == \"--from copier==9.17.0 copier update --defaults "
+        "--conflict inline\" ]]\n",
+        encoding="utf-8",
+    )
+    uvx.chmod(0o755)
+    environment = {
+        **os.environ,
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+    }
+
+    result = subprocess.run(
+        ["just", "scaffold-update"],
+        cwd=project,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not (project / ".venv").exists()
 
 
 def test_generation_records_copier_template_and_answers(generated: Path) -> None:
