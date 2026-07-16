@@ -1,8 +1,10 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set positional-arguments := true
 
 # Keep bytecode caches out of the source tree: every Python run through these
 # recipes writes its __pycache__ mirror under .venv instead.
 export PYTHONPYCACHEPREFIX := justfile_directory() / ".venv/pycache"
+export SESSION_PROFILER_DEPENDENCY := "session-profiler-optimizer @ git+https://github.com/feltroidprime/session-profiler-optimizer.git@6ace879e8642777658576a47e0f53b32a1ddc0f7"
 
 default:
     @just --list
@@ -21,6 +23,14 @@ diagrams:
     set -euo pipefail
     version="$(uv run python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['tool']['likec4']['version'])")"
     exec bunx "likec4@${version}" serve docs/architecture/likec4
+
+# Preserve one complete Claude Code or Codex CLI session as local ATIF evidence.
+session-log input output=".agent-sessions" agent="auto":
+    uv run --with "$SESSION_PROFILER_DEPENDENCY" session-profiler --agent "$3" "$1" "$2"
+
+# Opt-in: reads private local logs and samples one session from each size quintile.
+session-e2e:
+    uv run --with "$SESSION_PROFILER_DEPENDENCY" pytest -q -m session_e2e -o addopts="--strict-config --strict-markers --disable-socket" tests/e2e
 
 # Apply the newest tagged scaffold release with Copier's three-way merge.
 scaffold-update:

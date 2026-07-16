@@ -11,6 +11,11 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Add provider-neutral Claude Code and Codex session evidence through the
+  opt-in, commit-pinned private `session-profiler-optimizer` module. Its Harbor 0.18.0
+  converter turns immutable native snapshots into ATIF-v1.7 plus deterministic
+  TSV/route/blob/manifest views with fail-closed identity and hash checks. An
+  opt-in consumer E2E test samples real private logs across five size quantiles.
 - Make scaffold updates executable through `just scaffold-update`. Packaged
   generation records the durable GitHub source, and the pinned Copier command
   reuses saved answers without inheriting the project's bytecode-cache path.

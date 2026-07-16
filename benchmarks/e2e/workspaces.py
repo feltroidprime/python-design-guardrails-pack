@@ -19,11 +19,14 @@ from yaml import safe_dump, safe_load
 from benchmarks.e2e.config import ARM_BARE, ARM_GUARDRAILS, BenchmarkConfig
 from instantiate import environment_without_local_git_context, without_local_git_context
 
-_GIT_IDENTITY = (
+_GIT_COMMAND_CONFIG = (
     "-c",
     "user.name=guardrails-benchmark",
     "-c",
     "user.email=guardrails-benchmark@localhost",
+    # A detached auto-gc can recreate .git/info after an ephemeral arm is removed.
+    "-c",
+    "gc.auto=0",
 )
 _LOCAL_GIT_ENVIRONMENT = {
     "GIT_ALTERNATE_OBJECT_DIRECTORIES",
@@ -74,7 +77,7 @@ class Workspace:
 
 
 def _git(arguments: tuple[str, ...], cwd: Path) -> str:
-    command = ("git", *_GIT_IDENTITY, *arguments)
+    command = ("git", *_GIT_COMMAND_CONFIG, *arguments)
     completed = subprocess.run(
         command,
         cwd=cwd,

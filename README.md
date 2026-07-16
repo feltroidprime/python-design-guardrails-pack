@@ -44,7 +44,7 @@ The payoff is direct: less setup, less review churn, faster safe changes, and a 
 
 ## Start a repository
 
-Requires Python 3.14, [`uv`](https://docs.astral.sh/uv/), [`just`](https://github.com/casey/just), and [`bun`](https://bun.sh). Install `gh` only if you want automatic GitHub repository creation.
+Requires Python 3.14, [`uv`](https://docs.astral.sh/uv/), [`just`](https://github.com/casey/just), and [`bun`](https://bun.sh). Install [`gh`](https://cli.github.com/) for automatic GitHub repository creation or the opt-in private session profiler; standard bootstrap, checks, and generated CI do not resolve that private package.
 
 ```bash
 just install
@@ -108,6 +108,7 @@ One opinionated stack. One reason for every choice.
 | Error translation and context-managed resources | Keep infrastructure failures out of the core and lifecycle cleanup explicit. |
 | Shared adapter contract tests | Prove every implementation obeys the same behavior. |
 | Versioned agent-native CLI contract | Provide stable JSON, exit codes, capabilities, bounded queries, and human output without prompts or TTY assumptions. |
+| Claude/Codex session evidence | Import a commit-pinned private Python module that converts complete native transcripts through Harbor 0.18.0 into ATIF-v1.7, compact TSV/route views, content-addressed blobs, and a self-checking manifest without semantic inference; opt-in E2E sampling spans five local size quantiles per agent. |
 | AST architecture guard | Enforce domain purity, immutable messages, size limits, package surfaces, suppressions, and CLI boundaries. |
 | None and Path discipline | Parse uncertainty and filesystem text at the edge instead of infecting the core. |
 | Import Linter contracts | Make dependency direction and adapter independence build failures. |

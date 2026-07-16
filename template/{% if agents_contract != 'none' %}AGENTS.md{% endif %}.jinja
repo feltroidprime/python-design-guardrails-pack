@@ -42,6 +42,27 @@ pack release; `just update` remains dependency-only. Resolve Copier conflicts,
 then complete the same `just check` loop before committing the update. Never
 edit `.copier-answers.yml` by hand.
 
+### Session evidence
+
+When this coding session must be retained for harness analysis, run
+`just session-log <transcript> .agent-sessions/<unique-name>` before handoff.
+Use a Codex rollout under `~/.codex/sessions/`, never
+`~/.codex/history.jsonl`. For Claude, use the primary JSONL; its matching
+`subagents` tree is included automatically. The ignored `.agent-sessions` tree
+can contain sensitive source, prompts, and tool results. Do not edit the
+evidence bundle: its hashes,
+coverage, metric consistency, and blob references are verified by
+`manifest.json`. See `docs/adr/0004-agent-session-evidence.md` for the stable
+API, immutable private-package pin, and deterministic format. Converter fixes
+belong in `session-profiler-optimizer`; this repository owns only the thin
+compatibility facade and consumer integration.
+Use `just session-e2e` only for an explicit local importer check: it reads
+private logs from the current user's home directory and samples both agents by
+session-size quintile. Routine `just check` deliberately excludes it.
+The private package is injected only for these opt-in commands. Before either
+one, authenticate `gh` for the package repository and run `gh auth setup-git`;
+baseline bootstrap and CI do not resolve it.
+
 ## Layer ownership
 
 ### `domain`

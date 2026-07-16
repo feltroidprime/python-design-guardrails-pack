@@ -12,6 +12,7 @@ coverage.xml
 htmlcov/
 dist/
 build/
+.agent-sessions/
 *.egg-info/
 .DS_Store
 .idea/

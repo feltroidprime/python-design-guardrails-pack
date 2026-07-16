@@ -118,7 +118,7 @@ suppress-dummy-args = true
 [tool.ruff.lint.isort]
 # "tests" is declared explicitly because namespace packages (no __init__.py)
 # are not auto-detected as first-party.
-known-first-party = ["{{ package }}", "tests"]
+known-first-party = ["{{ package }}", "scripts", "tests"]
 combine-as-imports = true
 force-sort-within-sections = true
 
@@ -178,6 +178,8 @@ addopts = [
   "--strict-config",
   "--strict-markers",
   "--disable-socket",
+  "-m",
+  "not session_e2e",
   "--cov={{ package }}",
   "--cov-branch",
   "--cov-report=term-missing:skip-covered",
@@ -186,6 +188,7 @@ addopts = [
 markers = [
   "contract: shared behavioral contract for a port implementation",
   "integration: deterministic integration test across real local components",
+  "session_e2e: opt-in conversion of private Claude Code and Codex session logs",
 ]
 xfail_strict = true
 
