@@ -1,0 +1,153 @@
+"""Dormant process obligations for future destructive catalog commands."""
+
+from dataclasses import replace
+import json
+import subprocess
+import sys
+from typing import TYPE_CHECKING, cast
+
+import pytest
+
+from {{ package }}.adapters.inbound.cli_catalog import COMMAND_CATALOG
+from {{ package }}.adapters.inbound.cli_contract import DestructiveSafety
+from tests.contract.cli_case_primitives import (
+    ArtifactEffectProbe,
+    NotApplicableEffectProbe,
+    ReadbackEffectProbe,
+)
+from tests.contract.cli_contract_cases import (
+    CLI_CONTRACT_CASES,
+    MutationContractCase,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+DESTRUCTIVE_CASES = tuple(
+    case
+    for case in CLI_CONTRACT_CASES
+    if isinstance(case, MutationContractCase) and case.safety_kind == "destructive"
+)
+
+
+def run_process(args: tuple[str, ...], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0005
+        [sys.executable, "-m", "{{ package }}", *args],
+        cwd=cwd,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+
+def mapping(value: object) -> dict[str, object]:
+    assert isinstance(value, dict)
+    return cast("dict[str, object]", value)
+
+
+def document(raw: str) -> dict[str, object]:
+    return mapping(cast("object", json.loads(raw)))
+
+
+def case_id(case: MutationContractCase) -> str:
+    return case.name
+
+
+def observe_effects(case: MutationContractCase, *, cwd: Path) -> dict[str, object]:
+    observations: dict[str, object] = {}
+    for probe in case.effect_probes:
+        match probe:
+            case ReadbackEffectProbe():
+                completed = run_process(probe.args, cwd=cwd)
+                assert completed.returncode == 0
+                observations[probe.category] = completed.stdout
+            case ArtifactEffectProbe():
+                artifact = cwd / probe.path
+                observations[probe.category] = (
+                    artifact.exists(),
+                    artifact.read_bytes() if artifact.exists() else b"",
+                )
+            case NotApplicableEffectProbe():
+                observations[probe.category] = None
+    return observations
+
+
+@pytest.mark.integration
+def test_catalog_and_cases_agree_on_closed_safety_variants() -> None:
+    cases = {case.name: case for case in CLI_CONTRACT_CASES}
+
+    for spec in COMMAND_CATALOG:
+        case = cases[spec.name.value]
+        expected = case.safety_kind if isinstance(case, MutationContractCase) else "non-destructive"
+        actual = "destructive" if isinstance(spec.safety, DestructiveSafety) else "non-destructive"
+        assert actual == expected
+        if isinstance(spec.safety, DestructiveSafety):
+            assert isinstance(case, MutationContractCase)
+            assert spec.safety.preview_control == case.preview_control
+            assert spec.safety.confirmation_control == case.confirmation_control
+            assert spec.safety.plan_fields == case.preview_plan_fields
+
+
+@pytest.mark.integration
+def test_destructive_case_shape_rejects_metadata_without_process_scenarios() -> None:
+    mutation = next(case for case in CLI_CONTRACT_CASES if isinstance(case, MutationContractCase))
+
+    with pytest.raises(ValueError, match="setup, preview, and confirmation"):
+        _ = replace(mutation, safety_kind="destructive")
+
+
+@pytest.mark.integration
+def test_destructive_case_shape_requires_event_and_destination_effect_probes() -> None:
+    mutation = next(case for case in CLI_CONTRACT_CASES if isinstance(case, MutationContractCase))
+
+    with pytest.raises(ValueError, match="every categorized effect probe"):
+        _ = replace(
+            mutation,
+            safety_kind="destructive",
+            setup_args=(("add", "Fixture"),),
+            preview_control="--dry-run",
+            confirmation_control="--confirm",
+            preview_args=("remove", "--dry-run"),
+            confirmed_args=("remove", "--confirm"),
+            unconfirmed_args=("remove",),
+            preview_plan_fields=("effects",),
+            unconfirmed_error_code="confirmation_required",
+        )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("case", DESTRUCTIVE_CASES, ids=case_id)
+def test_destructive_cases_preview_without_effect_and_fail_closed(
+    case: MutationContractCase, tmp_path: Path
+) -> None:
+    for args in case.setup_args:
+        assert run_process(args, cwd=tmp_path).returncode == 0
+    before = observe_effects(case, cwd=tmp_path)
+
+    preview = run_process(case.preview_args, cwd=tmp_path)
+    plan = mapping(mapping(document(preview.stdout)["data"])["plan"])
+    after_preview = observe_effects(case, cwd=tmp_path)
+    unconfirmed = run_process(case.unconfirmed_args, cwd=tmp_path)
+    failure = mapping(document(unconfirmed.stderr)["error"])
+    after_unconfirmed = observe_effects(case, cwd=tmp_path)
+    confirmed = run_process(case.confirmed_args, cwd=tmp_path)
+    after_confirmed = observe_effects(case, cwd=tmp_path)
+
+    assert preview.returncode == 0
+    assert preview.stderr == ""
+    assert len(preview.stdout.splitlines()) == 1
+    assert set(plan) == set(case.preview_plan_fields)
+    assert after_preview == before
+    assert unconfirmed.returncode == case.unconfirmed_exit_code
+    assert unconfirmed.stdout == ""
+    assert failure["code"] == case.unconfirmed_error_code
+    assert case.confirmation_control in cast("str", failure["hint"])
+    assert after_unconfirmed == before
+    assert confirmed.returncode == 0
+    for probe in case.effect_probes:
+        if isinstance(probe, NotApplicableEffectProbe):
+            continue
+        changed = after_confirmed[probe.category] != before[probe.category]
+        assert changed is probe.changes_on_confirmation

@@ -1,0 +1,124 @@
+"""Conditional-idempotency behavior at the detached CLI process seam."""
+
+import base64
+from contextlib import closing
+import hashlib
+import json
+import sqlite3
+import subprocess
+import sys
+from typing import TYPE_CHECKING, cast
+
+import pytest
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+def run_process(args: tuple[str, ...], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0003
+        [sys.executable, "-m", "{{ package }}", *args],
+        cwd=cwd,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+
+def mapping(value: object) -> dict[str, object]:
+    assert isinstance(value, dict)
+    return cast("dict[str, object]", value)
+
+
+def document(raw: str) -> dict[str, object]:
+    return mapping(cast("object", json.loads(raw)))
+
+
+def item_count(cwd: Path) -> int:
+    completed = run_process(("list", "--limit", "200"), cwd=cwd)
+    items = mapping(document(completed.stdout)["data"])["items"]
+    assert isinstance(items, list)
+    return len(cast("list[object]", items))
+
+
+@pytest.mark.integration
+def test_same_key_and_normalized_request_replays_the_original_result(tmp_path: Path) -> None:
+    key = "caller-secret-key"
+    first = run_process(("add", "  Stable item  ", "--idempotency-key", key), cwd=tmp_path)
+    second = run_process(("add", "Stable item", "--idempotency-key", key), cwd=tmp_path)
+    first_document = document(first.stdout)
+    second_document = document(second.stdout)
+    first_metadata = mapping(first_document["metadata"])
+    second_metadata = mapping(second_document["metadata"])
+
+    assert first.returncode == 0
+    assert second.returncode == 0
+    assert first.stderr == second.stderr == ""
+    assert first_document["data"] == second_document["data"]
+    assert first_metadata["operation_id"] == second_metadata["operation_id"]
+    assert first_metadata["retry_safe"] is True
+    assert second_metadata["retry_safe"] is True
+    assert first_metadata["replayed"] is False
+    assert second_metadata["replayed"] is True
+    assert item_count(tmp_path) == 1
+
+
+@pytest.mark.integration
+def test_same_key_with_different_request_is_a_redacted_stable_conflict(tmp_path: Path) -> None:
+    key = "do-not-leak-this-key"
+    first = run_process(("add", "Original", "--idempotency-key", key), cwd=tmp_path)
+    assert first.returncode == 0
+
+    conflict = run_process(("add", "Different", "--idempotency-key", key), cwd=tmp_path)
+    error = mapping(document(conflict.stderr)["error"])
+    encoded_key = base64.b64encode(key.encode()).decode()
+    visible_output = first.stdout + first.stderr + conflict.stdout + conflict.stderr
+    with closing(sqlite3.connect(tmp_path / "items.db")) as connection:
+        stored = cast(
+            "object",
+            connection.execute("SELECT key_digest FROM item_idempotency").fetchone(),
+        )
+
+    assert conflict.returncode == 3
+    assert conflict.stdout == ""
+    assert error["code"] == "idempotency_conflict"
+    assert error["retryable"] is False
+    assert error["details"] == {"conflicting_field": "idempotency_key"}
+    assert "new --idempotency-key" in cast("str", error["hint"])
+    assert key not in visible_output
+    assert encoded_key not in visible_output
+    assert stored == (hashlib.sha256(key.encode()).hexdigest(),)
+    assert "Traceback" not in conflict.stderr
+    assert item_count(tmp_path) == 1
+
+
+@pytest.mark.integration
+def test_create_without_a_key_remains_explicitly_unsafe(tmp_path: Path) -> None:
+    first = document(run_process(("add", "Unsafe"), cwd=tmp_path).stdout)
+    second = document(run_process(("add", "Unsafe"), cwd=tmp_path).stdout)
+    first_metadata = mapping(first["metadata"])
+    second_metadata = mapping(second["metadata"])
+
+    assert first_metadata["retry_safe"] is False
+    assert second_metadata["retry_safe"] is False
+    assert first_metadata["replayed"] is False
+    assert second_metadata["replayed"] is False
+    assert first_metadata["operation_id"] != second_metadata["operation_id"]
+    assert item_count(tmp_path) == 2
+
+
+@pytest.mark.integration
+def test_create_and_default_list_share_the_item_wire_shape(tmp_path: Path) -> None:
+    created = document(
+        run_process(("add", "Shared shape", "--idempotency-key", "shape-key"), cwd=tmp_path).stdout
+    )
+    listed = document(run_process(("list", "--limit", "10"), cwd=tmp_path).stdout)
+    created_item = mapping(mapping(created["data"])["item"])
+    listed_items = mapping(listed["data"])["items"]
+
+    assert isinstance(listed_items, list)
+    assert cast("list[object]", listed_items) == [created_item]
+    assert set(created_item) == {"id", "name"}
+    assert all(isinstance(value, str) for value in created_item.values())

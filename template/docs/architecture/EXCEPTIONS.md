@@ -2,11 +2,10 @@
 
 ## Active exceptions
 
-### ADR-0003 — subprocess execution at the mandatory CLI process seam
+### ADR-0003 / ADR-0005 — subprocess execution at the mandatory CLI process seam
 
-- Files/diagnostics: `tests/integration/test_cli.py` and
-  `tests/integration/test_cli_contract.py`, Ruff S603 on their single
-  `subprocess.run` helper calls.
+- Files/diagnostics: the `subprocess.run`/`subprocess.Popen` helpers under
+  `tests/integration/` that carry an ADR-0003 or ADR-0005 marker, Ruff S603.
 - Owner: repository maintainers.
 - Reason: the CLI contract must observe the installed process with detached
   stdin, real streams, exit status, isolated working directory, and timeout;
@@ -15,7 +14,7 @@
 - Revisit trigger: the test runner provides a typed process fixture that Ruff
   can recognize as safe, or either helper accepts input outside closed test
   cases.
-- Removal criteria: replace both helper calls with an equally complete process
+- Removal criteria: replace the helper calls with an equally complete process
   seam that needs no S603 suppression.
 
 ### ADR-0003 — argparse override parameter retains its framework name

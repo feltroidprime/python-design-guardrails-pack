@@ -10,3 +10,9 @@ class TestMemoryItemRepository(ItemRepositoryContract):
     @pytest.fixture
     def repository(self) -> MemoryItemRepository:
         return MemoryItemRepository()
+
+    @pytest.fixture
+    def concurrent_repositories(
+        self, repository: MemoryItemRepository
+    ) -> tuple[MemoryItemRepository, MemoryItemRepository]:
+        return repository, repository

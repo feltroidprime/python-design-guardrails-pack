@@ -1,0 +1,51 @@
+"""Application-owned values for atomic conditional idempotency."""
+
+from collections.abc import Callable
+from dataclasses import dataclass
+import hashlib
+from typing import TYPE_CHECKING
+
+from {{ package }}.application.errors import InvalidIdempotencyKeyError
+
+if TYPE_CHECKING:
+    from {{ package }}.domain.entities import Item
+    from {{ package }}.domain.value_objects import ItemName
+
+MAX_IDEMPOTENCY_KEY_LENGTH = 200
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class IdempotencyKey:
+    """Caller secret whose digest is the only persistence identity."""
+
+    value: str
+
+    def __post_init__(self) -> None:
+        if not self.value.strip() or len(self.value) > MAX_IDEMPOTENCY_KEY_LENGTH:
+            raise InvalidIdempotencyKeyError(
+                "Idempotency keys must be non-blank and at most 200 characters."
+            )
+
+    @property
+    def storage_value(self) -> str:
+        return hashlib.sha256(self.value.encode()).hexdigest()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RequestFingerprint:
+    """Stable digest of the normalized create request."""
+
+    value: str
+
+    @classmethod
+    def for_item_name(cls, name: ItemName) -> RequestFingerprint:
+        return cls(value=hashlib.sha256(name.value.encode()).hexdigest())
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class IdempotentCreateResult:
+    item: Item
+    replayed: bool
+
+
+type ItemFactory = Callable[[], Item]

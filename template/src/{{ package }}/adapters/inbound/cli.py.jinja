@@ -4,9 +4,10 @@ import argparse
 import sys
 from typing import TYPE_CHECKING, NoReturn, override
 
-from {{ package }}.adapters.inbound.cli_catalog import (
-    COMMAND_CATALOG,
+from {{ package }}.adapters.inbound.cli_catalog import COMMAND_CATALOG
+from {{ package }}.adapters.inbound.cli_contract import (
     ArgumentSpec,
+    ChoiceOption,
     CommandName,
     CommandPolicy,
     FlagOption,
@@ -15,9 +16,12 @@ from {{ package }}.adapters.inbound.cli_catalog import (
     PageLimitOption,
     PositionalText,
     QueryPolicy,
+    QuietOption,
     TextOption,
+    shared_outcome,
 )
-from {{ package }}.adapters.inbound.cli_protocol import ExitCode, write_failure
+from {{ package }}.adapters.inbound.cli_outcomes import ExitCode, OutcomeCode
+from {{ package }}.adapters.inbound.cli_protocol import FailureBody, write_failure
 from {{ package }}.adapters.inbound.cli_runtime import (
     AddRequest,
     CapabilitiesRequest,
@@ -25,6 +29,7 @@ from {{ package }}.adapters.inbound.cli_runtime import (
     ListRequest,
     execute,
 )
+from {{ package }}.application.query_models import DEFAULT_ITEM_FIELDS, ItemField
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -34,20 +39,32 @@ if TYPE_CHECKING:
 
     from {{ package }}.application.use_cases import CreateItem, ListItems
 
+_NO_DEFAULT = object()
+
 
 class _RawArguments:
     command: str
     name: str
+    idempotency_key: str
     limit: int
     continuation: str
+    name_contains: str
+    kind: str
+    fields: list[str]
+    quiet: bool
     output_format: str
     debug: bool
 
     def __init__(self) -> None:
         self.command = ""
         self.name = ""
+        self.idempotency_key = ""
         self.limit = 0
         self.continuation = ""
+        self.name_contains = ""
+        self.kind = ""
+        self.fields = []
+        self.quiet = False
         self.output_format = ""
         self.debug = False
 
@@ -95,11 +112,18 @@ def _parser(*, out: TextIO) -> _ContractParser:
     parser.bind_output(out)
     commands = parser.add_subparsers(dest="command", required=True)
     for spec in COMMAND_CATALOG:
+        stdin_help = f"stdin: {spec.input_policy.stdin.value}"
+        if spec.input_policy.stdin_marker:
+            stdin_help += f" via {spec.input_policy.stdin_marker}"
         command = commands.add_parser(
             spec.name.value,
             help=spec.purpose,
             description=spec.purpose,
-            epilog=f"Automation example: {spec.automation_example}",
+            epilog=(
+                f"Automation example: {spec.automation_example}\n"
+                f"Primary input: {spec.input_policy.primary.value}; "
+                f"{stdin_help}."
+            ),
             allow_abbrev=False,
             suggest_on_error=True,
             color=False,
@@ -126,39 +150,118 @@ def _add_catalog_argument(
 ) -> None:
     match argument:
         case PositionalText():
-            _ = parser.add_argument(argument.name, help=argument.help)
+            help_text = _typed_help(argument.help, "text", required=True)
+            _ = parser.add_argument(argument.name, help=help_text)
         case TextOption():
-            _ = parser.add_argument(
-                argument.flag,
-                dest=argument.destination,
-                help=argument.help,
-                default=argument.default,
-            )
+            _add_text_option(parser, argument)
         case PageLimitOption():
-            if not isinstance(policy, QueryPolicy):
-                raise TypeError("Page limits require a query policy.")
-            _ = parser.add_argument(
-                argument.flag,
-                dest=argument.destination,
-                help=f"{argument.help} (maximum: {policy.maximum_limit})",
-                type=_bounded_positive_integer(policy.maximum_limit),
-                default=policy.default_limit,
-            )
+            _add_page_limit(parser, argument, policy=policy)
         case OutputOption():
-            _ = parser.add_argument(
-                "--format",
-                dest="output_format",
-                choices=[mode.value for mode in output_modes],
-                default=default_output_mode.value,
-                help=f"output format (default: {default_output_mode.value})",
+            _add_output_option(
+                parser, output_modes=output_modes, default_output_mode=default_output_mode
             )
         case FlagOption():
-            _ = parser.add_argument(
-                argument.flag,
-                dest=argument.destination,
-                action="store_true",
-                help=argument.help,
-            )
+            _add_flag_option(parser, argument)
+        case ChoiceOption():
+            _add_choice_option(parser, argument)
+        case QuietOption():
+            _add_quiet_option(parser)
+
+
+def _add_text_option(parser: _ContractParser, argument: TextOption) -> None:
+    help_text = _typed_help(argument.help, "text", default=argument.default)
+    _ = parser.add_argument(
+        argument.flag, dest=argument.destination, help=help_text, default=argument.default
+    )
+
+
+def _add_page_limit(
+    parser: _ContractParser, argument: PageLimitOption, *, policy: CommandPolicy
+) -> None:
+    if not isinstance(policy, QueryPolicy):
+        raise TypeError("Page limits require a query policy.")
+    help_text = _typed_help(
+        f"{argument.help}; maximum: {policy.maximum_limit}",
+        "integer",
+        default=policy.default_limit,
+    )
+    _ = parser.add_argument(
+        argument.flag,
+        dest=argument.destination,
+        help=help_text,
+        type=_bounded_positive_integer(policy.maximum_limit),
+        default=policy.default_limit,
+    )
+
+
+def _add_output_option(
+    parser: _ContractParser,
+    *,
+    output_modes: tuple[OutputMode, ...],
+    default_output_mode: OutputMode,
+) -> None:
+    choices = tuple(mode.value for mode in output_modes if mode != OutputMode.QUIET)
+    help_text = _typed_help(
+        "output format",
+        "choice",
+        default=default_output_mode.value,
+        choices=choices,
+    )
+    _ = parser.add_argument(
+        "--format", dest="output_format", choices=choices, default="", help=help_text
+    )
+
+
+def _add_flag_option(parser: _ContractParser, argument: FlagOption) -> None:
+    help_text = _typed_help(argument.help, "boolean", default=False)
+    _ = parser.add_argument(
+        argument.flag, dest=argument.destination, action="store_true", help=help_text
+    )
+
+
+def _add_choice_option(parser: _ContractParser, argument: ChoiceOption) -> None:
+    help_text = _typed_help(
+        argument.help,
+        "choice",
+        default=argument.default,
+        choices=argument.choices,
+        repeatable=argument.repeatable,
+    )
+    _ = parser.add_argument(
+        argument.flag,
+        dest=argument.destination,
+        choices=argument.choices,
+        action="append" if argument.repeatable else "store",
+        default=[] if argument.repeatable else argument.default,
+        help=help_text,
+    )
+
+
+def _add_quiet_option(parser: _ContractParser) -> None:
+    help_text = _typed_help("write one selected value per line", "boolean", default=False)
+    _ = parser.add_argument("-q", "--quiet", dest="quiet", action="store_true", help=help_text)
+
+
+def _typed_help(
+    text: str,
+    value_type: str,
+    *,
+    required: bool = False,
+    default: object = _NO_DEFAULT,
+    choices: tuple[str, ...] = (),
+    repeatable: bool = False,
+) -> str:
+    facts = [f"type: {value_type}"]
+    if required:
+        facts.append("required")
+    if default is not _NO_DEFAULT:
+        rendered = "empty" if default in {None, ""} else str(default).lower()
+        facts.append(f"default: {rendered}")
+    if choices:
+        facts.append(f"choices: {', '.join(choices)}")
+    if repeatable:
+        facts.append("repeatable")
+    return f"{text} ({'; '.join(facts)})"
 
 
 def _bounded_positive_integer(maximum: int) -> Callable[[str], int]:
@@ -181,25 +284,53 @@ def _parse(argv: Sequence[str], *, parser: _ContractParser) -> CliRequest:
         case CommandName.ADD:
             return AddRequest(
                 raw_name=raw.name,
-                output_mode=OutputMode(raw.output_format),
+                idempotency_key=raw.idempotency_key,
+                output_mode=_output_mode(raw, parser=parser),
                 debug=raw.debug,
             )
         case CommandName.CAPABILITIES:
+            fields = tuple(raw.fields)
+            if len(fields) != len(set(fields)):
+                parser.error("--field values must be unique")
+            if raw.quiet and len(fields) != 1:
+                parser.error("--quiet requires exactly one --field")
             return CapabilitiesRequest(
                 limit=raw.limit,
                 continuation=raw.continuation,
-                output_mode=OutputMode(raw.output_format),
+                name_contains=raw.name_contains,
+                kind=raw.kind,
+                fields=fields,
+                output_mode=_output_mode(raw, parser=parser),
                 debug=raw.debug,
             )
         case CommandName.LIST:
+            fields = tuple(ItemField(field) for field in raw.fields) or DEFAULT_ITEM_FIELDS
+            if len(fields) != len(set(fields)):
+                parser.error("--field values must be unique")
+            if raw.quiet and len(fields) != 1:
+                parser.error("--quiet requires exactly one --field")
             return ListRequest(
                 limit=raw.limit,
                 continuation=raw.continuation,
-                output_mode=OutputMode(raw.output_format),
+                name_contains=raw.name_contains,
+                fields=fields,
+                output_mode=_output_mode(raw, parser=parser),
                 debug=raw.debug,
             )
         case _:
             raise AssertionError("The parser accepted a command absent from the closed catalog.")
+
+
+def _output_mode(raw: _RawArguments, *, parser: _ContractParser) -> OutputMode:
+    if raw.quiet and raw.output_format:
+        parser.error("--quiet cannot be combined with --format")
+    if raw.quiet:
+        return OutputMode.QUIET
+    if raw.output_format:
+        return OutputMode(raw.output_format)
+    return next(
+        spec.default_output_mode for spec in COMMAND_CATALOG if spec.name.value == raw.command
+    )
 
 
 def run(
@@ -224,10 +355,11 @@ def run(
         )
         write_failure(
             command=str(command),
-            code="invalid_syntax",
-            message=error.message,
-            retryable=False,
-            hint=f"Run '{help_invocation}' and correct the invocation.",
+            failure=FailureBody(
+                outcome=shared_outcome(OutcomeCode.INVALID_SYNTAX),
+                message=error.message,
+                hint=f"Run '{help_invocation}' and correct the invocation.",
+            ),
             err=err,
         )
         return ExitCode.SYNTAX

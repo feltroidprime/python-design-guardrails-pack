@@ -1,0 +1,98 @@
+"""Small exact-case declarations shared by command contract variants."""
+
+from dataclasses import dataclass
+from itertools import pairwise
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InputContractCase:
+    primary: Literal["arguments"]
+    stdin: Literal["forbidden", "optional", "required"]
+    stdin_marker: str
+    ordinary_args: tuple[str, ...]
+    stdin_args: tuple[str, ...]
+    payload: bytes
+    structured_args: tuple[tuple[str, ...], ...] = ()
+    stdin_expected_value: str = ""
+    stdin_readback_args: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        accepts_stdin = self.stdin in {"optional", "required"}
+        if accepts_stdin != (self.stdin_marker == "-"):
+            raise ValueError("Accepted stdin cases require the documented '-' marker.")
+        if not self.ordinary_args:
+            raise ValueError("Input cases require an ordinary-argument success invocation.")
+        if not self.stdin_args or not self.payload:
+            raise ValueError("Input cases require a stdin probe and observable payload.")
+        if accepts_stdin and self.stdin_marker not in self.stdin_args:
+            raise ValueError("Accepted stdin cases must exercise the documented marker.")
+        if self.stdin == "required" and self.stdin_marker not in self.ordinary_args:
+            raise ValueError("Required stdin cases keep typed arguments plus the stdin marker.")
+        if accepts_stdin and (
+            not self.stdin_expected_value or self.stdin_expected_value not in self.payload.decode()
+        ):
+            raise ValueError("Accepted stdin cases require a payload-derived expected value.")
+        if not accepts_stdin and (self.stdin_expected_value or self.stdin_readback_args):
+            raise ValueError("Forbidden stdin cases cannot declare stdin effects.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class QueryFilterCase:
+    control: str
+    args: tuple[str, ...]
+    expected_values: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.control.startswith("--") or self.control not in self.args:
+            raise ValueError("Query filter cases must exercise their declared control.")
+        if not self.expected_values:
+            raise ValueError("Query filter cases require observable selected values.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class QueryFieldCase:
+    field: str
+    args: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.field or not any(
+            left == "--field" and right == self.field for left, right in pairwise(self.args)
+        ):
+            raise ValueError("Query field cases must exercise their selected field.")
+
+
+type EffectCategory = Literal["domain", "persistence", "event", "audit", "destination"]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ReadbackEffectProbe:
+    category: EffectCategory
+    args: tuple[str, ...]
+    changes_on_confirmation: bool
+
+    def __post_init__(self) -> None:
+        if not self.args:
+            raise ValueError("Readback effect probes require an observable CLI invocation.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ArtifactEffectProbe:
+    category: EffectCategory
+    path: Path
+    changes_on_confirmation: bool
+
+    def __post_init__(self) -> None:
+        if self.path.is_absolute() or ".." in self.path.parts or not str(self.path).strip():
+            raise ValueError("Artifact effect probes must stay inside the process workspace.")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class NotApplicableEffectProbe:
+    category: EffectCategory
+
+
+type EffectProbe = ReadbackEffectProbe | ArtifactEffectProbe | NotApplicableEffectProbe

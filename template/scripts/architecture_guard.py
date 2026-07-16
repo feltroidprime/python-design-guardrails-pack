@@ -32,6 +32,7 @@ MARKER_SUPPRESSIBLE_CODES = frozenset(
         "ARCH022",
         "ARCH023",
         "ARCH024",
+        "ARCH025",
     }
 )
 

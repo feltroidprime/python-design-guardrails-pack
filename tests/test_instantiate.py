@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "100844b8a86675734ffaf3d6c75a25317c1b369510a545a022f96d24eb27b2fd"
+EXPECTED_GENERATED_TREE_SHA256 = "4953329608a0488c5cebd687e0dce20045ebc24449964a0cac4e703e62b54d05"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -56,6 +56,7 @@ EXPECTED_FILES = (
     "docs/adr/0002-foundation-ports-and-reference-adapters.md",
     "docs/adr/0003-agent-native-cli-protocol.md",
     "docs/adr/0004-agent-session-evidence.md",
+    "docs/adr/0005-agent-input-retry-and-composition-contract.md",
     "docs/architecture/EXCEPTIONS.md",
     "docs/architecture/likec4/generated/baseline-views.c4",
     "docs/architecture/likec4/generated/model.c4",
@@ -77,18 +78,30 @@ EXPECTED_FILES = (
     "tests/e2e/test_real_agent_sessions.py",
     f"src/{PACKAGE_NAME}/__main__.py",
     f"src/{PACKAGE_NAME}/adapters/inbound/cli_catalog.py",
+    f"src/{PACKAGE_NAME}/adapters/inbound/cli_contract.py",
+    f"src/{PACKAGE_NAME}/adapters/inbound/cli_outcomes.py",
     f"src/{PACKAGE_NAME}/adapters/inbound/cli_protocol.py",
     f"src/{PACKAGE_NAME}/adapters/inbound/cli_runtime.py",
     f"src/{PACKAGE_NAME}/adapters/outbound/sqlite_repository.py",
     f"src/{PACKAGE_NAME}/application/errors.py",
+    f"src/{PACKAGE_NAME}/application/idempotency.py",
     f"src/{PACKAGE_NAME}/application/query_models.py",
     f"src/{PACKAGE_NAME}/bootstrap.py",
     f"src/{PACKAGE_NAME}/domain/value_objects.py",
     f"src/{PACKAGE_NAME}/py.typed",
     "tests/contract/item_repository_contract.py",
+    "tests/contract/cli_case_primitives.py",
     "tests/contract/cli_contract_cases.py",
+    "tests/contract/cli_outcome_cases.py",
+    "tests/integration/test_cli_case_shapes.py",
     "tests/integration/test_cli_contract.py",
     "tests/e2e/test_session_evidence.py",
+    "tests/integration/test_cli_composability.py",
+    "tests/integration/test_cli_discovery.py",
+    "tests/integration/test_cli_idempotency.py",
+    "tests/integration/test_cli_input_contract.py",
+    "tests/integration/test_cli_outcomes.py",
+    "tests/integration/test_cli_safety_contract.py",
     "tests/unit/adapters/test_cli_protocol.py",
     "tests/unit/domain/test_value_objects.py",
 )

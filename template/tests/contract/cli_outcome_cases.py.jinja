@@ -1,0 +1,154 @@
+"""Independent behavior cases for every public command outcome."""
+
+from dataclasses import dataclass
+from typing import Literal
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class OutcomeContractCase:
+    command: Literal["add", "capabilities", "list"]
+    code: str
+    args: tuple[str, ...]
+    pre_args: tuple[tuple[str, ...], ...]
+    exit_code: Literal[2, 3, 4, 70]
+    retryable: bool
+    detail_keys: tuple[str, ...]
+    process_condition: Literal["ordinary", "broken_stdout", "incompatible_store"] = "ordinary"
+
+    def __post_init__(self) -> None:
+        if not self.code or not self.args or self.args[0] != self.command:
+            raise ValueError("Outcome cases require one command-owned invocation.")
+        if self.retryable != (self.exit_code == 4):
+            raise ValueError("Only temporary outcome cases are retryable.")
+        if len(self.detail_keys) != len(set(self.detail_keys)):
+            raise ValueError("Outcome detail keys must be unique.")
+
+
+OUTCOME_CONTRACT_CASES = (
+    OutcomeContractCase(
+        command="add",
+        code="invalid_syntax",
+        args=("add", "--not-a-real-control"),
+        pre_args=(),
+        exit_code=2,
+        retryable=False,
+        detail_keys=(),
+    ),
+    OutcomeContractCase(
+        command="add",
+        code="unexpected_failure",
+        args=("add", "Unexpected"),
+        pre_args=(),
+        exit_code=70,
+        retryable=False,
+        detail_keys=(),
+        process_condition="broken_stdout",
+    ),
+    OutcomeContractCase(
+        command="add",
+        code="invalid_item_name",
+        args=("add", "   "),
+        pre_args=(),
+        exit_code=3,
+        retryable=False,
+        detail_keys=("field", "rejected_value"),
+    ),
+    OutcomeContractCase(
+        command="add",
+        code="invalid_idempotency_key",
+        args=("add", "Valid", "--idempotency-key", "   "),
+        pre_args=(),
+        exit_code=3,
+        retryable=False,
+        detail_keys=("field",),
+    ),
+    OutcomeContractCase(
+        command="add",
+        code="idempotency_conflict",
+        args=("add", "Different", "--idempotency-key", "conflict-key"),
+        pre_args=(("add", "Original", "--idempotency-key", "conflict-key"),),
+        exit_code=3,
+        retryable=False,
+        detail_keys=("conflicting_field",),
+    ),
+    OutcomeContractCase(
+        command="add",
+        code="dependency_unavailable",
+        args=("add", "Unavailable"),
+        pre_args=(),
+        exit_code=4,
+        retryable=True,
+        detail_keys=(),
+        process_condition="incompatible_store",
+    ),
+    OutcomeContractCase(
+        command="capabilities",
+        code="invalid_syntax",
+        args=("capabilities", "--not-a-real-control"),
+        pre_args=(),
+        exit_code=2,
+        retryable=False,
+        detail_keys=(),
+    ),
+    OutcomeContractCase(
+        command="capabilities",
+        code="unexpected_failure",
+        args=("capabilities",),
+        pre_args=(),
+        exit_code=70,
+        retryable=False,
+        detail_keys=(),
+        process_condition="broken_stdout",
+    ),
+    OutcomeContractCase(
+        command="capabilities",
+        code="invalid_continuation",
+        args=("capabilities", "--continuation", "not-a-token"),
+        pre_args=(),
+        exit_code=3,
+        retryable=False,
+        detail_keys=("reason",),
+    ),
+    OutcomeContractCase(
+        command="list",
+        code="invalid_syntax",
+        args=("list", "--not-a-real-control"),
+        pre_args=(),
+        exit_code=2,
+        retryable=False,
+        detail_keys=(),
+    ),
+    OutcomeContractCase(
+        command="list",
+        code="unexpected_failure",
+        args=("list",),
+        pre_args=(),
+        exit_code=70,
+        retryable=False,
+        detail_keys=(),
+        process_condition="broken_stdout",
+    ),
+    OutcomeContractCase(
+        command="list",
+        code="invalid_continuation",
+        args=(
+            "list",
+            "--continuation",
+            "eyJwb3NpdGlvbiI6IiAiLCJzZWxlY3Rpb24iOnsiZmllbGRzIjpbImlkIiwibmFtZSJdLCJuYW1lX2NvbnRhaW5zIjoiIn19",
+        ),
+        pre_args=(),
+        exit_code=3,
+        retryable=False,
+        detail_keys=("reason",),
+    ),
+    OutcomeContractCase(
+        command="list",
+        code="dependency_unavailable",
+        args=("list",),
+        pre_args=(),
+        exit_code=4,
+        retryable=True,
+        detail_keys=(),
+        process_condition="incompatible_store",
+    ),
+)

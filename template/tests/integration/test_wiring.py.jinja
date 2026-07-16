@@ -16,13 +16,13 @@ def test_sqlite_slice_persists_across_lifecycles(tmp_path: Path) -> None:
     database = tmp_path / "items.db"
 
     with sqlite_application(database) as application:
-        event = application.create_item(CreateItemCommand(name="Wired item"))
-        assert event.item_id.value
-        assert event.occurred_at.tzinfo is not None
+        result = application.create_item(CreateItemCommand(name="Wired item"))
+        assert result.item_id.value
+        assert result.replayed is False
 
     with sqlite_application(database) as application:
         page = application.list_items(ListItemsQuery(limit=10, start=FirstPage()))
-        assert [item.name.value for item in page.items] == ["Wired item"]
+        assert [[value.value for value in item.values][1] for item in page.items] == ["Wired item"]
 
 
 @pytest.mark.integration

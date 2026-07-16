@@ -168,6 +168,58 @@ def test_human_failures_are_explicit_prose() -> None:
 
 
 @pytest.mark.integration
+def test_conditional_idempotency_failures_use_the_in_process_translation_seam() -> None:
+    application = memory_application()
+    assert run_cli(application, ["add", "Original", "--idempotency-key", "shared"])[0] == 0
+
+    conflict = run_cli(application, ["add", "Different", "--idempotency-key", "shared"])
+    invalid_key = run_cli(application, ["add", "Valid", "--idempotency-key", "   "])
+
+    assert conflict[0] == 3
+    assert error_document(conflict[2])["code"] == "idempotency_conflict"
+    assert invalid_key[0] == 3
+    assert error_document(invalid_key[2])["code"] == "invalid_idempotency_key"
+
+
+@pytest.mark.integration
+def test_query_composition_and_continuation_errors_use_the_in_process_seam() -> None:
+    application = memory_application()
+    assert run_cli(application, ["add", "Selected"])[0] == 0
+
+    listed = run_cli(application, ["list", "--field", "name", "--quiet"])
+    capabilities = run_cli(
+        application, ["capabilities", "--field", "name", "--quiet", "--limit", "100"]
+    )
+    invalid_list = run_cli(application, ["list", "--continuation", "not-a-token"])
+    invalid_capabilities = run_cli(application, ["capabilities", "--continuation", "not-a-token"])
+
+    assert listed[:2] == (0, "Selected\n")
+    assert capabilities[0] == 0
+    assert capabilities[1] == "add\ncapabilities\nlist\n"
+    assert error_document(invalid_list[2])["code"] == "invalid_continuation"
+    assert error_document(invalid_capabilities[2])["code"] == "invalid_continuation"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["list", "--field", "name", "--field", "name"],
+        ["list", "--quiet"],
+        ["list", "--field", "name", "--quiet", "--format", "json"],
+        ["capabilities", "--field", "name", "--field", "name"],
+        ["capabilities", "--quiet"],
+    ],
+)
+def test_invalid_composition_fails_before_in_process_execution(argv: list[str]) -> None:
+    exit_code, out, err = run_cli(memory_application(), argv)
+
+    assert exit_code == 2
+    assert out == ""
+    assert error_document(err)["code"] == "invalid_syntax"
+
+
+@pytest.mark.integration
 def test_unexpected_failures_are_hidden_unless_debug_is_explicit(tmp_path: Path) -> None:
     connection = sqlite3.connect(tmp_path / "items.db")
     _ = connection.execute("CREATE TABLE items (item_id TEXT PRIMARY KEY, name TEXT NOT NULL)")
