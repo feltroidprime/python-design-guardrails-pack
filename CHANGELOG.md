@@ -11,6 +11,18 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-07-17
+
+- Add a `workspace_member` Copier question (default `false`). When true, the
+  generated project is a member of a uv workspace whose root owns the lockfile,
+  virtualenv, dev dependency group, and shared `ruff`/`basedpyright`/`pytest`/
+  `coverage` config: the generator then omits `.python-version`, the `prek.toml`
+  policy, those `pyproject.toml` tables, and the `uv sync`/`uv lock`/hook-install
+  steps from the justfile, so a member never creates its own environment or
+  lockfile. Per-package Import Linter contracts, the `src` layout, and the
+  `uv_build` build system stay. Standalone generation is byte-for-byte unchanged.
+- Document consuming published monorepo member packages as uv git dependencies
+  pinned to a tag via `[tool.uv.sources]` with a `packages/<name>` subdirectory.
 - Add provider-neutral Claude Code and Codex session evidence through the
   opt-in, commit-pinned private `session-profiler-optimizer` module. Its Harbor 0.18.0
   converter turns immutable native snapshots into ATIF-v1.7 plus deterministic
