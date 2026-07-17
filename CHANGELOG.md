@@ -11,6 +11,15 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Harden `just check` as a mechanical gate: before any repair or acceptance
+  work it verifies the prek pre-commit and pre-push shims in Git's common hooks
+  directory, repairs missing or invalid shims with `uv run prek install -f`, and
+  syntax-compiles every tracked Python file, including files no test imports.
+- Add a bounded `just doctor` readiness command with stable statuses for hooks,
+  working-tree cleanliness, default-branch synchronization, GitHub CLI auth,
+  `uv sync --check`, and Python version. Unavailable remote checks warn; local
+  defects fail the verdict and return non-zero.
+
 ## [v0.2.0] - 2026-07-17
 
 - Add a `workspace_member` Copier question (default `false`). When true, the

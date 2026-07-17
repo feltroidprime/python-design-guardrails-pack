@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "e6b3cd4319fe43bc07fa8b64ed9b807ff609e3f97797ffba43e4d8a0b3871908"
+EXPECTED_GENERATED_TREE_SHA256 = "dc155f29cd83125dc6f7157dcf2a9ec79f8d9bde35f2234e3ed18636161d316c"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -456,6 +456,17 @@ def test_generated_agent_contract_routes_scaffold_updates(generated: Path) -> No
     assert "Resolve Copier conflicts" in contract
 
 
+def test_generated_readiness_docs_route_doctor_before_publication(
+    generated: Path,
+) -> None:
+    readme = (generated / "README.md").read_text(encoding="utf-8")
+    contract = (generated / "AGENTS.md").read_text(encoding="utf-8")
+
+    assert "Run `just doctor` immediately before deployment or publication" in readme
+    assert "Every `fail` blocks the operation" in contract
+    assert "`warn` is reserved for an explicitly unavailable check" in contract
+
+
 def test_copier_migrations_are_wired() -> None:
     config = COPIER_CONFIG.read_text(encoding="utf-8")
 
@@ -595,11 +606,12 @@ def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> Non
     } == {".copier-answers.yml", "AGENTS.md"}
 
     expected_agents = baseline["AGENTS.md"].replace(
-        b"3. Green means the unmodified gate exits zero. Then report the behavior changed, tests "
+        b"4. Green means the unmodified gate exits zero. Then report the behavior changed, tests "
         b"added, architecture impact, and remaining risks.\n\n",
-        b"3. Green means the unmodified gate exits zero. Then report the behavior changed, tests "
+        b"4. Green means the unmodified gate exits zero. Then report the behavior changed, tests "
         b"added, architecture impact, and remaining risks.\n"
-        b"4. Commit and push. Publication is complete when the commit and pre-push hooks succeed.\n\n",
+        b"5. Commit and push. Publication is complete when the commit and pre-push hooks succeed "
+        b"and `just doctor` reports no failures.\n\n",
     )
     assert variant["AGENTS.md"] == expected_agents
 

@@ -32,8 +32,9 @@ While editing:
 
 1. Run `just check`, the single repair and verification command. It applies deterministic repairs, then executes the full acceptance gate.
 2. On red, resolve the first remaining failure and rerun `just check`.
-3. Green means the unmodified gate exits zero. Then report the behavior changed, tests added, architecture impact, and remaining risks.
-{% if agents_contract == 'hooks-first' %}4. Commit and push. Publication is complete when the commit and pre-push hooks succeed.
+3. Before deployment or publication, run `just doctor`. Every `fail` blocks the operation; `warn` is reserved for an explicitly unavailable check such as no remote or offline GitHub access.
+4. Green means the unmodified gate exits zero. Then report the behavior changed, tests added, architecture impact, and remaining risks.
+{% if agents_contract == 'hooks-first' %}5. Commit and push. Publication is complete when the commit and pre-push hooks succeed and `just doctor` reports no failures.
 {% endif %}
 ### Scaffold updates
 

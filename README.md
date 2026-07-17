@@ -65,6 +65,14 @@ If bootstrap or GitHub creation fails, the local repository remains intact and
 the CLI returns non-zero; GitHub failures also print the recovery command. Run
 `python-repo init --help` for the complete interface.
 
+Before deploying or publishing from a generated repository, run `just doctor`.
+It reports one stable `ok`, `warn`, or `fail` line for the shared prek hooks,
+working-tree cleanliness, default-branch synchronization with `origin`, GitHub
+CLI authentication, `uv sync --check`, and the active Python version, followed
+by one verdict line. Missing remotes, an unavailable or offline GitHub CLI, and
+intentionally omitted standalone policy are warnings; any failed check makes
+the command exit non-zero.
+
 Generated repositories retain the pack's durable GitHub provenance. From a
 clean branch, `just scaffold-update` applies the newest tagged pack release
 through Copier's three-way merge; `just update` remains dependency-only.
@@ -147,6 +155,7 @@ One opinionated stack. One reason for every choice.
 | Broad Ruff policy | Enforce formatting, correctness, security, performance, modern Python, and complexity in one tool. |
 | BasedPyright with warnings as errors | Reject `Any`, missing types, unsafe overrides, incomplete matches, and stale ignores. |
 | One quality-gate script | Apply safe lint, format, and diagram repairs locally, then check lockfile, types, architecture, docs, imports, diagrams, tests, and coverage in order. |
+| Fast repository doctor | Check hooks, local Git state, default-branch synchronization, GitHub authentication, dependency synchronization, and Python version before deployment or publication. |
 | Same gate locally, pre-push, and in CI | Remove the gap between “works here” and “accepted by the repository.” |
 | Ports-and-adapters layers | Enforce `bootstrap → adapters → application → domain` and independent adapter sides. |
 | Framework-free synchronous domain | Keep business rules deterministic and isolated from I/O, clocks, randomness, UUIDs, and concurrency. |
@@ -204,6 +213,9 @@ just validate       # canonical full validation
 just release vX.Y.Z # verify and create an annotated release tag
 ```
 
-`just validate` generates a throwaway repository, checks template cleanliness and rendering, resolves dependencies, runs the downstream gate, and tests an offline Copier update.
+`just validate` generates a throwaway repository, checks template cleanliness
+and rendering, resolves dependencies, proves hook repair and tracked-Python
+syntax rejection, exercises `just doctor` in green and faulted states, runs the
+downstream gate, and tests an offline Copier update.
 
 See `DESIGN_GUARDRAILS.md` for the design-to-enforcement rationale and `VALIDATION.md` for the last recorded full validation.

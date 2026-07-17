@@ -30,11 +30,19 @@ without another install step.
 
 ```bash
 just check      # deterministic repairs followed by the full acceptance gate
+just doctor     # fast deployment and publication readiness verdict
 just diagrams   # browse live architecture diagrams (LikeC4 viewer)
 just session-log <transcript> [output] [agent]  # preserve Claude/Codex evidence
 just scaffold-update  # merge the newest tagged scaffold release
 just update     # update dependencies and hook revisions intentionally
 ```
+
+Run `just doctor` immediately before deployment or publication. It emits one
+stable `ok`, `warn`, or `fail` line for hooks, the working tree, default-branch
+synchronization with `origin`, GitHub CLI authentication, dependency
+synchronization, and Python version, followed by a verdict. Missing remotes,
+an absent or offline GitHub CLI, and policy intentionally omitted by the
+selected configuration are warnings; any failed check exits non-zero.
 
 ## Scaffold updates
 
