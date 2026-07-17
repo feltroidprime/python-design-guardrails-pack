@@ -31,7 +31,7 @@ This template uses the `system` profile. Tiny scripts may collapse layers only t
 ## Fitness functions
 
 - Import Linter checks dependency direction and adapter independence.
-- `scripts/architecture_guard.py` checks domain purity, immutability conventions, None discipline (ARCH016–ARCH018), Path discipline (ARCH019–ARCH020), and CLI discipline (ARCH021–ARCH025: no inbound prompt drift, uncontrolled exits, framework leakage, uncataloged command names/aliases, or non-argument-primary catalog entries), plus suppressions, names, and size ceilings.
+- `scripts/architecture_guard.py` checks domain purity, immutability, None (ARCH016–018), Path (ARCH019–020/028), CLI (ARCH021–025), and harvested review rules (ARCH026–030), plus suppressions, names, and size ceilings; ADR-0006 owns heuristic boundaries.
 - BasedPyright checks contracts and exhaustive variants.
 - Ruff checks complexity, error handling, security, performance, and style.
 - pytest contract tests verify adapter substitutability.

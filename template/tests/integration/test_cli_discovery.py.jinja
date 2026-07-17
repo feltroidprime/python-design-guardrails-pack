@@ -37,79 +37,92 @@ def object_list(value: object) -> list[dict[str, object]]:
     return [mapping(item) for item in cast("list[object]", value)]
 
 
-EXPECTED_ARGUMENTS: dict[str, dict[str, tuple[str, bool, object, tuple[str, ...], bool]]] = {
-    "add": {
-        "name": ("text", True, None, (), False),
-        "--idempotency-key": ("text", False, "", (), False),
-        "--format": ("choice", False, "json", ("json", "human"), False),
-        "--debug": ("boolean", False, False, (), False),
-    },
-    "capabilities": {
-        "--limit": ("integer", False, 2, (), False),
-        "--continuation": ("text", False, "", (), False),
-        "--name-contains": ("text", False, "", (), False),
-        "--kind": (
-            "choice",
-            False,
-            "",
-            ("query", "mutation", "streaming", "interactive/bootstrap", "bulk/export"),
-            False,
-        ),
-        "--field": ("choice", False, None, ("name", "kind", "purpose"), True),
-        "--quiet": ("boolean", False, False, (), False),
-        "--format": ("choice", False, "json", ("json", "human"), False),
-        "--debug": ("boolean", False, False, (), False),
-    },
-    "list": {
-        "--limit": ("integer", False, 2, (), False),
-        "--continuation": ("text", False, "", (), False),
-        "--name-contains": ("text", False, "", (), False),
-        "--field": ("choice", False, None, ("id", "name"), True),
-        "--quiet": ("boolean", False, False, (), False),
-        "--format": ("choice", False, "json", ("json", "human"), False),
-        "--debug": ("boolean", False, False, (), False),
-    },
-}
+def expected_arguments() -> dict[str, dict[str, tuple[str, bool, object, tuple[str, ...], bool]]]:
+    return {
+        "add": {
+            "name": ("text", True, None, (), False),
+            "--idempotency-key": ("text", False, "", (), False),
+            "--format": ("choice", False, "json", ("json", "human"), False),
+            "--debug": ("boolean", False, False, (), False),
+        },
+        "capabilities": {
+            "--limit": ("integer", False, 2, (), False),
+            "--continuation": ("text", False, "", (), False),
+            "--name-contains": ("text", False, "", (), False),
+            "--kind": (
+                "choice",
+                False,
+                "",
+                (
+                    "query",
+                    "mutation",
+                    "streaming",
+                    "interactive/bootstrap",
+                    "bulk/export",
+                ),
+                False,
+            ),
+            "--field": ("choice", False, None, ("name", "kind", "purpose"), True),
+            "--quiet": ("boolean", False, False, (), False),
+            "--format": ("choice", False, "json", ("json", "human"), False),
+            "--debug": ("boolean", False, False, (), False),
+        },
+        "list": {
+            "--limit": ("integer", False, 2, (), False),
+            "--continuation": ("text", False, "", (), False),
+            "--name-contains": ("text", False, "", (), False),
+            "--field": ("choice", False, None, ("id", "name"), True),
+            "--quiet": ("boolean", False, False, (), False),
+            "--format": ("choice", False, "json", ("json", "human"), False),
+            "--debug": ("boolean", False, False, (), False),
+        },
+    }
 
 
-EXPECTED_QUERY_CONTROLS = {
-    "capabilities": {
-        "filters": ["--name-contains", "--kind"],
-        "selectable_fields": ["name", "kind", "purpose"],
-        "quiet": True,
-    },
-    "list": {
-        "filters": ["--name-contains"],
-        "selectable_fields": ["id", "name"],
-        "quiet": True,
-    },
-}
+def expected_query_controls() -> dict[str, dict[str, object]]:
+    return {
+        "capabilities": {
+            "filters": ["--name-contains", "--kind"],
+            "selectable_fields": ["name", "kind", "purpose"],
+            "quiet": True,
+        },
+        "list": {
+            "filters": ["--name-contains"],
+            "selectable_fields": ["id", "name"],
+            "quiet": True,
+        },
+    }
 
-EXPECTED_OUTCOMES = {
-    "add": {
-        "invalid_syntax": (2, False, ()),
-        "unexpected_failure": (70, False, ()),
-        "invalid_item_name": (3, False, ("field", "rejected_value")),
-        "invalid_idempotency_key": (3, False, ("field",)),
-        "idempotency_conflict": (3, False, ("conflicting_field",)),
-        "dependency_unavailable": (4, True, ()),
-    },
-    "capabilities": {
-        "invalid_syntax": (2, False, ()),
-        "unexpected_failure": (70, False, ()),
-        "invalid_continuation": (3, False, ("reason",)),
-    },
-    "list": {
-        "invalid_syntax": (2, False, ()),
-        "unexpected_failure": (70, False, ()),
-        "invalid_continuation": (3, False, ("reason",)),
-        "dependency_unavailable": (4, True, ()),
-    },
-}
+
+def expected_outcomes() -> dict[str, dict[str, tuple[int, bool, tuple[str, ...]]]]:
+    return {
+        "add": {
+            "invalid_syntax": (2, False, ()),
+            "unexpected_failure": (70, False, ()),
+            "invalid_item_name": (3, False, ("field", "rejected_value")),
+            "invalid_idempotency_key": (3, False, ("field",)),
+            "idempotency_conflict": (3, False, ("conflicting_field",)),
+            "dependency_unavailable": (4, True, ()),
+        },
+        "capabilities": {
+            "invalid_syntax": (2, False, ()),
+            "unexpected_failure": (70, False, ()),
+            "invalid_continuation": (3, False, ("reason",)),
+        },
+        "list": {
+            "invalid_syntax": (2, False, ()),
+            "unexpected_failure": (70, False, ()),
+            "invalid_continuation": (3, False, ("reason",)),
+            "dependency_unavailable": (4, True, ()),
+        },
+    }
 
 
 @pytest.mark.integration
 def test_capabilities_publish_input_argument_and_query_contracts(tmp_path: Path) -> None:
+    argument_specs = expected_arguments()
+    query_specs = expected_query_controls()
+    outcome_specs = expected_outcomes()
     completed = run_process(("capabilities", "--limit", "100"), cwd=tmp_path)
     data = mapping(document(completed.stdout)["data"])
     commands = object_list(data["commands"])
@@ -120,7 +133,7 @@ def test_capabilities_publish_input_argument_and_query_contracts(tmp_path: Path)
         "schema_version": "1.0",
         "decisions": ["ADR-0003", "ADR-0005"],
     }
-    assert {cast("str", command["name"]) for command in commands} == set(EXPECTED_ARGUMENTS)
+    assert {cast("str", command["name"]) for command in commands} == set(argument_specs)
     for command in commands:
         name = cast("str", command["name"])
         assert command["input"] == {
@@ -133,8 +146,8 @@ def test_capabilities_publish_input_argument_and_query_contracts(tmp_path: Path)
             cast("str", argument["name"]): argument
             for argument in object_list(command["arguments"])
         }
-        assert set(arguments) == set(EXPECTED_ARGUMENTS[name])
-        for argument_name, expected in EXPECTED_ARGUMENTS[name].items():
+        assert set(arguments) == set(argument_specs[name])
+        for argument_name, expected in argument_specs[name].items():
             value_type, required, default, choices, repeatable = expected
             assert arguments[argument_name] == {
                 "name": argument_name,
@@ -145,13 +158,13 @@ def test_capabilities_publish_input_argument_and_query_contracts(tmp_path: Path)
                 "repeatable": repeatable,
                 "sensitive": argument_name == "--idempotency-key",
             }
-        if name in EXPECTED_QUERY_CONTROLS:
-            assert command["query"] == EXPECTED_QUERY_CONTROLS[name]
+        if name in query_specs:
+            assert command["query"] == query_specs[name]
         outcomes = {
             cast("str", outcome["code"]): outcome for outcome in object_list(command["outcomes"])
         }
-        assert set(outcomes) == set(EXPECTED_OUTCOMES[name])
-        for code, (exit_status, retryable, detail_keys) in EXPECTED_OUTCOMES[name].items():
+        assert set(outcomes) == set(outcome_specs[name])
+        for code, (exit_status, retryable, detail_keys) in outcome_specs[name].items():
             outcome = outcomes[code]
             assert outcome["exit_status"] == exit_status
             assert outcome["retryable"] is retryable

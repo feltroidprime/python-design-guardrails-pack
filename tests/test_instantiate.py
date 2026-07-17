@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "dc155f29cd83125dc6f7157dcf2a9ec79f8d9bde35f2234e3ed18636161d316c"
+EXPECTED_GENERATED_TREE_SHA256 = "76cdc6a2dd016ab78b33f39f2023f363ba513db40c3858a3593e3548a3e5f8d7"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -57,6 +57,7 @@ EXPECTED_FILES = (
     "docs/adr/0003-agent-native-cli-protocol.md",
     "docs/adr/0004-agent-session-evidence.md",
     "docs/adr/0005-agent-input-retry-and-composition-contract.md",
+    "docs/adr/0006-review-finding-checks.md",
     "docs/architecture/EXCEPTIONS.md",
     "docs/architecture/likec4/generated/baseline-views.c4",
     "docs/architecture/likec4/generated/model.c4",
@@ -73,7 +74,9 @@ EXPECTED_FILES = (
     "scripts/docs_guard.py",
     "scripts/doctor.py",
     "scripts/none_discipline.py",
+    "scripts/override_discipline.py",
     "scripts/quality_gate.py",
+    "scripts/review_discipline.py",
     "scripts/sync_architecture_diagrams.py",
     "tests/e2e/session_contract.py",
     "tests/e2e/test_real_agent_sessions.py",

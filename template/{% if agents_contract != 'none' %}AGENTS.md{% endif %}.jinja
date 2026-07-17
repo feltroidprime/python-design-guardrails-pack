@@ -199,8 +199,8 @@ ADR conventions are mechanical: `NNNN-kebab-case.md` file names, a matching `# A
 - Every function and method is fully typed.
 - `Any`, implicit unknowns, blanket `type: ignore`, and unparameterized generics are forbidden.
 - Use `Protocol` for structural ports and callable strategies; use an ABC only when runtime inheritance semantics or shared implementation are genuinely required.
-- Mark actual overrides with `@override`.
-- Model closed variants with enums or unions and exhaustive `match` statements.
+- Mark actual overrides with `@override` (ARCH030).
+- Model closed variants with enums/unions and exhaustive `match`; ARCH029 rejects bare primitive aliases.
 - Prefer domain value objects to ambiguous primitives at important boundaries.
 - Do not add `from __future__ import annotations`; Python 3.14 evaluates annotations lazily.
 
@@ -255,7 +255,7 @@ A new foundational abstraction, framework, event bus, DI container, plugin syste
 
 A filesystem location is a `pathlib.Path` from the moment it exists. A `str` path is wire data — argv, JSON payloads, database columns, environment variables — and follows the same parse-don't-propagate rule as `None`. Ruff's `PTH` rules already reject the `os.path` API at call sites; the guard covers what a call-site linter cannot see:
 
-1. **Declarations demand `Path`.** A parameter, return, or field whose name says "path" is typed `pathlib.Path`, never `str` — and never `str | Path`, which forces every consumer to re-normalize (ARCH019, ARCH020). Once the boundary says `Path`, the type checker propagates the obligation to every caller.
+1. **Declarations demand `Path`.** A parameter, return, or field whose name says "path" is typed `pathlib.Path`, never `str` — and never `str | Path`, which forces every consumer to re-normalize (ARCH019, ARCH020/028). Once the boundary says `Path`, the type checker propagates the obligation to every caller.
 2. **Parse at the edge.** The inbound adapter converts raw text to `Path` at first touch: `argparse` uses `type=Path`; a payload field becomes `Path(raw["database"])` before it is stored or passed inward. Name pre-parse text for what it is (`raw`, `text`), not for what it will become.
 3. **Serialize at the last moment.** `str(path)` / `os.fspath(path)` appear only inside the outbound call that hands the value to the external system (database parameter, JSON body, subprocess argv); the serialized form is never stored, returned, or passed on.
 4. **A bare name is not a path.** A value with no directory meaning is domain data: name it `stem`, `label`, or `slug` and keep it a `str`; `filename: str` is flagged because the name claims filesystem semantics the type denies.
@@ -265,7 +265,7 @@ A filesystem location is a `pathlib.Path` from the moment it exists. A `str` pat
 ## State, concurrency, and lifecycle
 
 - One owner for each mutable state.
-- No mutable module-level singletons, service locators, or fire-and-forget tasks.
+- No mutable module containers (ARCH026; `__all__` excepted), service locators, or fire-and-forget tasks.
 - Use structured concurrency (`TaskGroup`) and explicit timeout/cancellation behavior at outer boundaries.
 - Acquire resources with context managers and test cleanup on failure.
 - Free-threaded Python does not make shared mutable state safe by design.
@@ -286,13 +286,13 @@ Forbidden without an ADR-backed exception:
 
 - `utils.py`, `helpers.py`, `common.py`, or `misc.py` dumping grounds;
 - `__init__.py` under `tests/` (test packages are namespace packages, ARCH014) and empty `__init__.py` anywhere (an `__init__.py` states its package's public surface or ownership, ARCH015);
-- duplicated models for the same concept;
+- same-named Enum copies (ARCH027; broader duplicates remain review concerns);
 - `Manager`, `Handler`, `Processor`, or `Service` names without a precise domain qualifier;
 - speculative generic frameworks for one implementation;
 - hidden I/O in properties, constructors, or domain methods;
 - boolean flags that switch unrelated behavior;
 - `None` where "None discipline" prescribes a default, a parse, an exception, or a state (ARCH016–ARCH018);
-- filesystem paths typed as `str` where "Path discipline" prescribes `pathlib.Path` (ARCH019–ARCH020);
+- filesystem paths typed as `str` (ARCH019–ARCH020/028);
 - comments that restate code instead of explaining a non-obvious invariant or trade-off;
 - broad refactors mixed into a feature change;
 - weakening a gate to make generated code pass.

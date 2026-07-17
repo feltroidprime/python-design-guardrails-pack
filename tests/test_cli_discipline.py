@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 # Import paths are provided by tests/conftest.py.
-from scripts.architecture_guard import check_file
+from scripts.architecture_guard import check_files
 from scripts.architecture_policy import Policy, load_policy
 
 TEMPLATE = Path(__file__).resolve().parents[1] / "template"
@@ -24,7 +24,7 @@ def run_check(policy: Policy, relative: str, source: str) -> list[str]:
     path = policy.root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(source, encoding="utf-8")
-    return [item.code for item in check_file(path, policy)]
+    return [item.code for item in check_files((path,), policy)]
 
 
 def test_arch021_rejects_prompt_calls_in_production_paths(policy: Policy) -> None:

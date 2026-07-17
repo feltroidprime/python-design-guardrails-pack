@@ -169,8 +169,8 @@ One opinionated stack. One reason for every choice.
 | Shared adapter contract tests | Prove every implementation obeys the same behavior. |
 | Versioned agent-native CLI contract | Provide typed argument input, explicit stdin policy, stable JSON and outcomes, safe retry controls, bounded composable queries, and human output without prompts or TTY assumptions. |
 | Claude/Codex session evidence | Import a commit-pinned private Python module that converts complete native transcripts through Harbor 0.18.0 into ATIF-v1.7, compact TSV/route views, content-addressed blobs, and a self-checking manifest without semantic inference; opt-in E2E sampling spans five local size quantiles per agent. |
-| AST architecture guard | Enforce domain purity, immutable messages, size limits, package surfaces, suppressions, and CLI boundaries. |
-| None and Path discipline | Parse uncertainty and filesystem text at the edge instead of infecting the core. |
+| AST architecture guard | Enforce domain purity, immutable messages and module state, one owner for exact models, closed variants, explicit overrides, size limits, package surfaces, suppressions, and CLI boundaries. |
+| None and Path discipline | Parse uncertainty and filesystem text at the edge; catch both path-token declarations and untokenized strings used as paths. |
 | Import Linter contracts | Make dependency direction and adapter independence build failures. |
 | pytest, Hypothesis, and deterministic integration tests | Cover examples, broad invariant spaces, adapter contracts, and real local wiring. |
 | Sockets disabled and 90% branch coverage floor | Block accidental live-network tests and expose untested decisions. |

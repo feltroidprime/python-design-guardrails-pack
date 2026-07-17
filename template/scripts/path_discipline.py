@@ -1,17 +1,4 @@
-"""Path-discipline fitness functions.
-
-A filesystem location is a ``pathlib.Path`` from the moment it exists; a
-``str`` path is wire data (argv, JSON payloads, database columns) that the
-adapter parses at first touch, exactly as "None discipline" parses raw
-optionals. Ruff's PTH rules already reject the ``os.path`` API at call sites;
-these checks cover what a call-site linter cannot see — signatures and fields
-whose names say "path" but whose types say ``str``. Once a boundary is typed
-``Path``, basedpyright propagates the obligation to every caller, so the
-guard only needs to police declarations. The judgment calls (what counts as
-wire data, when a published API may accept ``os.PathLike``) stay in AGENTS.md
-and ADRs. The guard applies the inline ``ARCH-EXCEPTION: ADR-XXXX`` marker
-centrally.
-"""
+"""Path declaration and use checks (ARCH019/020/028)."""
 
 import ast
 from typing import TYPE_CHECKING
@@ -22,8 +9,7 @@ from scripts.none_discipline import class_fields, module_fields
 if TYPE_CHECKING:
     from pathlib import Path
 
-# Whole snake_case words that mark an identifier as naming a filesystem
-# location. Token matching (never substring) keeps `profile` or `dirty` clean.
+# Whole-word matching keeps `profile` and `dirty` clean.
 PATH_TOKENS = frozenset(
     {
         "dir",
@@ -43,15 +29,18 @@ PATH_TOKENS = frozenset(
     }
 )
 
-# `file` names a path only as the last word: `config_file` is a path,
-# `file_format` is not.
+# `file` is path-like only as the final word.
 TRAILING_PATH_TOKENS = frozenset({"file", "files"})
 
-# In a mapping named for its keys (`files: dict[Path, str]`), only the key
-# position carries the path; the value is ordinary data (often file content).
+# Only a mapping's key position carries a path.
 MAPPING_TYPE_NAMES = frozenset(
     {"Counter", "Mapping", "MutableMapping", "OrderedDict", "defaultdict", "dict"}
 )
+PATH_CONSTRUCTORS = frozenset(
+    {"Path", "PosixPath", "PurePath", "PurePosixPath", "PureWindowsPath", "WindowsPath"}
+)
+PATH_FUNCTIONS = frozenset({"builtins.open", "open", "os.fspath"})
+PATH_USAGE_METHODS = frozenset({"read_text", "write_text"})
 
 
 def names_a_path(identifier: str) -> bool:
@@ -64,12 +53,7 @@ def subscript_base(node: ast.Subscript) -> str:
 
 
 def admits_str(annotation: ast.expr) -> bool:
-    """True when the annotation lets a str travel where the name promises a path.
-
-    Covers the plain annotation, union arms (`str | Path` still forces every
-    consumer to re-normalize), element types (`list[str]`), and mapping keys —
-    but not mapping values or `Callable` signatures, which describe other data.
-    """
+    """Whether a path declaration admits str, including unions/containers."""
     if isinstance(annotation, ast.Name):
         return annotation.id == "str"
     if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
@@ -155,6 +139,79 @@ def check_field(path: Path, node: ast.AnnAssign) -> list[Violation]:
     ]
 
 
+def _path_operands(node: ast.AST) -> tuple[ast.expr, ...]:
+    if not isinstance(node, ast.Call):
+        return ()
+    called = dotted_name(node.func)
+    if called.rsplit(".", 1)[-1] in PATH_CONSTRUCTORS:
+        return tuple(node.args)
+    if called in PATH_FUNCTIONS:
+        if node.args:
+            return (node.args[0],)
+        return tuple(item.value for item in node.keywords if item.arg in {"file", "path"})
+    if isinstance(node.func, ast.Attribute) and node.func.attr in PATH_USAGE_METHODS:
+        return (node.func.value,)
+    return ()
+
+
+def _uses_as_path(statements: list[ast.stmt], target: str) -> bool:
+    """Whether a declaration reaches a path API in this lexical scope."""
+    pending: list[ast.AST] = list(reversed(statements))
+    while pending:
+        node = pending.pop()
+        if isinstance(node, (ast.AsyncFunctionDef, ast.ClassDef, ast.FunctionDef, ast.Lambda)):
+            continue
+        if any(
+            dotted_name(part) == target
+            for operand in _path_operands(node)
+            for part in ast.walk(operand)
+            if isinstance(part, ast.expr)
+        ):
+            return True
+        pending.extend(reversed(list(ast.iter_child_nodes(node))))
+    return False
+
+
+def _use_violation(path: Path, node: ast.AST, kind: str, name: str) -> Violation:
+    return violation(
+        path,
+        node,
+        "ARCH028",
+        f"{kind} '{name}' is str used as a filesystem path; declare pathlib.Path.",
+    )
+
+
+def _check_untokenized_parameters(
+    path: Path, node: ast.FunctionDef | ast.AsyncFunctionDef
+) -> list[Violation]:
+    return [
+        _use_violation(path, arg, "Parameter", arg.arg)
+        for arg, annotation in annotated_args(node)
+        if not names_a_path(arg.arg)
+        and admits_str(annotation)
+        and _uses_as_path(node.body, arg.arg)
+    ]
+
+
+def _check_untokenized_class_fields(path: Path, node: ast.ClassDef) -> list[Violation]:
+    methods = tuple(
+        item for item in node.body if isinstance(item, (ast.AsyncFunctionDef, ast.FunctionDef))
+    )
+    fields = tuple(
+        (item, item.target.id)
+        for item in node.body
+        if isinstance(item, ast.AnnAssign)
+        and isinstance(item.target, ast.Name)
+        and not names_a_path(item.target.id)
+        and admits_str(item.annotation)
+    )
+    return [
+        _use_violation(path, field, "Field", field_name)
+        for field, field_name in fields
+        if any(_uses_as_path(method.body, f"self.{field_name}") for method in methods)
+    ]
+
+
 def check_path_discipline(path: Path, tree: ast.Module) -> list[Violation]:
     """Run every path-discipline check on one already-parsed module."""
     violations: list[Violation] = []
@@ -163,4 +220,7 @@ def check_path_discipline(path: Path, tree: ast.Module) -> list[Violation]:
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             violations.extend(check_signature(path, node))
+            violations.extend(_check_untokenized_parameters(path, node))
+        if isinstance(node, ast.ClassDef):
+            violations.extend(_check_untokenized_class_fields(path, node))
     return violations

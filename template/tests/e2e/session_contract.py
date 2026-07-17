@@ -8,21 +8,25 @@ if TYPE_CHECKING:
 
     from scripts.agent_sessions import AgentType
 
-EXPECTED_CHECKS = {
-    "content_hashes",
-    "coverage",
-    "metric_coherence",
-    "no_orphan_blob_references",
-    "profile_rows",
-    "subagent_references",
-}
-EXPECTED_OUTPUT = {
-    "blobs",
-    "manifest.json",
-    "profile.tsv",
-    "route.txt",
-    "trajectory.atif.json",
-}
+EXPECTED_CHECKS = frozenset(
+    {
+        "content_hashes",
+        "coverage",
+        "metric_coherence",
+        "no_orphan_blob_references",
+        "profile_rows",
+        "subagent_references",
+    }
+)
+EXPECTED_OUTPUT = frozenset(
+    {
+        "blobs",
+        "manifest.json",
+        "profile.tsv",
+        "route.txt",
+        "trajectory.atif.json",
+    }
+)
 
 
 def mapping(value: object) -> dict[str, object]:

@@ -53,28 +53,40 @@ _RESERVE_IDEMPOTENCY = (
     "INSERT INTO item_idempotency (key_digest, request_fingerprint, item_id) VALUES (?, ?, NULL)"
 )
 _COMPLETE_IDEMPOTENCY = "UPDATE item_idempotency SET item_id = ? WHERE key_digest = ?"
-_PAGE_STATEMENTS = {
-    (False, False, False): "SELECT item_id FROM items ORDER BY item_id LIMIT ?",
-    (False, False, True): (
-        "SELECT item_id FROM items WHERE instr(name, ?) > 0 ORDER BY item_id LIMIT ?"
+_PAGE_STATEMENTS = (
+    ((False, False, False), "SELECT item_id FROM items ORDER BY item_id LIMIT ?"),
+    (
+        (False, False, True),
+        ("SELECT item_id FROM items WHERE instr(name, ?) > 0 ORDER BY item_id LIMIT ?"),
     ),
-    (False, True, False): ("SELECT item_id FROM items WHERE item_id > ? ORDER BY item_id LIMIT ?"),
-    (False, True, True): (
-        "SELECT item_id FROM items WHERE item_id > ? AND instr(name, ?) > 0 "
-        "ORDER BY item_id LIMIT ?"
+    (
+        (False, True, False),
+        ("SELECT item_id FROM items WHERE item_id > ? ORDER BY item_id LIMIT ?"),
     ),
-    (True, False, False): "SELECT item_id, name FROM items ORDER BY item_id LIMIT ?",
-    (True, False, True): (
-        "SELECT item_id, name FROM items WHERE instr(name, ?) > 0 ORDER BY item_id LIMIT ?"
+    (
+        (False, True, True),
+        (
+            "SELECT item_id FROM items WHERE item_id > ? AND instr(name, ?) > 0 "
+            "ORDER BY item_id LIMIT ?"
+        ),
     ),
-    (True, True, False): (
-        "SELECT item_id, name FROM items WHERE item_id > ? ORDER BY item_id LIMIT ?"
+    ((True, False, False), "SELECT item_id, name FROM items ORDER BY item_id LIMIT ?"),
+    (
+        (True, False, True),
+        ("SELECT item_id, name FROM items WHERE instr(name, ?) > 0 ORDER BY item_id LIMIT ?"),
     ),
-    (True, True, True): (
-        "SELECT item_id, name FROM items WHERE item_id > ? AND instr(name, ?) > 0 "
-        "ORDER BY item_id LIMIT ?"
+    (
+        (True, True, False),
+        ("SELECT item_id, name FROM items WHERE item_id > ? ORDER BY item_id LIMIT ?"),
     ),
-}
+    (
+        (True, True, True),
+        (
+            "SELECT item_id, name FROM items WHERE item_id > ? AND instr(name, ?) > 0 "
+            "ORDER BY item_id LIMIT ?"
+        ),
+    ),
+)
 
 
 def _decode(row: object) -> Item:
@@ -189,7 +201,7 @@ def _page_statement(
     if filtered:
         parameters.append(name_contains)
     parameters.append(limit)
-    statement = _PAGE_STATEMENTS[(ItemField.NAME in fields, after_item, filtered)]
+    statement = dict(_PAGE_STATEMENTS)[(ItemField.NAME in fields, after_item, filtered)]
     return statement, tuple(parameters)
 
 

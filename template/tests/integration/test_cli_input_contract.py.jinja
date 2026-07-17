@@ -13,46 +13,55 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-HELP_EXPECTATIONS = {
-    "add": (
-        ("name", ("type: text", "required")),
-        ("--idempotency-key", ("type: text", "default: empty")),
-        ("--format", ("type: choice", "default: json", "choices: json, human")),
-        ("--debug", ("type: boolean", "default: false")),
-    ),
-    "capabilities": (
-        ("--limit", ("maximum: 100", "type: integer", "default: 2")),
-        ("--continuation", ("type: text", "default: empty")),
-        ("--name-contains", ("type: text", "default: empty")),
+HELP_EXPECTATIONS = (
+    (
+        "add",
         (
-            "--kind",
+            ("name", ("type: text", "required")),
+            ("--idempotency-key", ("type: text", "default: empty")),
+            ("--format", ("type: choice", "default: json", "choices: json, human")),
+            ("--debug", ("type: boolean", "default: false")),
+        ),
+    ),
+    (
+        "capabilities",
+        (
+            ("--limit", ("maximum: 100", "type: integer", "default: 2")),
+            ("--continuation", ("type: text", "default: empty")),
+            ("--name-contains", ("type: text", "default: empty")),
             (
-                "type: choice",
-                "default: empty",
-                "choices: query, mutation, streaming, interactive/bootstrap, bulk/export",
+                "--kind",
+                (
+                    "type: choice",
+                    "default: empty",
+                    "choices: query, mutation, streaming, interactive/bootstrap, bulk/export",
+                ),
             ),
+            (
+                "--field",
+                ("type: choice", "default: empty", "choices: name, kind, purpose", "repeatable"),
+            ),
+            ("-q, --quiet", ("type: boolean", "default: false")),
+            ("--format", ("type: choice", "default: json", "choices: json, human")),
+            ("--debug", ("type: boolean", "default: false")),
         ),
-        (
-            "--field",
-            ("type: choice", "default: empty", "choices: name, kind, purpose", "repeatable"),
-        ),
-        ("-q, --quiet", ("type: boolean", "default: false")),
-        ("--format", ("type: choice", "default: json", "choices: json, human")),
-        ("--debug", ("type: boolean", "default: false")),
     ),
-    "list": (
-        ("--limit", ("maximum: 200", "type: integer", "default: 2")),
-        ("--continuation", ("type: text", "default: empty")),
-        ("--name-contains", ("type: text", "default: empty")),
+    (
+        "list",
         (
-            "--field",
-            ("type: choice", "default: empty", "choices: id, name", "repeatable"),
+            ("--limit", ("maximum: 200", "type: integer", "default: 2")),
+            ("--continuation", ("type: text", "default: empty")),
+            ("--name-contains", ("type: text", "default: empty")),
+            (
+                "--field",
+                ("type: choice", "default: empty", "choices: id, name", "repeatable"),
+            ),
+            ("-q, --quiet", ("type: boolean", "default: false")),
+            ("--format", ("type: choice", "default: json", "choices: json, human")),
+            ("--debug", ("type: boolean", "default: false")),
         ),
-        ("-q, --quiet", ("type: boolean", "default: false")),
-        ("--format", ("type: choice", "default: json", "choices: json, human")),
-        ("--debug", ("type: boolean", "default: false")),
     ),
-}
+)
 
 
 def argument_help_entries(
@@ -197,13 +206,13 @@ def test_stdin_accepting_commands_use_the_declared_marker_at_the_process_seam(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("command", HELP_EXPECTATIONS)
+@pytest.mark.parametrize("command", ["add", "capabilities", "list"])
 def test_command_help_exposes_independent_argument_and_input_expectations(
     command: str, tmp_path: Path
 ) -> None:
     completed, _ = run_with_open_stdin((command, "--help"), cwd=tmp_path)
     help_text = " ".join(completed.stdout.split())
-    expectations = HELP_EXPECTATIONS[command]
+    expectations = dict(HELP_EXPECTATIONS)[command]
     entries = argument_help_entries(completed.stdout, expectations)
 
     assert completed.returncode == 0

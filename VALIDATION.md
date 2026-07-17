@@ -1,34 +1,41 @@
 # Validation record — 2026-07-17
 
 Validated on macOS Apple Silicon with Python 3.14.6, uv 0.11.28, just
-1.56.0, Bun 1.3.9, Git 2.55.0, GitHub CLI 2.96.0, Copier 9.17.0, and
+1.56.0, Bun 1.3.9, Git 2.55.0, Copier 9.17.0, pytest 9.1.1, and
 pytest-xdist 3.8.0. Copier emitted 25 expected `DirtyLocalWarning` instances
-because the canonical changes were intentionally uncommitted during the pack
-tests.
+because the canonical template changes were intentionally uncommitted.
 
 ## Change validated
 
-The generated repository harness now fails early on mechanically invalid local
-state:
+GR-19 harvests five recurring review findings into the generated repository's
+shared architecture AST guard:
 
-1. `just check` resolves Git's common hooks directory and verifies executable
-   prek pre-commit and pre-push shims before any other check;
-2. missing or invalid shims are repaired with exactly
-   `uv run prek install -f`, while an impossible repair prints that command as
-   the first diagnostic line;
-3. every tracked `*.py` file is syntax-compiled before repair steps, including
-   files that no import or test reaches;
-4. `just doctor` emits six stable readiness statuses plus one verdict for hooks,
-   working-tree state, local default-branch synchronization with `origin`,
-   GitHub CLI authentication, `uv sync --check`, and Python version.
+1. ARCH026 rejects module-scope mutable list/dict/set state, including state
+   inside module control flow, while allowing list-valued `__all__`.
+2. ARCH027 rejects exact same-named, same-definition Enum copies across
+   in-repository modules.
+3. ARCH028 detects untokenized `str` parameters and fields used as path
+   operands without duplicating ARCH019/020.
+4. ARCH029 rejects used CamelCase domain aliases to bare primitives, including
+   legacy `TypeAlias` declarations.
+5. ARCH030 requires `@override` for methods resolved against direct
+   in-repository bases and explicit Protocol bases.
 
-The doctor skips missing remotes and absent or offline GitHub access with a
-warning. Any local defect or reachable external-state failure produces a
-`fail` status and a non-zero verdict. Its network checks have two-second
-timeouts, and pack validation rejects either the clean or faulted probe if it
-takes five seconds or longer.
+ADR-0006 records the conservative heuristic boundaries. Each code has
+violating and clean fixtures plus shared ADR-marker suppression coverage.
 
 ## Commands and actual results
+
+### Generated repository gate
+
+```bash
+just check
+```
+
+Run in a freshly generated and bootstrapped default repository. Ruff,
+BasedPyright (0 errors, 0 warnings), architecture, documentation, both import
+contracts, diagram sync, LikeC4 validation, and tests passed. Tests: 145
+passed, 7 skipped, 3 session tests deselected; branch coverage was 93.44%.
 
 ### Canonical pack validation
 
@@ -38,87 +45,48 @@ just validate
 
 Final result: passed.
 
-- Pack tests: 244 passed with 25 expected warnings in 48.26s.
+- Pack tests: 263 passed with 25 expected warnings in 51.30s.
 - Template cleanliness and complete Jinja rendering: passed.
-- Generated bootstrap: resolved 23 packages, installed 22 packages, installed
-  prek 0.4.10 shims at `.git/hooks/pre-commit` and `.git/hooks/pre-push`, and
-  passed the generated quality gate.
-- Generated quality gate: Ruff format/lint, BasedPyright (0 errors, 0 warnings,
-  0 notes), architecture, documentation, both import contracts, diagram sync,
-  LikeC4 validation, and all tests passed. The test result was 145 passed,
-  7 declared dormant variants skipped, 3 opt-in session tests deselected, and
-  93.44% branch coverage.
-- After both installed prek shims were deleted, `just check` reinstalled them
-  and passed the complete gate. Both repaired shims were executable in Git's
-  common hooks directory.
-- A tracked, un-imported file containing invalid syntax was rejected by the
-  new tracked-Python syntax step before repair or acceptance work.
-- On the committed clean baseline, `just doctor` reported four `ok` statuses,
-  two expected offline/no-remote warnings, no failures, and exited zero. After
-  one untracked file was planted, it named the dirty working tree, reported one
-  failure, and exited non-zero. Both probes completed within the enforced
-  five-second budget.
-- Linked-worktree hook-path and executable-shim checks passed. The staged-file
-  pre-commit probe passed, and the ref-fed pre-push probe passed every hook,
-  including the full quality gate. Git worktree cleanup passed.
+- Generated bootstrap resolved 23 packages, installed 22, installed both prek
+  hooks, and passed the complete generated gate.
+- The missing-hook repair, tracked syntax rejection, doctor clean/dirty,
+  linked-worktree pre-commit, linked-worktree full pre-push, and cleanup probes
+  passed.
 - Previous-release and generated-recipe Copier update acceptance: 2 passed in
-  23.18s.
+  22.97s.
 
-### Focused development checks
+### Focused evidence
 
-```bash
-uv run --no-project --with copier==9.17.0 --with pytest==9.0.2 pytest -q \
-  tests/test_instantiate.py::test_generated_doctor_reports_green_then_detects_a_dirty_working_tree \
-  tests/test_instantiate.py::test_generated_justfile_has_one_routine_gate_and_one_private_e2e_route
-
-uv run --no-project --python 3.14 --with copier==9.17.0 \
-  --with pytest==9.1.1 pytest -q \
-  tests/test_instantiate.py::test_default_generation_matches_recorded_output
-
-just test
-```
-
-Final focused results: the doctor/justfile pair passed (2 passed, one expected
-dirty-template warning in 3.14s); the generated-tree digest passed after its
-intentional update; and the checkpoint-2 pack suite passed with 243 tests and
-25 expected warnings in 49.91s before the documentation assertion brought the
-canonical final suite to 244 tests.
+The five checks were planted together in a temporary generated repository;
+the guard reported exactly ARCH026, ARCH027, ARCH028, ARCH029, and ARCH030,
+then passed after the scratch files were removed. The permanent focused suite
+and largest benchmark scenario also passed without changing the 400,000
+character bundle ceiling.
 
 ## Tests added or updated
 
-- A PATH-stubbed hook-install failure proves the literal recovery command is
-  the gate's first diagnostic line.
-- A tracked but un-imported Python file proves syntax errors fail before any
-  deterministic repair can hide or bypass them.
-- A bootstrapped generated repository proves `just doctor` has seven stable
-  output lines and exits zero when its available checks are green.
-- The same repository receives one untracked file and proves the doctor names
-  the working-tree failure, emits a failing verdict, and returns non-zero.
-- End-to-end pack validation deletes and repairs both real prek shims, injects
-  and cleans the tracked syntax fault, and runs the doctor in clean and dirty
-  states under its runtime budget.
-- The generated-file inventory, justfile recipe contract, and deterministic
-  tree digest include the new doctor implementation and documentation.
+- `tests/test_review_discipline.py` supplies positive and negative fixtures for
+  ARCH026–ARCH030, supported path-call cases, ARCH019 de-duplication, external
+  base ambiguity, conditional module state, legacy `TypeAlias`, and shared
+  ADR-marker suppression.
+- Existing None, Path, and CLI discipline tests now use the repository-wide
+  guard seam.
+- Generated-file inventory and deterministic tree digest include ADR-0006 and
+  the two new rule modules.
+- Existing generated fixtures were converted from mutable module dictionaries
+  and sets to local factories, tuples, and frozensets.
 
 ## Remaining risks and portability notes
 
-- Default initialization still performs dependency resolution, LikeC4
-  validation, and the complete generated test suite, so it requires the
-  documented `uv`, `just`, Bun, Git, and network prerequisites and takes longer
-  than generation alone.
-- `just doctor` deliberately warns instead of failing when no `origin` exists,
-  `gh` is absent, GitHub is offline, or a template variant intentionally omits
-  standalone hook or Python-version policy. Those skipped checks remain human
-  review items before an actual publication.
-- Reachable but invalid GitHub authentication and a reachable but divergent or
-  broken default branch are failures. The two network probes are independently
-  bounded at two seconds, so a severely degraded network can consume most of
-  the five-second total budget.
-- `uv sync --check` runs offline and does not repair the environment. Run
-  `just bootstrap` or `uv sync --all-groups` when it reports a failure.
-- Linked worktrees in the same local repository share installed Git shims. A
-  fresh clone has its own Git common directory; `just check` now repairs its
-  missing shims automatically when prek policy is enabled.
-- Prek intentionally refuses to overwrite a global or system
-  `core.hooksPath`; users with that configuration must move it to repository or
-  worktree scope before the generated gate can install the shims.
+- ARCH027 intentionally covers exact same-named Enum definitions only; broader
+  dataclass, validator, fixture, and semantic-model duplication remains review
+  work because deterministic equivalence would be noisy.
+- ARCH028 is lexical and recognizes the documented direct path APIs; aliases
+  and interprocedural flows may be missed.
+- ARCH029 follows same-module boundary use only. `JsonString` and `JsonNumber`
+  are the documented wire-scalar allowlist.
+- ARCH030 resolves same-module and direct absolute imports. Relative imports,
+  module-import aliases, transitive ancestors, structural Protocol matches,
+  re-exports, dynamic bases, and ambiguous names deliberately under-flag.
+- Full validation retains the documented Python 3.14, uv, just, Bun, Git, and
+  first-resolution network prerequisites.

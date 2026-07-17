@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
-"""Run repository-specific architecture fitness functions.
+"""Run architecture checks over one shared parse per module.
 
-The guard owns file loading: each module is read and parsed once, every rule
-family checks the same text and tree, and the inline exception marker
-(``ARCH-EXCEPTION: ADR-XXXX``, ledger-backed) is honored in one place for
-exactly the codes that admit it.
+ADR-backed ``ARCH-EXCEPTION`` suppression is applied centrally.
 """
 
 import ast
@@ -16,25 +13,21 @@ from scripts.architecture_policy import load_policy
 from scripts.architecture_rules import Violation, check_source, python_files
 from scripts.cli_discipline import check_cli_discipline
 from scripts.none_discipline import check_none_discipline
+from scripts.override_discipline import check_override_discipline
 from scripts.path_discipline import check_path_discipline
+from scripts.review_discipline import (
+    check_repository_review_discipline,
+    check_review_discipline,
+)
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from scripts.architecture_policy import Policy
 
-MARKER_SUPPRESSIBLE_CODES = frozenset(
-    {
-        "ARCH016",
-        "ARCH017",
-        "ARCH018",
-        "ARCH019",
-        "ARCH020",
-        "ARCH021",
-        "ARCH022",
-        "ARCH023",
-        "ARCH024",
-        "ARCH025",
-    }
-)
+type ParsedModule = tuple[Path, str, ast.Module]
+
+MARKER_SUPPRESSIBLE_CODES = frozenset(f"ARCH{number:03}" for number in range(16, 31))
 
 
 def suppressed(item: Violation, lines: list[str], policy: Policy) -> bool:
@@ -43,32 +36,46 @@ def suppressed(item: Violation, lines: list[str], policy: Policy) -> bool:
     )
 
 
-def check_file(path: Path, policy: Policy) -> list[Violation]:
-    """Read and parse one module, then run every rule family on it."""
-    text = path.read_text(encoding="utf-8")
-    try:
-        tree = ast.parse(text, filename=str(path))
-    except SyntaxError as error:
-        return [
-            Violation(
-                path=path,
-                line=error.lineno or 1,
-                code="ARCH000",
-                message=f"Cannot parse module: {error.msg}",
+def check_files(paths: Iterable[Path], policy: Policy) -> list[Violation]:
+    """Read each module once and run both file-local and repository-wide rules."""
+    parsed: list[ParsedModule] = []
+    violations: list[Violation] = []
+    for path in sorted(paths):
+        text = path.read_text(encoding="utf-8")
+        try:
+            tree = ast.parse(text, filename=str(path))
+        except SyntaxError as error:
+            violations.append(
+                Violation(
+                    path=path,
+                    line=error.lineno or 1,
+                    code="ARCH000",
+                    message=f"Cannot parse module: {error.msg}",
+                )
             )
-        ]
-    violations = check_source(path, text, tree, policy)
-    violations.extend(check_none_discipline(path, tree, policy))
-    violations.extend(check_path_discipline(path, tree))
-    violations.extend(check_cli_discipline(path, tree, policy))
-    lines = text.splitlines()
-    return [item for item in violations if not suppressed(item, lines, policy)]
+            continue
+        parsed.append((path, text, tree))
+        violations.extend(check_source(path, text, tree, policy))
+        violations.extend(check_none_discipline(path, tree, policy))
+        violations.extend(check_path_discipline(path, tree))
+        violations.extend(check_cli_discipline(path, tree, policy))
+        violations.extend(check_review_discipline(path, tree))
+    modules = tuple((path, tree) for path, _text, tree in parsed)
+    violations.extend(check_repository_review_discipline(modules))
+    violations.extend(check_override_discipline(modules))
+    lines_by_path = {path: text.splitlines() for path, text, _tree in parsed}
+    unsuppressed = [
+        item
+        for item in violations
+        if item.path not in lines_by_path or not suppressed(item, lines_by_path[item.path], policy)
+    ]
+    return sorted(unsuppressed, key=lambda item: (str(item.path), item.line, item.code))
 
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     policy = load_policy(root)
-    violations = [item for path in python_files(policy) for item in check_file(path, policy)]
+    violations = check_files(python_files(policy), policy)
     if violations:
         for item in violations:
             print(item.render(root))
