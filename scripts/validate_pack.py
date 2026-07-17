@@ -8,8 +8,10 @@ The loop:
 3. verify no unrendered Jinja survives in file names or contents;
 4. initialize Git, then bootstrap dependencies, prek hooks, and checks;
 5. seed deterministic repair probes and verify bootstrap repairs them;
-6. commit the baseline and prove linked worktrees share both prek hooks;
-7. delete the throwaway repository.
+6. delete both prek shims and prove the generated gate repairs them;
+7. commit the baseline and prove a tracked, un-imported syntax error fails early;
+8. prove linked worktrees share both prek hooks;
+9. delete the throwaway repository.
 
 Every failure message states what broke and how to fix it, so both humans
 and coding agents can act on it without re-deriving the intent.
@@ -134,6 +136,29 @@ def run_step(
     return completed.returncode
 
 
+def run_captured_step(
+    name: str, command: list[str], cwd: Path
+) -> subprocess.CompletedProcess[str]:
+    print(f"\n=== {name} ===", flush=True)
+    print(f"$ {' '.join(command)}  (cwd={cwd})", flush=True)
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "PYTHONPATH"}
+    }
+    completed = subprocess.run(
+        command,
+        cwd=cwd,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    print(completed.stdout, end="")
+    print(completed.stderr, end="", file=sys.stderr)
+    return completed
+
+
 def effective_git_path(root: Path, path: str) -> Path | None:
     """Return Git's absolute effective path, or None when Git cannot resolve it."""
     completed = subprocess.run(
@@ -247,6 +272,35 @@ def main() -> int:
                 "Make 'just check' apply deterministic Ruff and diagram repairs before its gate.",
             )
 
+        print("\n=== missing-hook repair probe ===")
+        for hook in ("pre-commit", "pre-push"):
+            hook_path = effective_git_path(target, f"hooks/{hook}")
+            if hook_path is None:
+                return fail(
+                    "missing-hook repair probe",
+                    [f"Git could not resolve the effective {hook} hook path."],
+                    "The generated gate must inspect Git's shared hooks directory.",
+                )
+            hook_path.unlink(missing_ok=True)
+        exit_code = run_step(
+            "repair missing hooks through generated gate", ["just", "check"], target
+        )
+        if exit_code != 0:
+            return fail(
+                "missing-hook repair probe",
+                [f"'just check' exited with {exit_code} after both shims were deleted."],
+                "Make the gate run 'uv run prek install -f' before every other check when "
+                "the shared prek shims are absent.",
+            )
+        hook_errors = worktree_hook_errors(target, target)
+        if hook_errors:
+            return fail(
+                "missing-hook repair probe",
+                hook_errors,
+                "The generated gate must leave executable pre-commit and pre-push prek shims "
+                "in Git's shared hooks directory.",
+            )
+
         for name, command in (
             ("stage bootstrapped baseline", ["git", "add", "--all"]),
             (
@@ -270,6 +324,44 @@ def main() -> int:
                     [f"'{' '.join(command)}' exited with {exit_code}."],
                     "The bootstrapped baseline must pass its installed pre-commit hooks.",
                 )
+
+        syntax_probe = target / "unimported_syntax_error.py"
+        syntax_probe.write_text("def unseen(:\n    pass\n", encoding="utf-8")
+        exit_code = run_step(
+            "stage tracked syntax probe", ["git", "add", syntax_probe.name], target
+        )
+        if exit_code != 0:
+            return fail(
+                "tracked Python syntax probe",
+                [f"'git add {syntax_probe.name}' exited with {exit_code}."],
+                "The planted un-imported Python file must be tracked before probing the gate.",
+            )
+        syntax_gate = run_captured_step(
+            "reject tracked un-imported syntax error", ["just", "check"], target
+        )
+        if syntax_gate.returncode == 0 or "FAILED: tracked Python syntax" not in (
+            syntax_gate.stdout + syntax_gate.stderr
+        ):
+            return fail(
+                "tracked Python syntax probe",
+                [
+                    f"'just check' exited with {syntax_gate.returncode}; expected the tracked "
+                    "Python syntax step to fail."
+                ],
+                "Parse every tracked '*.py' file before repairs and the remaining quality gate.",
+            )
+        exit_code = run_step(
+            "unstage tracked syntax probe",
+            ["git", "restore", "--staged", syntax_probe.name],
+            target,
+        )
+        if exit_code != 0:
+            return fail(
+                "tracked Python syntax probe cleanup",
+                [f"'git restore --staged {syntax_probe.name}' exited with {exit_code}."],
+                "Remove the temporary syntax probe from the generated repository index.",
+            )
+        syntax_probe.unlink()
 
         linked = Path(scratch) / "linked-worktree"
         exit_code = run_step(
@@ -354,7 +446,8 @@ def main() -> int:
             )
 
     print("\nPack validation passed: template is clean, instantiation is fully rendered,")
-    print("bootstrap repairs drift, installs prek hooks, and runs them from linked worktrees.")
+    print("bootstrap repairs drift; the gate repairs prek hooks, parses tracked Python,")
+    print("and runs the shared shims from linked worktrees.")
     return 0
 
 

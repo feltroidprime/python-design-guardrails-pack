@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "dccaf79aa0d6f2021ce488f285f4f38838917384cb853d03012016ddaef18d48"
+EXPECTED_GENERATED_TREE_SHA256 = "f181edccdf6e9566af3ac545560e8b400abe6acc369bec7becf3f30c0f760ade"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -193,6 +193,77 @@ def test_generated_justfile_has_one_routine_gate_and_one_private_e2e_route(
     assert justfile.count('uv run --with "$SESSION_PROFILER_DEPENDENCY" pytest') == 1
     assert "-m session_e2e" in justfile
     assert "scripts.architecture_guard" not in justfile
+
+
+def test_generated_gate_rejects_tracked_unimported_python_syntax(
+    tmp_path: Path,
+) -> None:
+    project = _generate_with_answers(
+        tmp_path / "syntax-gate",
+        {"precommit": False},
+    )
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=project,
+        check=True,
+    )
+    planted = project / "unimported_syntax_error.py"
+    planted.write_text(
+        "def unseen(:\n    pass\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "--all"], cwd=project, check=True)
+
+    result = subprocess.run(
+        [sys.executable, "scripts/quality_gate.py", "--fix"],
+        cwd=project,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "=== tracked Python syntax ===" in result.stdout
+    assert "unimported_syntax_error.py:1" in result.stderr
+    assert "SyntaxError" in result.stderr
+    assert "=== safe lint repairs ===" not in result.stdout
+
+
+def test_generated_gate_names_hook_repair_before_any_other_output(
+    tmp_path: Path,
+) -> None:
+    project = _generate_with_answers(tmp_path / "hook-failure", {})
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch=main"],
+        cwd=project,
+        check=True,
+    )
+    bin_dir = tmp_path / "hook-failure-bin"
+    bin_dir.mkdir()
+    uv = bin_dir / "uv"
+    uv.write_text(
+        "#!/bin/sh\nprintf 'uv unavailable\\n' >&2\nexit 41\n",
+        encoding="utf-8",
+    )
+    uv.chmod(0o755)
+    environment = {
+        **os.environ,
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+    }
+
+    result = subprocess.run(
+        [sys.executable, "scripts/quality_gate.py", "--fix"],
+        cwd=project,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 41
+    assert result.stdout == ""
+    assert result.stderr.splitlines()[0] == "uv run prek install -f"
+    assert "uv unavailable" in result.stderr
 
 
 def test_generated_repository_can_preserve_complete_agent_sessions(
