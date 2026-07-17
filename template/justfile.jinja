@@ -17,6 +17,9 @@ bootstrap:
 check:
     uv run python scripts/quality_gate.py --fix
 
+doctor:
+    uv run --no-sync python -m scripts.doctor
+
 # Browse live architecture diagrams (requires Bun; first run downloads the pinned LikeC4 CLI).
 diagrams:
     #!/usr/bin/env bash

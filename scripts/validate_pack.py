@@ -10,8 +10,9 @@ The loop:
 5. seed deterministic repair probes and verify bootstrap repairs them;
 6. delete both prek shims and prove the generated gate repairs them;
 7. commit the baseline and prove a tracked, un-imported syntax error fails early;
-8. prove linked worktrees share both prek hooks;
-9. delete the throwaway repository.
+8. prove the generated doctor is fast, green, and detects a dirty tree;
+9. prove linked worktrees share both prek hooks;
+10. delete the throwaway repository.
 
 Every failure message states what broke and how to fix it, so both humans
 and coding agents can act on it without re-deriving the intent.
@@ -25,12 +26,14 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE_ROOT = REPO_ROOT / "template"
 COPIER_CONFIG = REPO_ROOT / "copier.yml"
 PROJECT_NAME = "orchard-billing"
 PACKAGE_NAME = "orchard_billing"
+DOCTOR_BUDGET_SECONDS = 5.0
 
 
 def artifact_exclusion_patterns() -> tuple[str, ...]:
@@ -137,7 +140,11 @@ def run_step(
 
 
 def run_captured_step(
-    name: str, command: list[str], cwd: Path
+    name: str,
+    command: list[str],
+    cwd: Path,
+    *,
+    environment_overrides: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     print(f"\n=== {name} ===", flush=True)
     print(f"$ {' '.join(command)}  (cwd={cwd})", flush=True)
@@ -146,6 +153,8 @@ def run_captured_step(
         for key, value in os.environ.items()
         if key not in {"VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "PYTHONPATH"}
     }
+    if environment_overrides is not None:
+        environment.update(environment_overrides)
     completed = subprocess.run(
         command,
         cwd=cwd,
@@ -363,6 +372,67 @@ def main() -> int:
             )
         syntax_probe.unlink()
 
+        doctor_bin = Path(scratch) / "doctor-bin"
+        doctor_bin.mkdir()
+        gh_stub = doctor_bin / "gh"
+        gh_stub.write_text(
+            "#!/bin/sh\nprintf 'network is unreachable\\n' >&2\nexit 1\n",
+            encoding="utf-8",
+        )
+        gh_stub.chmod(0o755)
+        doctor_environment = {
+            "PATH": f"{doctor_bin}{os.pathsep}{os.environ['PATH']}"
+        }
+        doctor_started = time.monotonic()
+        doctor = run_captured_step(
+            "run generated doctor on clean baseline",
+            ["just", "doctor"],
+            target,
+            environment_overrides=doctor_environment,
+        )
+        doctor_elapsed = time.monotonic() - doctor_started
+        if (
+            doctor.returncode != 0
+            or doctor_elapsed >= DOCTOR_BUDGET_SECONDS
+            or "ok verdict: 0 failures" not in doctor.stdout
+        ):
+            return fail(
+                "generated doctor green probe",
+                [
+                    f"'just doctor' exited with {doctor.returncode} in "
+                    f"{doctor_elapsed:.2f}s; expected a green verdict in under "
+                    f"{DOCTOR_BUDGET_SECONDS:g}s."
+                ],
+                "Keep the doctor non-interactive and bounded; a bootstrapped clean "
+                "repository without a remote must report no failures.",
+            )
+
+        doctor_fault = target / "doctor-dirty-probe.txt"
+        doctor_fault.write_text("fault\n", encoding="utf-8")
+        dirty_doctor_started = time.monotonic()
+        dirty_doctor = run_captured_step(
+            "reject dirty baseline through generated doctor",
+            ["just", "doctor"],
+            target,
+            environment_overrides=doctor_environment,
+        )
+        dirty_doctor_elapsed = time.monotonic() - dirty_doctor_started
+        if (
+            dirty_doctor.returncode == 0
+            or dirty_doctor_elapsed >= DOCTOR_BUDGET_SECONDS
+            or "fail working-tree: dirty" not in dirty_doctor.stdout
+        ):
+            return fail(
+                "generated doctor dirty-tree probe",
+                [
+                    f"'just doctor' exited with {dirty_doctor.returncode} in "
+                    f"{dirty_doctor_elapsed:.2f}s after an untracked file was planted."
+                ],
+                "The doctor must fail quickly and name a dirty working tree before "
+                "deployment or publication.",
+            )
+        doctor_fault.unlink()
+
         linked = Path(scratch) / "linked-worktree"
         exit_code = run_step(
             "create linked worktree",
@@ -447,7 +517,7 @@ def main() -> int:
 
     print("\nPack validation passed: template is clean, instantiation is fully rendered,")
     print("bootstrap repairs drift; the gate repairs prek hooks, parses tracked Python,")
-    print("and runs the shared shims from linked worktrees.")
+    print("keeps doctor fast and fault-sensitive, and runs shared shims from worktrees.")
     return 0
 
 
