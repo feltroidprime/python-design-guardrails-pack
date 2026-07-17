@@ -6,9 +6,10 @@ The loop:
 1. verify template/ contains no local runtime artifacts;
 2. instantiate a throwaway repository inside a temporary directory;
 3. verify no unrendered Jinja survives in file names or contents;
-4. resolve the generated repository's pinned dependencies with uv;
-5. seed deterministic repair probes and run the generated check loop;
-6. delete the throwaway repository.
+4. initialize Git, then bootstrap dependencies, prek hooks, and checks;
+5. seed deterministic repair probes and verify bootstrap repairs them;
+6. commit the baseline and prove linked worktrees share both prek hooks;
+7. delete the throwaway repository.
 
 Every failure message states what broke and how to fix it, so both humans
 and coding agents can act on it without re-deriving the intent.
@@ -112,7 +113,9 @@ def fail(step: str, details: list[str], fix: str) -> int:
     return 1
 
 
-def run_step(name: str, command: list[str], cwd: Path) -> int:
+def run_step(
+    name: str, command: list[str], cwd: Path, *, input_text: str | None = None
+) -> int:
     print(f"\n=== {name} ===", flush=True)
     print(f"$ {' '.join(command)}  (cwd={cwd})", flush=True)
     environment = {
@@ -120,8 +123,47 @@ def run_step(name: str, command: list[str], cwd: Path) -> int:
         for key, value in os.environ.items()
         if key not in {"VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "PYTHONPATH"}
     }
-    completed = subprocess.run(command, cwd=cwd, env=environment, check=False)
+    completed = subprocess.run(
+        command,
+        cwd=cwd,
+        env=environment,
+        input=input_text,
+        text=input_text is not None,
+        check=False,
+    )
     return completed.returncode
+
+
+def effective_git_path(root: Path, path: str) -> Path | None:
+    """Return Git's absolute effective path, or None when Git cannot resolve it."""
+    completed = subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-path", path],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return None
+    return Path(completed.stdout.strip())
+
+
+def worktree_hook_errors(primary: Path, linked: Path) -> list[str]:
+    """Return defects in prek shim sharing between primary and linked worktrees."""
+    errors: list[str] = []
+    for hook in ("pre-commit", "pre-push"):
+        primary_hook = effective_git_path(primary, f"hooks/{hook}")
+        linked_hook = effective_git_path(linked, f"hooks/{hook}")
+        if primary_hook is None or linked_hook is None:
+            errors.append(f"Git could not resolve the effective {hook} hook path.")
+            continue
+        if linked_hook != primary_hook:
+            errors.append(
+                f"{hook} is not shared: primary={primary_hook}, linked={linked_hook}"
+            )
+        if not primary_hook.is_file() or not os.access(primary_hook, os.X_OK):
+            errors.append(f"{primary_hook} is not an executable prek shim.")
+    return errors
 
 
 def main() -> int:
@@ -136,12 +178,13 @@ def main() -> int:
         )
     print("template/ contains no local runtime artifacts.")
 
-    if shutil.which("uv") is None:
-        return fail(
-            "toolchain",
-            ["'uv' was not found on PATH."],
-            "Install uv (https://docs.astral.sh/uv/) before running pack validation.",
-        )
+    for tool in ("git", "just", "uv"):
+        if shutil.which(tool) is None:
+            return fail(
+                "toolchain",
+                [f"'{tool}' was not found on PATH."],
+                "Install the prerequisites listed in AGENTS.md before running pack validation.",
+            )
 
     with tempfile.TemporaryDirectory(prefix="guardrails-pack-validate-") as scratch:
         target = Path(scratch) / PROJECT_NAME
@@ -169,27 +212,28 @@ def main() -> int:
             )
         print("No unrendered Jinja survives in the generated repository.")
 
-        expected_after_repairs = seed_repair_probes(target)
-        exit_code = run_step("resolve dependencies", ["uv", "sync", "--all-groups"], target)
-        if exit_code != 0:
-            return fail(
-                "dependency resolution",
-                [f"'uv sync --all-groups' exited with {exit_code}."],
-                "Check template/pyproject.toml.jinja pins and network access; the generated "
-                "repository must resolve with the pinned uv version.",
-            )
-
         exit_code = run_step(
-            "downstream check loop",
-            ["just", "check"],
+            "initialize throwaway Git repository",
+            ["git", "init", "--quiet", "--initial-branch=main"],
             target,
         )
         if exit_code != 0:
             return fail(
-                "downstream check loop",
-                [f"'just check' exited with {exit_code}."],
-                "The generated repository fails its own check loop. Fix the canonical source "
-                "under template/ (never a generated copy) and re-run 'just validate'.",
+                "Git initialization",
+                [f"'git init --quiet --initial-branch=main' exited with {exit_code}."],
+                "Check the local Git installation; generated repositories must initialize "
+                "before bootstrap installs hooks.",
+            )
+
+        expected_after_repairs = seed_repair_probes(target)
+        exit_code = run_step("bootstrap generated repository", ["just", "bootstrap"], target)
+        if exit_code != 0:
+            return fail(
+                "downstream bootstrap",
+                [f"'just bootstrap' exited with {exit_code}."],
+                "The generated repository must resolve dependencies, install prek hooks, and "
+                "pass its own check loop. Fix the canonical source under template/ and re-run "
+                "'just validate'.",
             )
         stale_probes = [
             str(path.relative_to(target))
@@ -203,8 +247,114 @@ def main() -> int:
                 "Make 'just check' apply deterministic Ruff and diagram repairs before its gate.",
             )
 
+        for name, command in (
+            ("stage bootstrapped baseline", ["git", "add", "--all"]),
+            (
+                "commit bootstrapped baseline",
+                [
+                    "git",
+                    "-c",
+                    "user.name=pack-validation",
+                    "-c",
+                    "user.email=pack-validation@localhost",
+                    "commit",
+                    "--quiet",
+                    "--message=validated baseline",
+                ],
+            ),
+        ):
+            exit_code = run_step(name, command, target)
+            if exit_code != 0:
+                return fail(
+                    name,
+                    [f"'{' '.join(command)}' exited with {exit_code}."],
+                    "The bootstrapped baseline must pass its installed pre-commit hooks.",
+                )
+
+        linked = Path(scratch) / "linked-worktree"
+        exit_code = run_step(
+            "create linked worktree",
+            ["git", "worktree", "add", "--quiet", "--detach", str(linked)],
+            target,
+        )
+        if exit_code != 0:
+            return fail(
+                "linked worktree creation",
+                [f"'git worktree add' exited with {exit_code}."],
+                "The committed generated repository must support a standard linked worktree.",
+            )
+        hook_errors = worktree_hook_errors(target, linked)
+        if hook_errors:
+            return fail(
+                "linked worktree prek hooks",
+                hook_errors,
+                "Install prek before the initial commit so Git's shared hooks directory covers "
+                "the primary repository and every linked worktree.",
+            )
+        probe = linked / "worktree-hook-probe.txt"
+        probe.write_text("probe\n", encoding="utf-8")
+        exit_code = run_step(
+            "stage linked hook probe", ["git", "add", probe.name], linked
+        )
+        if exit_code != 0:
+            return fail(
+                "linked worktree prek hook execution",
+                [f"'git add {probe.name}' exited with {exit_code}."],
+                "Stage a clean linked-worktree file before invoking the pre-commit shim.",
+            )
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=linked,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if head.returncode != 0:
+            return fail(
+                "linked worktree prek hook execution",
+                ["Git could not resolve the linked worktree HEAD."],
+                "The linked worktree must have a committed baseline before hook probes.",
+            )
+        push_update = (
+            f"refs/heads/main {head.stdout.strip()} refs/heads/main {'0' * 40}\n"
+        )
+        for hook in ("pre-commit", "pre-push"):
+            hook_path = effective_git_path(linked, f"hooks/{hook}")
+            if hook_path is None:
+                return fail(
+                    "linked worktree prek hook execution",
+                    [f"Git could not resolve the linked {hook} hook path."],
+                    "Resolve and execute each installed shim from the linked worktree.",
+                )
+            arguments = [str(hook_path)]
+            if hook == "pre-push":
+                arguments.extend(("origin", "unused"))
+            exit_code = run_step(
+                f"run linked {hook} hook",
+                arguments,
+                linked,
+                input_text=push_update if hook == "pre-push" else None,
+            )
+            if exit_code != 0:
+                return fail(
+                    "linked worktree prek hook execution",
+                    [f"The linked {hook} shim exited with {exit_code}."],
+                    "Both shared prek shims must execute successfully from a linked worktree.",
+                )
+        exit_code = run_step(
+            "remove linked worktree",
+            ["git", "worktree", "remove", "--force", str(linked)],
+            target,
+        )
+        if exit_code != 0:
+            return fail(
+                "linked worktree cleanup",
+                [f"'git worktree remove --force' exited with {exit_code}."],
+                "Validation worktrees must be removed through Git before temporary cleanup.",
+            )
+
     print("\nPack validation passed: template is clean, instantiation is fully rendered,")
-    print("and the generated check loop repairs deterministic drift before its full gate.")
+    print("bootstrap repairs drift, installs prek hooks, and runs them from linked worktrees.")
     return 0
 
 

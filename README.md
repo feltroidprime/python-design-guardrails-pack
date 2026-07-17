@@ -51,12 +51,19 @@ Requires Python 3.14, [`uv`](https://docs.astral.sh/uv/), [`just`](https://githu
 just install
 python-repo init my-product .
 cd my-product
-just bootstrap
 ```
 
-`python-repo init` creates the project, initializes Git on `main`, commits the baseline, and pushes a private GitHub repository. Use `--public`, `--no-github`, `--no-git`, or `--package NAME` as needed.
+`python-repo init` creates the project, initializes Git on `main`, resolves the
+development environment, installs the prek commit and pre-push hooks, runs the
+generated quality gate, commits that bootstrapped baseline, and pushes a private
+GitHub repository. The hooks live in Git's shared hooks directory, so linked
+worktrees created later use them automatically. Use `--public`, `--no-github`,
+`--no-git`, or `--package NAME` as needed; `--no-git` is the generation-only
+escape hatch and therefore skips bootstrap too.
 
-If GitHub creation fails, the local repository remains intact and the CLI prints the recovery command. Run `python-repo init --help` for the complete interface.
+If bootstrap or GitHub creation fails, the local repository remains intact and
+the CLI returns non-zero; GitHub failures also print the recovery command. Run
+`python-repo init --help` for the complete interface.
 
 Generated repositories retain the pack's durable GitHub provenance. From a
 clean branch, `just scaffold-update` applies the newest tagged pack release
@@ -126,7 +133,7 @@ One opinionated stack. One reason for every choice.
 
 | Choice | Value |
 |---|---|
-| Installable `python-repo` CLI | Replace copy-and-clean setup with one stable command. |
+| Installable `python-repo` CLI | Generate, bootstrap, validate, commit, and optionally publish with one stable command. |
 | Pinned Copier engine | Use maintained generation with controlled renderer behavior. |
 | Validated answers and strict Jinja | Reject bad package names, unknown data, and half-rendered output immediately. |
 | Copier provenance and `just scaffold-update` | Pull tagged template releases with a three-way merge instead of blindly replacing local changes. |
@@ -135,7 +142,7 @@ One opinionated stack. One reason for every choice.
 | No third-party runtime dependencies by default | Add only what the product needs; keep guardrails in the development group. |
 | `uv`, not pip or Poetry | One tool owns Python, dependency resolution, environments, the lockfile, and builds. |
 | `just`, not Make | One repair-and-verification route, plus explicit setup, diagram-viewing, and dependency-update branches. |
-| `prek`, not pre-commit | Native TOML hook policy with fast commit checks and the full gate before push. |
+| `prek`, not pre-commit | Install shared Git shims before the first commit, with fast commit checks and the full gate before every push from any linked worktree. |
 | Ruff from the project environment | Hooks, local commands, and CI use the exact Ruff version resolved in `uv.lock`. |
 | Broad Ruff policy | Enforce formatting, correctness, security, performance, modern Python, and complexity in one tool. |
 | BasedPyright with warnings as errors | Reject `Any`, missing types, unsafe overrides, incomplete matches, and stale ignores. |

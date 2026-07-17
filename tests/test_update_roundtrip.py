@@ -11,7 +11,7 @@ import instantiate
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS_RELEASE = "v0.1.0"
-CURRENT_RELEASE_CANDIDATE = "v0.1.1"
+CURRENT_RELEASE_CANDIDATE = "v0.2.1"
 RECIPE_BASE_RELEASE = "v1.2.3"
 RECIPE_NEXT_RELEASE = "v1.2.4"
 PROJECT_NAME = "roundtrip-project"
@@ -69,7 +69,19 @@ def test_previous_release_updates_cleanly_to_current_ref(tmp_path: Path) -> None
         ["git", "rev-parse", "--verify", PREVIOUS_RELEASE], template, environment
     ).returncode == 0
     tagged = run(
-        ["git", "tag", CURRENT_RELEASE_CANDIDATE], template, environment
+        [
+            "git",
+            "-c",
+            "user.name=tests",
+            "-c",
+            "user.email=tests@localhost",
+            "tag",
+            "--annotate",
+            CURRENT_RELEASE_CANDIDATE,
+            "--message=current release candidate",
+        ],
+        template,
+        environment,
     )
     assert tagged.returncode == 0, tagged.stdout + tagged.stderr
 

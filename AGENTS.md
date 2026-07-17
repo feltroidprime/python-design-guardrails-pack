@@ -15,8 +15,10 @@ product.
   installable `python-repo` console script (`python-repo init <name>
   [directory] [--package NAME] [--public] [--no-github] [--no-git]`); the
   root `pyproject.toml` exists solely to package that CLI plus `template/`
-  for `uv tool install` (see `just install`). The `init` subcommand also
-  runs `git init` + initial commit and `gh repo create --private … --push`;
+  for `uv tool install` (see `just install`). The `init` subcommand also runs
+  `git init`, `just bootstrap` (dependency sync, prek hook installation, and
+  the generated quality gate), the initial commit, and
+  `gh repo create --private … --push`, in that order;
   the legacy positional form stays purely local (no git, no gh, no network)
   because the pack's tests and `validate_pack.py` depend on that. Tests for
   the gh behavior must use a PATH-stubbed `gh`, never the real one.

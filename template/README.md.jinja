@@ -14,10 +14,18 @@ quality contract.
 
 ## Bootstrap
 
+`python-repo init` runs this recipe before creating the baseline commit. Run it
+again after cloning the repository or when generating directly through Copier.
+
 ```bash
 just bootstrap
 ```
 
+{% if precommit and not workspace_member %}Prek installs the commit and pre-push shims in Git's shared hooks directory.
+Linked worktrees created with `git worktree add` therefore use the same hooks
+without another install step.
+
+{% endif %}
 ## Daily commands
 
 ```bash

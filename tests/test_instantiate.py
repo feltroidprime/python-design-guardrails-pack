@@ -5,6 +5,7 @@ covered by scripts/validate_pack.py (run through 'just validate').
 """
 
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -18,7 +19,6 @@ from copier import run_copy
 
 # Import paths are provided by tests/conftest.py.
 import instantiate
-from instantiate import generate
 from validate_pack import find_forbidden_artifacts, find_unrendered_jinja
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "4953329608a0488c5cebd687e0dce20045ebc24449964a0cac4e703e62b54d05"
+EXPECTED_GENERATED_TREE_SHA256 = "dccaf79aa0d6f2021ce488f285f4f38838917384cb853d03012016ddaef18d48"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -167,6 +167,11 @@ def test_generated_repository_uses_prek_for_git_hooks(generated: Path) -> None:
     assert hooks["full-quality-gate"]["entry"].endswith("python scripts/quality_gate.py")
 
 
+def test_generated_baseline_files_pass_data_and_eof_hooks(generated: Path) -> None:
+    json.loads((generated / ".vscode" / "settings.json").read_text(encoding="utf-8"))
+    assert (generated / "CLAUDE.md").read_bytes().endswith(b"\n")
+
+
 def test_generated_justfile_has_one_routine_gate_and_one_private_e2e_route(
     generated: Path,
 ) -> None:
@@ -260,6 +265,8 @@ def test_generation_records_copier_template_and_answers(generated: Path) -> None
 def test_generated_readme_documents_copier_update_workflow(generated: Path) -> None:
     readme = (generated / "README.md").read_text(encoding="utf-8")
 
+    assert "`python-repo init` runs this recipe before creating the baseline commit" in readme
+    assert "Linked worktrees created with `git worktree add`" in readme
     assert "uvx --from copier==9.17.0 copier check-update --quiet" in readme
     assert "exit status `2`" in readme
     assert "just scaffold-update" in readme
@@ -362,7 +369,7 @@ def test_workspace_member_has_exact_file_delta(tmp_path: Path) -> None:
     assert set(variant) - set(baseline) == set()
     assert {
         path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
-    } == {".copier-answers.yml", "justfile", "pyproject.toml"}
+    } == {".copier-answers.yml", "README.md", "justfile", "pyproject.toml"}
 
     pyproject = tomllib.loads(variant["pyproject.toml"].decode("utf-8"))
     # The workspace root owns the dev group and the shared tool config; a member
@@ -489,7 +496,7 @@ def run_cli(
 def make_gh_stub(tmp_path: Path) -> tuple[dict[str, str], Path]:
     """PATH-prepend a fake `gh` that records its arguments instead of hitting GitHub."""
     stub_dir = tmp_path / "stub-bin"
-    stub_dir.mkdir()
+    stub_dir.mkdir(exist_ok=True)
     recorded = tmp_path / "gh-args.txt"
     stub = stub_dir / "gh"
     stub.write_text(f'#!/bin/sh\necho "$@" > "{recorded}"\n', encoding="utf-8")
@@ -497,6 +504,35 @@ def make_gh_stub(tmp_path: Path) -> tuple[dict[str, str], Path]:
     env = dict(os.environ)
     env["PATH"] = f"{stub_dir}{os.pathsep}{env['PATH']}"
     return env, recorded
+
+
+def add_just_stub(tmp_path: Path, env: dict[str, str] | None = None) -> tuple[dict[str, str], Path]:
+    """PATH-prepend a bootstrap stand-in that installs shared Git hook shims."""
+    stub_dir = tmp_path / "stub-bin"
+    stub_dir.mkdir(exist_ok=True)
+    recorded = tmp_path / "just-args.txt"
+    stub = stub_dir / "just"
+    stub.write_text(
+        "#!/bin/sh\n"
+        "set -eu\n"
+        f'printf "%s\\n" "$*" > "{recorded}"\n'
+        'test "$*" = "bootstrap"\n'
+        "git rev-parse --is-inside-work-tree >/dev/null\n"
+        "if git rev-parse --verify HEAD >/dev/null 2>&1; then\n"
+        "  exit 42\n"
+        "fi\n"
+        'hooks="$(git rev-parse --git-path hooks)"\n'
+        'mkdir -p "$hooks"\n'
+        "for hook in pre-commit pre-push; do\n"
+        '  printf "#!/bin/sh\\nexit 0\\n" > "$hooks/$hook"\n'
+        '  chmod +x "$hooks/$hook"\n'
+        "done\n",
+        encoding="utf-8",
+    )
+    stub.chmod(0o755)
+    environment = dict(os.environ if env is None else env)
+    environment["PATH"] = f"{stub_dir}{os.pathsep}{environment['PATH']}"
+    return environment, recorded
 
 
 def copy_pack(destination: Path) -> Path:
@@ -519,12 +555,17 @@ def snapshot_working_tree(repository: Path) -> dict[str, bytes]:
     return snapshot
 
 
-def test_init_creates_project_and_git_repository(tmp_path: Path) -> None:
-    result = run_cli("init", PROJECT_NAME, str(tmp_path), "--no-github")
+def test_init_bootstraps_before_first_commit_and_hooks_cover_worktrees(tmp_path: Path) -> None:
+    environment, bootstrap_args = add_just_stub(tmp_path)
+    result = run_cli(
+        "init", PROJECT_NAME, str(tmp_path), "--no-github", env=environment
+    )
     assert result.returncode == 0, result.stdout + result.stderr
     target = tmp_path / PROJECT_NAME
     assert (target / "src" / PACKAGE_NAME).is_dir(), "package name was not derived"
     assert f"Created {PROJECT_NAME}" in result.stdout
+    assert "just bootstrap" not in result.stdout
+    assert bootstrap_args.read_text(encoding="utf-8") == "bootstrap\n"
     assert (target / ".git").is_dir(), "git repository was not initialized"
     head = subprocess.run(
         ["git", "log", "--oneline"],
@@ -535,6 +576,63 @@ def test_init_creates_project_and_git_repository(tmp_path: Path) -> None:
         check=False,
     )
     assert head.returncode == 0 and head.stdout.count("\n") == 1, "expected one initial commit"
+
+    linked = tmp_path / "linked"
+    subprocess.run(
+        ["git", "worktree", "add", "--quiet", "--detach", str(linked)],
+        cwd=target,
+        env=instantiate.environment_without_local_git_context(),
+        check=True,
+    )
+    for hook in ("pre-commit", "pre-push"):
+        primary_hook = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-path", f"hooks/{hook}"],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        linked_hook = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-path", f"hooks/{hook}"],
+            cwd=linked,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        assert linked_hook == primary_hook
+        assert os.access(linked_hook, os.X_OK)
+        arguments = [linked_hook]
+        if hook == "pre-push":
+            arguments.extend(("origin", "unused"))
+        assert subprocess.run(arguments, cwd=linked, check=False).returncode == 0
+
+
+def test_init_stops_before_commit_and_github_when_bootstrap_fails(tmp_path: Path) -> None:
+    environment, github_args = make_gh_stub(tmp_path)
+    environment, bootstrap_args = add_just_stub(tmp_path, environment)
+    just = tmp_path / "stub-bin" / "just"
+    just.write_text(
+        "#!/bin/sh\n"
+        f'printf "%s\\n" "$*" > "{bootstrap_args}"\n'
+        "exit 23\n",
+        encoding="utf-8",
+    )
+    just.chmod(0o755)
+    result = run_cli("init", PROJECT_NAME, str(tmp_path), env=environment)
+
+    assert result.returncode == 1
+    assert "Bootstrap failed: 'just bootstrap' exited with 23." in result.stdout
+    assert "Repository left incomplete at" in result.stdout
+    assert f"Created {PROJECT_NAME}" not in result.stdout
+    assert not github_args.exists()
+    target = tmp_path / PROJECT_NAME
+    assert (target / ".git").is_dir()
+    assert subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        cwd=target,
+        capture_output=True,
+        check=False,
+    ).returncode != 0
 
 
 def test_init_honors_explicit_package_name(tmp_path: Path) -> None:
@@ -555,6 +653,7 @@ def test_init_no_git_skips_git_and_github(tmp_path: Path) -> None:
 
 def test_init_creates_private_github_repository_by_default(tmp_path: Path) -> None:
     env, recorded = make_gh_stub(tmp_path)
+    env, _ = add_just_stub(tmp_path, env)
     result = run_cli("init", PROJECT_NAME, str(tmp_path / "work"), env=env)
     assert result.returncode == 0, result.stdout + result.stderr
     assert recorded.read_text(encoding="utf-8").split() == [
@@ -572,6 +671,7 @@ def test_init_creates_private_github_repository_by_default(tmp_path: Path) -> No
 
 def test_init_public_flag_flips_github_visibility(tmp_path: Path) -> None:
     env, recorded = make_gh_stub(tmp_path)
+    env, _ = add_just_stub(tmp_path, env)
     result = run_cli("init", PROJECT_NAME, str(tmp_path / "work"), "--public", env=env)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "--public" in recorded.read_text(encoding="utf-8").split()
@@ -580,6 +680,7 @@ def test_init_public_flag_flips_github_visibility(tmp_path: Path) -> None:
 
 def test_init_failing_gh_reports_manual_command_and_exit_1(tmp_path: Path) -> None:
     env, _ = make_gh_stub(tmp_path)
+    env, _ = add_just_stub(tmp_path, env)
     stub = tmp_path / "stub-bin" / "gh"
     stub.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
     result = run_cli("init", PROJECT_NAME, str(tmp_path / "work"), env=env)

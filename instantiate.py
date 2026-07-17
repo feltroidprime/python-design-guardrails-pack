@@ -143,9 +143,21 @@ def run_command(command: list[str], cwd: Path) -> str | None:
 
 
 def initialize_git_repository(output: Path) -> str | None:
-    """git init + initial commit. Return an error message, or None on success."""
+    """Initialize Git in *output*. Return an error message, or None on success."""
     if shutil.which("git") is None:
         return "git was not found on PATH; cannot initialize a git repository."
+    return run_command(["git", "init", "--quiet", "--initial-branch=main"], output)
+
+
+def bootstrap_repository(output: Path) -> str | None:
+    """Install dependencies and hooks, then check the generated repository."""
+    if shutil.which("just") is None:
+        return "'just' was not found on PATH; cannot bootstrap the repository."
+    return run_command(["just", "bootstrap"], output)
+
+
+def create_initial_commit(output: Path) -> str | None:
+    """Commit the bootstrapped baseline. Return an error message, or None on success."""
     identity: list[str] = []
     email = subprocess.run(
         ["git", "config", "--get", "user.email"],
@@ -162,13 +174,25 @@ def initialize_git_repository(output: Path) -> str | None:
             "user.email=python-repo@localhost",
         ]
     for command in (
-        ["git", "init", "--quiet", "--initial-branch=main"],
         ["git", "add", "--all"],
         ["git", *identity, "commit", "--quiet", "--message", GIT_COMMIT_MESSAGE],
     ):
         error = run_command(command, output)
         if error is not None:
             return error
+    return None
+
+
+def prepare_repository(output: Path) -> str | None:
+    """Initialize, bootstrap, and commit a ready-to-use repository."""
+    for name, step in (
+        ("Git initialization", initialize_git_repository),
+        ("Bootstrap", bootstrap_repository),
+        ("Initial commit", create_initial_commit),
+    ):
+        error = step(output)
+        if error is not None:
+            return f"{name} failed: {error}"
     return None
 
 
@@ -228,10 +252,10 @@ def cli(argv: list[str] | None = None) -> int:
         "init",
         help="create <directory>/<name> from the template",
         description=(
-            "Create a new repository at <directory>/<name>, initialize git with "
-            "an initial commit, and create a private GitHub repository with gh. "
-            "The import package name is derived from <name> unless --package is "
-            "given."
+            "Create a new repository at <directory>/<name>, initialize Git, install "
+            "dependencies and hooks, pass the generated quality gate, commit the "
+            "bootstrapped baseline, and create a private GitHub repository with gh. "
+            "The import package name is derived from <name> unless --package is given."
         ),
     )
     init.add_argument("name", help="project (distribution) name, e.g. my-product")
@@ -258,7 +282,7 @@ def cli(argv: list[str] | None = None) -> int:
     init.add_argument(
         "--no-git",
         action="store_true",
-        help="skip git initialization entirely (implies --no-github)",
+        help="skip Git initialization, bootstrap, commit, and GitHub (generation only)",
     )
     args = parser.parse_args(argv)
 
@@ -277,27 +301,33 @@ def cli(argv: list[str] | None = None) -> int:
         return 2
 
     exit_code = 0
+    requested_local_setup_completed = args.no_git
     if not args.no_git:
-        error = initialize_git_repository(output)
+        error = prepare_repository(output)
         if error is not None:
-            print(f"Git initialization failed: {error}")
+            print(error)
             exit_code = 1
-        elif not args.no_github:
-            github_command = github_create_command(args.name, private=not args.public)
-            if shutil.which("gh") is None:
-                print("gh was not found on PATH; no GitHub repository was created.")
-                print("Create it later from inside the repository:")
-                print(f"  {' '.join(github_command)}")
-            else:
-                error = run_command(github_command, output)
-                if error is not None:
-                    print(f"GitHub repository creation failed: {error}")
-                    print("Fix the cause (e.g. 'gh auth login', name collision),")
-                    print("then run from inside the repository:")
+        else:
+            requested_local_setup_completed = True
+            if not args.no_github:
+                github_command = github_create_command(args.name, private=not args.public)
+                if shutil.which("gh") is None:
+                    print("gh was not found on PATH; no GitHub repository was created.")
+                    print("Create it later from inside the repository:")
                     print(f"  {' '.join(github_command)}")
-                    exit_code = 1
+                else:
+                    error = run_command(github_command, output)
+                    if error is not None:
+                        print(f"GitHub repository creation failed: {error}")
+                        print("Fix the cause (e.g. 'gh auth login', name collision),")
+                        print("then run from inside the repository:")
+                        print(f"  {' '.join(github_command)}")
+                        exit_code = 1
 
-    print_next_steps(args.name, output)
+    if requested_local_setup_completed:
+        print(f"Created {args.name} in {output}")
+    else:
+        print(f"Repository left incomplete at {output}")
     return exit_code
 
 

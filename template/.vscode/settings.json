@@ -1,7 +1,4 @@
 {
-  // Hide derived artifacts from the explorer; sources of truth stay visible.
-  // Keep this list in sync with .gitignore: everything hidden here is
-  // regenerable output, never hand-edited content.
   "files.exclude": {
     "**/__pycache__": true,
     "**/*.pyc": true,
@@ -21,7 +18,6 @@
     "build": true,
     ".idea": true
   },
-  // search.exclude inherits files.exclude; add search-only noise here.
   "search.exclude": {
     "uv.lock": true
   },
@@ -35,18 +31,12 @@
     "**/.codebase-memory/**": true,
     "**/.venv/**": true
   },
-  // Mirror the justfile's PYTHONPYCACHEPREFIX export so ad-hoc commands in
-  // the integrated terminal also write __pycache__ under .venv instead of
-  // scattering it through the source tree.
   "terminal.integrated.env.osx": {
     "PYTHONPYCACHEPREFIX": "${workspaceFolder}/.venv/pycache"
   },
   "terminal.integrated.env.linux": {
     "PYTHONPYCACHEPREFIX": "${workspaceFolder}/.venv/pycache"
   },
-  // Point the language server at the project venv and use the basedpyright
-  // installed there rather than the extension's bundled copy, so the editor's
-  // diagnostics match `uv run basedpyright` exactly.
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "basedpyright.importStrategy": "fromEnvironment"
 }
