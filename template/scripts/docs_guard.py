@@ -25,7 +25,9 @@ if TYPE_CHECKING:
 
 MAP_RELATIVE = Path("docs") / "README.md"
 ADR_RELATIVE = Path("docs") / "adr"
-GENERATED_RELATIVE = Path("docs") / "architecture" / "likec4" / "generated"
+# Derived documentation is owned by its generator, not by the docs map: any
+# `generated/` directory under docs/ is outside this guard's jurisdiction.
+GENERATED_DIRECTORY_NAME = "generated"
 
 MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 INLINE_CODE = re.compile(r"`([^`\n]+)`")
@@ -49,13 +51,14 @@ class DocViolation:
 
 def markdown_files(root: Path) -> list[Path]:
     """Every prose document the guard owns: root-level, docs/, and .github/."""
-    generated = root / GENERATED_RELATIVE
     candidates = (
         *root.glob("*.md"),
         *(root / "docs").rglob("*.md"),
         *(root / ".github").rglob("*.md"),
     )
-    return sorted(path for path in candidates if generated not in path.parents)
+    return sorted(
+        path for path in candidates if GENERATED_DIRECTORY_NAME not in path.relative_to(root).parts
+    )
 
 
 def visible_lines(text: str) -> list[str]:

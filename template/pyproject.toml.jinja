@@ -19,8 +19,8 @@ dependencies = []
 dev = [
   "basedpyright>=1.39.9",
   "coverage[toml]>=7.15.0",
-  "grimp>=3.15",
-  "hypothesis>=6.156.6",
+{% if likec4 %}  "grimp>=3.15",
+{% endif %}  "hypothesis>=6.156.6",
   "import-linter>=2.13",
 {% if precommit %}  "prek>=0.4.9",
 {% endif %}  "pytest>=9.1.1",
@@ -32,13 +32,13 @@ dev = [
 {% endif %}[tool.uv]
 required-version = ">=0.11.28,<0.12"
 
-# The only place the LikeC4 CLI version is pinned. Every invocation goes
+{% if likec4 %}# The only place the LikeC4 CLI version is pinned. Every invocation goes
 # through `bunx likec4@<version>` (quality gate and `just diagrams`), which
 # keeps this Python repository free of JavaScript project files.
 [tool.likec4]
 version = "1.58.0"
 
-{% if not workspace_member %}[tool.ruff]
+{% endif %}{% if not workspace_member %}[tool.ruff]
 target-version = "py314"
 line-length = 100
 src = ["src", "tests", "scripts"]

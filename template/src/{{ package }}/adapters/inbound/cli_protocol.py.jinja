@@ -46,8 +46,8 @@ if TYPE_CHECKING:
     from {{ package }}.application.use_cases import CreateItemResult
 
 SCHEMA_VERSION = "1.0"
-PROTOCOL_DECISION = "ADR-0003"
-PROTOCOL_DECISIONS = (PROTOCOL_DECISION, "ADR-0005")
+PROTOCOL_DECISION = "ADR-0002"
+PROTOCOL_DECISIONS = (PROTOCOL_DECISION, "ADR-0004")
 
 
 class InvalidContinuationError(ValueError):

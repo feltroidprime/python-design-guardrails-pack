@@ -1,4 +1,4 @@
-# ADR-0004: Agent-session evidence comes from a pinned private library
+# ADR-0003: Agent-session evidence comes from a pinned private library
 
 - Status: accepted
 - Date: 2026-07-16

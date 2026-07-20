@@ -1,4 +1,4 @@
-# ADR-0005: Agent input, retry, safety, outcome, and composition contract
+# ADR-0004: Agent input, retry, safety, outcome, and composition contract
 
 - Status: accepted
 - Date: 2026-07-16
@@ -9,7 +9,7 @@
 
 ## Context and forces
 
-ADR-0003 established a closed catalog, versioned machine envelopes, bounded
+ADR-0002 established a closed catalog, versioned machine envelopes, bounded
 queries, retry metadata, detached process cases, and stable exit classes. It
 did not make the input model itself a closed policy, and several published
 policies described intent without proving the corresponding behavior.
@@ -21,7 +21,7 @@ growth without freezing help wording, JSON key order, or parser internals.
 
 ## Decision
 
-This decision extends ADR-0003; it does not replace its envelopes, exit
+This decision extends ADR-0002; it does not replace its envelopes, exit
 classes, machine defaults, command names, or process seam. Protocol documents
 remain schema `1.0`, while capability discovery advertises both governing
 decisions. The additions are backward-compatible protocol 1.x metadata and

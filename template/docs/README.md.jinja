@@ -10,7 +10,7 @@ need; every document is one link away. The gate's `docs guard` check
    authoritative file — its row below. Other documents link to that file and
    never paraphrase it.
 2. **Freshness ladder: derived > checked > dated.** Prefer documentation
-   generated from the code (*derived*: the LikeC4 model). Prose whose file and
+   generated from the code{% if likec4 %} (*derived*: the LikeC4 model){% endif %}. Prose whose file and
    directory references the gate verifies is *checked*: cite real repository
    paths, and renames fail the gate until the prose moves too. Prose no gate
    can verify — context, decisions, trade-offs — is *dated*: it carries a
@@ -32,8 +32,8 @@ need; every document is one link away. The gate's `docs guard` check
 | [docs/architecture/EXCEPTIONS.md](architecture/EXCEPTIONS.md) | granting or auditing a suppression — the exception ledger | checked |
 | [docs/architecture/PATTERN_ADMISSION.md](architecture/PATTERN_ADMISSION.md) | admitting a non-trivial pattern — the form to copy into an ADR | checked |
 | [docs/architecture/MIGRATION_CHECKLIST.md](architecture/MIGRATION_CHECKLIST.md) | replacing or strangling an existing implementation safely | checked |
-| [docs/architecture/likec4/](architecture/likec4/) | reasoning from the current structure — `architecture/likec4/generated/` is derived (`just check` regenerates it), `views.c4` is team-owned narration | derived |
-| [.github/PULL_REQUEST_TEMPLATE.md](../.github/PULL_REQUEST_TEMPLATE.md) | opening a pull request | checked |
+{% if likec4 %}| [docs/architecture/likec4/](architecture/likec4/) | reasoning from the current structure — `architecture/likec4/generated/` is derived (`just check` regenerates it), `views.c4` is team-owned narration | derived |
+{% endif %}| [.github/PULL_REQUEST_TEMPLATE.md](../.github/PULL_REQUEST_TEMPLATE.md) | opening a pull request | checked |
 
 In-code documentation is not listed here: each package's `__init__.py`
 docstring states its public surface and ownership (ARCH015{% if agents_contract != 'none' %} in

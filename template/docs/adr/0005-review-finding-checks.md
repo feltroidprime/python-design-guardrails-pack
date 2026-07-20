@@ -1,4 +1,4 @@
-# ADR-0006: Check recurring review findings
+# ADR-0005: Check recurring review findings
 
 - Status: accepted
 - Date: 2026-07-17

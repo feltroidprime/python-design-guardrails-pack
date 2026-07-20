@@ -18,6 +18,6 @@ jobs:
           version: "0.11.28"
           python-version: "3.14"
           enable-cache: true
-      - uses: oven-sh/setup-bun@v2
-      - run: uv sync --locked --all-groups
+{% if likec4 %}      - uses: oven-sh/setup-bun@v2
+{% endif %}      - run: uv sync --locked --all-groups
       - run: uv run python scripts/quality_gate.py

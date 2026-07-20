@@ -49,7 +49,8 @@ repository, not this one.
 | `python-repo` CLI packaging (console script, wheel contents) | `pyproject.toml` (root) |
 | Downstream architecture policy | `template/architecture.toml.jinja` + `template/scripts/architecture_rules.py` |
 | Downstream agent contract | `template/{% if agents_contract != 'none' %}AGENTS.md{% endif %}.jinja` |
-| Downstream quality gate | `template/scripts/quality_gate.py` (mirrored by `template/.github/workflows/quality.yml` and the pre-push hook) |
+| Downstream quality gate | `template/scripts/quality_gate.py.jinja` (mirrored by `template/.github/workflows/quality.yml.jinja` and the pre-push hook) |
+| Optional derived-diagram feature | the `likec4` question in `copier.yml`, `--likec4` in `instantiate.py`, and every `likec4` Jinja branch under `template/` |
 | Pack validation loop | `justfile` (root) + `scripts/validate_pack.py` + `tests/test_instantiate.py` |
 | Design-to-guardrail rationale | `DESIGN_GUARDRAILS.md` |
 | Last executed validation record | `VALIDATION.md` |
@@ -71,15 +72,16 @@ repository, not this one.
 4. **Keep version pins coherent.** The pinned toolchain appears in several
    places that must move together: `template/pyproject.toml.jinja` (dev group and
    `tool.uv.required-version`), the conditional `prek.toml` template (hook
-   revisions), and `template/.github/workflows/quality.yml` (uv version). The
+   revisions), and `template/.github/workflows/quality.yml.jinja` (uv version). The
    prek minimum/floor appears in the root `prek.toml`,
    `template/pyproject.toml.jinja`, and the conditional `prek.toml` template;
    move all three together.
-   Two diagram-toolchain pins join this rule: the grimp pin appears in
-   `template/pyproject.toml.jinja` (dev group) **and** the root `justfile`
-   (`--with grimp==…` for the diagram-sync tests) — move both together. The
-   LikeC4 CLI version is pinned in exactly one place, `[tool.likec4]` in
-   `template/pyproject.toml.jinja`; never introduce a second copy. The Copier
+   Two diagram-toolchain pins join this rule, both inside the opt-in `likec4`
+   configuration: the grimp pin appears in `template/pyproject.toml.jinja`
+   (dev group) **and** the root `justfile` (`--with grimp==…` for the
+   diagram-sync tests) — move both together. The LikeC4 CLI version is pinned
+   in exactly one place, `[tool.likec4]` in `template/pyproject.toml.jinja`;
+   never introduce a second copy. The Copier
    pin appears in the root `pyproject.toml`, both generating recipes in the root
    `justfile`, the benchmark bootstraps in `benchmarks/run.py` and
    `benchmarks/matrix.py`, `_min_copier_version` in `copier.yml`, the downstream
@@ -90,7 +92,7 @@ repository, not this one.
    use the corresponding template tag version. The pytest-xdist pin appears in
    both root `justfile` test invocations; move both together.
    The private session-profiler commit appears in `template/justfile.jinja`,
-   `template/docs/adr/0004-agent-session-evidence.md`, and
+   `template/docs/adr/0003-agent-session-evidence.md`, and
    `tests/test_instantiate.py`; move all three together. Keep it out of the
    generated dependency groups and lockfile so baseline bootstrap and CI remain
    credential-free.
@@ -121,21 +123,28 @@ just validate
 It runs the generator unit tests, then instantiates a fresh repository in a
 temporary directory, verifies template cleanliness and complete Jinja
 rendering, resolves the pinned dependencies, runs the generated repository's
-own quality gate, and cleans up.
+own quality gate, and cleans up. It instantiates the **default** answers, so
+the LikeC4 assets are absent from that run; `just validate likec4` performs the
+same loop against the opt-in configuration, including the gate's `diagram sync`
+and `diagram views` checks.
 
 Required before claiming completion:
 
 - change to `instantiate.py` or anything under `template/` → `just validate`;
 - change to root tests/validation scripts → `just validate`;
+- change to any `likec4`-conditional branch, the sync script, or the LikeC4
+  assets → `just validate likec4` as well, since the default run never
+  instantiates that configuration;
 - docs-only change at the root → no run required, but commands quoted in docs
   must match the justfile and scripts.
 
 `just test` alone (generator tests, no downstream install) is a fast inner
 loop, not a completion criterion for template changes.
 
-Prerequisites: `python3` (3.14), `uv`, `just`, `bun`, and network access for
-the first dependency resolution (including the first `bunx` download of the
-pinned LikeC4 CLI, exercised by the downstream gate's `diagram views` check).
+Prerequisites: `python3` (3.14), `uv`, `just`, and network access for the first
+dependency resolution. `just validate likec4` additionally requires `bun`: it
+generates the opt-in LikeC4 configuration, whose gate downloads the pinned
+LikeC4 CLI through `bunx` for its `diagram views` check.
 `uv run --no-project --with` supplies Copier, pytest, pytest-xdist, and grimp;
 the root `pyproject.toml` is packaging-only (Copier is its sole runtime
 dependency; it has no dev tooling) and the

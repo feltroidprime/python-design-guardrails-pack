@@ -124,7 +124,7 @@ def execute(
         InvalidContinuationError,
     ) as error:
         failure = _known_failure(command, error)
-    except Exception as error:  # noqa: BLE001  # ARCH-EXCEPTION: ADR-0003
+    except Exception as error:  # noqa: BLE001  # ARCH-EXCEPTION: ADR-0002
         if debug:
             traceback.print_exception(error, file=err)
             return ExitCode.UNEXPECTED_FAILURE

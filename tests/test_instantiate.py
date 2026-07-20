@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "76cdc6a2dd016ab78b33f39f2023f363ba513db40c3858a3593e3548a3e5f8d7"
+EXPECTED_GENERATED_TREE_SHA256 = "96a08a57ddc4106ad893ff97fbc18addbebf06aa5dd0293fb09e9b1d97b9adf8"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -52,18 +52,12 @@ EXPECTED_FILES = (
     "architecture.toml",
     "docs/README.md",
     "docs/adr/0000-template.md",
-    "docs/adr/0001-derived-architecture-diagrams.md",
-    "docs/adr/0002-foundation-ports-and-reference-adapters.md",
-    "docs/adr/0003-agent-native-cli-protocol.md",
-    "docs/adr/0004-agent-session-evidence.md",
-    "docs/adr/0005-agent-input-retry-and-composition-contract.md",
-    "docs/adr/0006-review-finding-checks.md",
+    "docs/adr/0001-foundation-ports-and-reference-adapters.md",
+    "docs/adr/0002-agent-native-cli-protocol.md",
+    "docs/adr/0003-agent-session-evidence.md",
+    "docs/adr/0004-agent-input-retry-and-composition-contract.md",
+    "docs/adr/0005-review-finding-checks.md",
     "docs/architecture/EXCEPTIONS.md",
-    "docs/architecture/likec4/generated/baseline-views.c4",
-    "docs/architecture/likec4/generated/model.c4",
-    "docs/architecture/likec4/likec4.config.json",
-    "docs/architecture/likec4/specification.c4",
-    "docs/architecture/likec4/views.c4",
     "justfile",
     "pyproject.toml",
     "scripts/architecture_guard.py",
@@ -77,7 +71,6 @@ EXPECTED_FILES = (
     "scripts/override_discipline.py",
     "scripts/quality_gate.py",
     "scripts/review_discipline.py",
-    "scripts/sync_architecture_diagrams.py",
     "tests/e2e/session_contract.py",
     "tests/e2e/test_real_agent_sessions.py",
     f"src/{PACKAGE_NAME}/__main__.py",
@@ -119,9 +112,13 @@ def run_instantiate(
     script: Path = INSTANTIATE,
     env: dict[str, str] | None = None,
     cwd: Path | None = None,
+    likec4: bool = False,
 ) -> subprocess.CompletedProcess[str]:
+    command = [sys.executable, str(script), project, package, str(output)]
+    if likec4:
+        command.append("--likec4")
     return subprocess.run(
-        [sys.executable, str(script), project, package, str(output)],
+        command,
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -135,6 +132,15 @@ def generated(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """One shared successful instantiation for read-only assertions."""
     output = tmp_path_factory.mktemp("generated") / PROJECT_NAME
     result = run_instantiate(PROJECT_NAME, PACKAGE_NAME, output)
+    assert result.returncode == 0, result.stdout + result.stderr
+    return output
+
+
+@pytest.fixture(scope="session")
+def generated_likec4(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """One shared instantiation with the opt-in LikeC4 architecture model."""
+    output = tmp_path_factory.mktemp("generated-likec4") / PROJECT_NAME
+    result = run_instantiate(PROJECT_NAME, PACKAGE_NAME, output, likec4=True)
     assert result.returncode == 0, result.stdout + result.stderr
     return output
 
@@ -186,7 +192,6 @@ def test_generated_justfile_has_one_routine_gate_and_one_private_e2e_route(
         "bootstrap",
         "check",
         "doctor",
-        "diagrams",
         "scaffold-update",
         "update",
     ]
@@ -562,10 +567,10 @@ def test_workspace_member_has_exact_file_delta(tmp_path: Path) -> None:
 
     pyproject = tomllib.loads(variant["pyproject.toml"].decode("utf-8"))
     # The workspace root owns the dev group and the shared tool config; a member
-    # keeps only its build system, project metadata, uv/likec4 pins, and its own
+    # keeps only its build system, project metadata, the uv pin, and its own
     # per-package import-linter contracts.
     assert "dependency-groups" not in pyproject
-    assert set(pyproject["tool"]) == {"uv", "likec4", "importlinter"}
+    assert set(pyproject["tool"]) == {"uv", "importlinter"}
     assert {contract["id"] for contract in pyproject["tool"]["importlinter"]["contracts"]} == {
         "layers",
         "adapter-independence",
@@ -576,6 +581,55 @@ def test_workspace_member_has_exact_file_delta(tmp_path: Path) -> None:
     assert "uv lock" not in justfile
     assert "prek" not in justfile
     assert "just check" in justfile
+
+
+def test_likec4_has_exact_file_delta(tmp_path: Path) -> None:
+    """The opt-in adds the LikeC4 model, its script, and its ADR — nothing else."""
+    baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
+    variant = _generated_snapshot(
+        _generate_with_answers(tmp_path / "likec4", {"likec4": True})
+    )
+
+    assert set(baseline) - set(variant) == set()
+    assert set(variant) - set(baseline) == {
+        "docs/adr/0006-derived-architecture-diagrams.md",
+        "docs/architecture/likec4/generated/baseline-views.c4",
+        "docs/architecture/likec4/generated/model.c4",
+        "docs/architecture/likec4/likec4.config.json",
+        "docs/architecture/likec4/specification.c4",
+        "docs/architecture/likec4/views.c4",
+        "scripts/sync_architecture_diagrams.py",
+    }
+    assert {
+        path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
+    } == {
+        ".copier-answers.yml",
+        ".github/workflows/quality.yml",
+        "AGENTS.md",
+        "README.md",
+        "docs/README.md",
+        "docs/architecture/README.md",
+        "justfile",
+        "pyproject.toml",
+        "scripts/quality_gate.py",
+    }
+
+    # Outside the Copier answers file, the default repository names neither the
+    # CLI, the runtime, nor the pin.
+    for path, content in baseline.items():
+        if path == ".copier-answers.yml":
+            continue
+        assert b"likec4" not in content.lower(), path
+        assert b"bunx" not in content, path
+    assert b"grimp" not in baseline["pyproject.toml"]
+    assert b"oven-sh/setup-bun" not in baseline[".github/workflows/quality.yml"]
+
+    gate = variant["scripts/quality_gate.py"].decode("utf-8")
+    assert "diagram regeneration" in gate
+    assert "diagram sync" in gate
+    assert "diagram views" in gate
+    pyproject = tomllib.loads(variant["pyproject.toml"].decode("utf-8"))
+    assert pyproject["tool"]["likec4"]["version"] == "1.58.0"
 
 
 def test_no_agents_md_has_exact_file_delta(tmp_path: Path) -> None:
@@ -1206,15 +1260,15 @@ GENERATED_DIAGRAM_FILES = (
 )
 
 
-def test_diagram_sync_check_passes_on_fresh_repository(generated: Path) -> None:
+def test_diagram_sync_check_passes_on_fresh_repository(generated_likec4: Path) -> None:
     """The committed derived model must match the import graph byte for byte."""
-    result = run_diagram_sync(generated, "--check")
+    result = run_diagram_sync(generated_likec4, "--check")
     assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_diagram_sync_detects_drift_and_names_the_fix(tmp_path: Path) -> None:
     output = tmp_path / "repo"
-    assert run_instantiate(PROJECT_NAME, PACKAGE_NAME, output).returncode == 0
+    assert run_instantiate(PROJECT_NAME, PACKAGE_NAME, output, likec4=True).returncode == 0
 
     planted = output / "src" / PACKAGE_NAME / "domain" / "planted_policy.py"
     planted.write_text('"""Planted module for drift detection."""\n', encoding="utf-8")
@@ -1231,7 +1285,7 @@ def test_diagram_sync_detects_drift_and_names_the_fix(tmp_path: Path) -> None:
 
 def test_diagram_sync_output_is_byte_stable(tmp_path: Path) -> None:
     output = tmp_path / "repo"
-    assert run_instantiate(PROJECT_NAME, PACKAGE_NAME, output).returncode == 0
+    assert run_instantiate(PROJECT_NAME, PACKAGE_NAME, output, likec4=True).returncode == 0
 
     assert run_diagram_sync(output, "--write").returncode == 0
     first = [(output / name).read_bytes() for name in GENERATED_DIAGRAM_FILES]

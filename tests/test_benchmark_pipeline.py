@@ -767,6 +767,7 @@ class TestOrchestration:
                 "project_name": "demo",
                 "package": "configured_demo",
                 "precommit": True,
+                "likec4": False,
                 "workspace_member": False,
             },
         }
@@ -808,6 +809,7 @@ class TestOrchestration:
             "agents_contract": "hooks-first",
             "package": "demo",
             "precommit": True,
+            "likec4": False,
             "project_name": "demo",
             "workspace_member": False,
         }

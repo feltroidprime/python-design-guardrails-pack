@@ -2,10 +2,10 @@
 
 ## Active exceptions
 
-### ADR-0003 / ADR-0005 — subprocess execution at the mandatory CLI process seam
+### ADR-0002 / ADR-0004 — subprocess execution at the mandatory CLI process seam
 
 - Files/diagnostics: the `subprocess.run`/`subprocess.Popen` helpers under
-  `tests/integration/` that carry an ADR-0003 or ADR-0005 marker, Ruff S603.
+  `tests/integration/` that carry an ADR-0002 or ADR-0004 marker, Ruff S603.
 - Owner: repository maintainers.
 - Reason: the CLI contract must observe the installed process with detached
   stdin, real streams, exit status, isolated working directory, and timeout;
@@ -17,7 +17,7 @@
 - Removal criteria: replace the helper calls with an equally complete process
   seam that needs no S603 suppression.
 
-### ADR-0003 — argparse override parameter retains its framework name
+### ADR-0002 — argparse override parameter retains its framework name
 
 - File/diagnostic: `src/*/adapters/inbound/cli.py`, ARCH019 on the `file`
   parameter of `_ContractParser._print_message`.
@@ -31,7 +31,7 @@
 - Removal criteria: delete the override or use a framework API whose parameter
   name does not conflict with Path discipline.
 
-### ADR-0003 — broad translation at the CLI process boundary
+### ADR-0002 — broad translation at the CLI process boundary
 
 - File/diagnostic: `src/*/adapters/inbound/cli_runtime.py`, Ruff BLE001 on the
   outer `Exception` translation boundary.

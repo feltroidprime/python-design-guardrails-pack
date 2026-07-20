@@ -1,4 +1,4 @@
-# ADR-0002: Foundation ports and reference adapters ship with the template
+# ADR-0001: Foundation ports and reference adapters ship with the template
 
 - Status: accepted
 - Date: 2026-07-13

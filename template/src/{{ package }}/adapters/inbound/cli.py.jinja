@@ -86,7 +86,7 @@ class _ContractParser(argparse.ArgumentParser):
     def _print_message(
         self,
         message: str | None,
-        file: SupportsWrite[str] | None = None,  # ARCH-EXCEPTION: ADR-0003
+        file: SupportsWrite[str] | None = None,  # ARCH-EXCEPTION: ADR-0002
     ) -> None:
         if message:
             _ = file

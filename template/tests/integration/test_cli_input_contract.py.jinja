@@ -96,7 +96,7 @@ def run_with_open_stdin(
     read_fd, write_fd = os.pipe()
     observer_fd = os.dup(read_fd)
     _ = os.write(write_fd, payload)
-    process = subprocess.Popen(  # noqa: S603  # ARCH-EXCEPTION: ADR-0005
+    process = subprocess.Popen(  # noqa: S603  # ARCH-EXCEPTION: ADR-0004
         [sys.executable, "-m", "{{ package }}", *args],
         cwd=cwd,
         stdin=read_fd,
@@ -125,7 +125,7 @@ def test_every_command_has_an_ordinary_argument_success_at_the_process_seam(
 ) -> None:
     command = [sys.executable, "-m", "{{ package }}", *case.input.ordinary_args]
     if case.input.stdin == "required":
-        completed = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0005
+        completed = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0004
             command,
             cwd=tmp_path,
             input=case.input.payload.decode(),
@@ -135,7 +135,7 @@ def test_every_command_has_an_ordinary_argument_success_at_the_process_seam(
             check=False,
         )
     else:
-        completed = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0005
+        completed = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0004
             command,
             cwd=tmp_path,
             stdin=subprocess.DEVNULL,
@@ -175,7 +175,7 @@ def test_stdin_accepting_commands_use_the_declared_marker_at_the_process_seam(
 ) -> None:
     if case.input.stdin == "forbidden":
         pytest.skip("Dormant until a command explicitly accepts stdin.")
-    completed = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0005
+    completed = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0004
         [sys.executable, "-m", "{{ package }}", *case.input.stdin_args],
         cwd=tmp_path,
         input=case.input.payload.decode(),
@@ -190,7 +190,7 @@ def test_stdin_accepting_commands_use_the_declared_marker_at_the_process_seam(
     assert completed.stderr == ""
     observed = completed.stdout
     if case.input.stdin_readback_args:
-        readback = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0005
+        readback = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0004
             [sys.executable, "-m", "{{ package }}", *case.input.stdin_readback_args],
             cwd=tmp_path,
             stdin=subprocess.DEVNULL,

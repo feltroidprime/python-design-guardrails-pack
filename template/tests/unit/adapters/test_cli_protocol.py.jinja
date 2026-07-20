@@ -84,8 +84,8 @@ ARGUMENT_INPUT = InputPolicy(primary=InputMode.ARGUMENTS, stdin=StdinMode.FORBID
 
 def test_schema_and_exit_classes_remain_the_adr_0003_contract() -> None:
     assert SCHEMA_VERSION == "1.0"
-    assert PROTOCOL_DECISION == "ADR-0003"
-    assert PROTOCOL_DECISIONS == ("ADR-0003", "ADR-0005")
+    assert PROTOCOL_DECISION == "ADR-0002"
+    assert PROTOCOL_DECISIONS == ("ADR-0002", "ADR-0004")
     assert {member.name: member.value for member in ExitCode} == {
         "SUCCESS": 0,
         "SYNTAX": 2,

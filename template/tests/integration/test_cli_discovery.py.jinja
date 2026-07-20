@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 def run_process(args: tuple[str, ...], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0003
+    return subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0002
         [sys.executable, "-m", "{{ package }}", *args],
         cwd=cwd,
         stdin=subprocess.DEVNULL,
@@ -131,7 +131,7 @@ def test_capabilities_publish_input_argument_and_query_contracts(tmp_path: Path)
     assert completed.stderr == ""
     assert data["protocol"] == {
         "schema_version": "1.0",
-        "decisions": ["ADR-0003", "ADR-0005"],
+        "decisions": ["ADR-0002", "ADR-0004"],
     }
     assert {cast("str", command["name"]) for command in commands} == set(argument_specs)
     for command in commands:

@@ -31,16 +31,16 @@ This template uses the `system` profile. Tiny scripts may collapse layers only t
 ## Fitness functions
 
 - Import Linter checks dependency direction and adapter independence.
-- `scripts/architecture_guard.py` checks domain purity, immutability, None (ARCH016–018), Path (ARCH019–020/028), CLI (ARCH021–025), and harvested review rules (ARCH026–030), plus suppressions, names, and size ceilings; ADR-0006 owns heuristic boundaries.
+- `scripts/architecture_guard.py` checks domain purity, immutability, None (ARCH016–018), Path (ARCH019–020/028), CLI (ARCH021–025), and harvested review rules (ARCH026–030), plus suppressions, names, and size ceilings; ADR-0005 owns heuristic boundaries.
 - BasedPyright checks contracts and exhaustive variants.
 - Ruff checks complexity, error handling, security, performance, and style.
 - pytest contract tests verify adapter substitutability.
 - pytest's CLI contract compares the catalog with an independent closed case
-  set, then exercises every command at the detached process seam.
+  set, then exercises every command at the detached process seam.{% if likec4 %}
 - `scripts/sync_architecture_diagrams.py` derives the LikeC4 model under `likec4/generated/` from the same import graph Import Linter enforces; the gate fails when the committed model lags the code or a hand-written view references a missing element.
 
 ## Diagrams
 
 - `likec4/generated/` — derived model and baseline views. Never hand-edited; `just check` regenerates and validates it.
 - `likec4/views.c4` — team-owned free-form views.
-- `just diagrams` serves the live viewer.
+- `just diagrams` serves the live viewer.{% endif %}

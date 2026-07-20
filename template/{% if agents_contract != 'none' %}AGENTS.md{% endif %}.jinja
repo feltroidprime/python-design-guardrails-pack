@@ -53,7 +53,7 @@ Use a Codex rollout under `~/.codex/sessions/`, never
 can contain sensitive source, prompts, and tool results. Do not edit the
 evidence bundle: its hashes,
 coverage, metric consistency, and blob references are verified by
-`manifest.json`. See `docs/adr/0004-agent-session-evidence.md` for the stable
+`manifest.json`. See `docs/adr/0003-agent-session-evidence.md` for the stable
 API, immutable private-package pin, and deterministic format. Converter fixes
 belong in `session-profiler-optimizer`; this repository owns only the thin
 compatibility facade and consumer integration.
@@ -99,7 +99,7 @@ The composition root: the only ordinary location allowed to instantiate the prod
 
 ## Foundation bricks: imitate, then extend
 
-The example application separates two kinds of code (see ADR-0002):
+The example application separates two kinds of code (see ADR-0001):
 
 - **Replaceable example**: the `Item` aggregate, its value objects, use cases, and CLI verbs. Replace them with the real domain; preserve the structure.
 - **Foundation bricks**: exactly one reference exemplar per cross-cutting capability. Before writing new plumbing, imitate the matching brick:
@@ -113,14 +113,14 @@ The example application separates two kinds of code (see ADR-0002):
 | Resource lifecycle | `bootstrap.sqlite_application` context manager; acquire at the edge, release deterministically |
 | Certify a port implementation | subclass the port's contract in `tests/contract/` (see `item_repository_contract.py`) and provide a `repository` fixture |
 | New port | single operation → callable `type` alias; multiple operations → `Protocol` (both in `application/ports.py`) |
-| Expose a CLI command | add one `CommandSpec` in `adapters/inbound/cli_catalog.py` and matching independent command/outcome process cases; preserve ADR-0003 and ADR-0005 |
+| Expose a CLI command | add one `CommandSpec` in `adapters/inbound/cli_catalog.py` and matching independent command/outcome process cases; preserve ADR-0002 and ADR-0004 |
 
 A cross-cutting need with no matching brick requires an ADR before the code exists.
 
 ## Agent-native CLI contract
 
 The CLI is an automation protocol, not a collection of parser handlers.
-ADR-0003 owns the base protocol; ADR-0005 owns its input, retry, safety,
+ADR-0002 owns the base protocol; ADR-0004 owns its input, retry, safety,
 outcome, and composition extension.
 
 - `adapters/inbound/cli_catalog.py` is the only command registration surface.
@@ -173,9 +173,9 @@ outcome, and composition extension.
   Backward-compatible capability fields and explicit output modes remain 1.x.
   Run the full quality gate; there is no parallel CLI-only acceptance command.
 
-## Architecture diagrams (derived, never drawn)
+{% if likec4 %}## Architecture diagrams (derived, never drawn)
 
-The LikeC4 model under `docs/architecture/likec4/generated/` is derived from the import-linter contracts and the real import graph (grimp). See `docs/adr/0001-derived-architecture-diagrams.md`.
+The LikeC4 model under `docs/architecture/likec4/generated/` is derived from the import-linter contracts and the real import graph (grimp). See `docs/adr/0006-derived-architecture-diagrams.md`.
 
 - Never edit files under `docs/architecture/likec4/generated/`; the check loop regenerates them before validating them.
 - Declare layers in exactly one place: the import-linter `layers` contract in `pyproject.toml`. Adding a layer there updates the linter and the diagrams simultaneously.
@@ -183,12 +183,12 @@ The LikeC4 model under `docs/architecture/likec4/generated/` is derived from the
 - The LikeC4 CLI version is pinned in exactly one place, `[tool.likec4]` in `pyproject.toml`; every invocation goes through `bunx likec4@<version>` (Bun is a toolchain prerequisite). Do not introduce `package.json`, JavaScript lockfiles, or `node_modules`. A version bump moves that single pin and must pass the full gate.
 - To reason from the current architecture, browse `just diagrams` or query the LikeC4 model instead of trusting stale prose.
 
-## Documentation
+{% endif %}## Documentation
 
 `docs/README.md` is the documentation map: one row per document, stating who reads it and how its freshness is guaranteed. Three rules, enforced by the gate's `docs guard` check (`scripts/docs_guard.py`):
 
 1. **One owner per fact.** Link to the owning document; never paraphrase it into a second copy.
-2. **Freshness ladder — derived > checked > dated.** Generate documentation from code where possible (the LikeC4 model). Otherwise cite real repository paths so the guard can verify them — renaming a file fails the gate until every document that cited it moves in the same commit. Prose no gate can verify (context, decisions) carries a status, owner, and revisit trigger: that is what `docs/adr/` is for.
+2. **Freshness ladder — derived > checked > dated.** Generate documentation from code where possible{% if likec4 %} (the LikeC4 model){% endif %}. Otherwise cite real repository paths so the guard can verify them — renaming a file fails the gate until every document that cited it moves in the same commit. Prose no gate can verify (context, decisions) carries a status, owner, and revisit trigger: that is what `docs/adr/` is for.
 3. **Admission.** A new documentation file claims a row in the map in the same commit; a kind of knowledge with no fitting row requires an ADR before the file exists.
 
 ADR conventions are mechanical: `NNNN-kebab-case.md` file names, a matching `# ADR-NNNN:` heading, the front-matter keys of `docs/adr/0000-template.md`, contiguous numbering. Supersede a decision with a new ADR; never delete or rewrite an old one.

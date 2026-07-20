@@ -6,11 +6,11 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import tomllib
+{% if likec4 %}import tomllib
 from typing import cast
-
-LIKEC4_PROJECT = "docs/architecture/likec4"
-HOOK_REPAIR_COMMAND = ("uv", "run", "prek", "install", "-f")
+{% endif %}
+{% if likec4 %}LIKEC4_PROJECT = "docs/architecture/likec4"
+{% endif %}HOOK_REPAIR_COMMAND = ("uv", "run", "prek", "install", "-f")
 REQUIRED_PREK_HOOKS = ("pre-commit", "pre-push")
 GIT_COMMON_DIR_COMMAND = ("git", "rev-parse", "--git-common-dir")
 TRACKED_PYTHON_COMMAND = ("git", "ls-files", "-z", "--", "*.py")
@@ -30,16 +30,21 @@ class HookInspection:
     detail: str
 
 
-def table(value: object, name: str) -> dict[str, object]:
+def repository_root() -> Path:
+    """The generated repository root, resolved from this script's location."""
+    return Path(__file__).resolve().parents[1]
+
+
+{% if likec4 %}def table(value: object, name: str) -> dict[str, object]:
     if not isinstance(value, dict):
         raise TypeError(f"{name} must be a TOML table")
     return cast("dict[str, object]", value)
 
 
-def likec4_version(root: Path) -> str:
+def likec4_version() -> str:
     """Read the pinned LikeC4 CLI version from its single home in pyproject.toml."""
     pyproject = table(
-        tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8")),
+        tomllib.loads((repository_root() / "pyproject.toml").read_text(encoding="utf-8")),
         "pyproject.toml",
     )
     likec4 = table(table(pyproject["tool"], "tool")["likec4"], "tool.likec4")
@@ -49,14 +54,14 @@ def likec4_version(root: Path) -> str:
     return version
 
 
-def repairs() -> tuple[Check, ...]:
+{% endif %}def repairs() -> tuple[Check, ...]:
     return (
         Check(
             name="safe lint repairs",
             command=("ruff", "check", "--fix", "--exit-zero", "--quiet", "."),
         ),
         Check(name="format repairs", command=("ruff", "format", "--quiet", ".")),
-        Check(
+{% if likec4 %}        Check(
             name="diagram regeneration",
             command=(
                 sys.executable,
@@ -65,10 +70,10 @@ def repairs() -> tuple[Check, ...]:
                 "--write",
             ),
         ),
-    )
+{% endif %}    )
 
 
-def checks(root: Path) -> tuple[Check, ...]:
+def checks() -> tuple[Check, ...]:
     return (
         Check(name="lockfile", command=("uv", "lock", "--check")),
         Check(name="format", command=("ruff", "format", "--check", ".")),
@@ -80,7 +85,7 @@ def checks(root: Path) -> tuple[Check, ...]:
         ),
         Check(name="docs guard", command=(sys.executable, "-m", "scripts.docs_guard")),
         Check(name="import contracts", command=("lint-imports",)),
-        Check(
+{% if likec4 %}        Check(
             name="diagram sync",
             command=(
                 sys.executable,
@@ -93,7 +98,7 @@ def checks(root: Path) -> tuple[Check, ...]:
             name="diagram views",
             command=(
                 "bunx",
-                f"likec4@{likec4_version(root)}",
+                f"likec4@{likec4_version()}",
                 "validate",
                 LIKEC4_PROJECT,
             ),
@@ -102,7 +107,7 @@ def checks(root: Path) -> tuple[Check, ...]:
                 "toolchain prerequisite alongside uv and just."
             ),
         ),
-        Check(name="tests", command=("pytest",)),
+{% endif %}        Check(name="tests", command=("pytest",)),
     )
 
 
@@ -255,18 +260,18 @@ def check_tracked_python_syntax(root: Path) -> int:
     return 0
 
 
-def requested_checks(root: Path, argv: list[str]) -> tuple[Check, ...] | None:
+def requested_checks(argv: list[str]) -> tuple[Check, ...] | None:
     if not argv:
-        return checks(root)
+        return checks()
     if argv == ["--fix"]:
-        return (*repairs(), *checks(root))
+        return (*repairs(), *checks())
     print("Usage: python scripts/quality_gate.py [--fix]", file=sys.stderr)
     return None
 
 
 def main(argv: list[str]) -> int:
-    root = Path(__file__).resolve().parents[1]
-    selected = requested_checks(root, argv)
+    root = repository_root()
+    selected = requested_checks(argv)
     if selected is None:
         return 2
     hook_exit_code = ensure_prek_hooks(root)

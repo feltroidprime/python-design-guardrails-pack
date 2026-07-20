@@ -1,4 +1,4 @@
-# ADR-0003: Agent-native CLI protocol and exhaustive command catalog
+# ADR-0002: Agent-native CLI protocol and exhaustive command catalog
 
 - Status: accepted
 - Date: 2026-07-15

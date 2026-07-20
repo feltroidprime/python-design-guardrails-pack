@@ -17,8 +17,10 @@ test:
 
 # Canonical pack validation: generator tests, then a fresh instantiation in a
 # temporary directory that must pass the generated repository's full quality gate.
-validate: test
-    uv run --no-project --python 3.14 --with copier==9.17.0 python scripts/validate_pack.py
+# `just validate likec4` instantiates the opt-in LikeC4 configuration instead,
+# so the generated gate also runs its diagram checks (that run requires Bun).
+validate likec4="": test
+    uv run --no-project --python 3.14 --with copier==9.17.0 python scripts/validate_pack.py {{ if likec4 == "" { "" } else { "--likec4" } }}
     PACK_RUN_DOWNSTREAM_GATE=1 uv run --no-project --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 --with copier==9.17.0 --with grimp==3.15 pytest -q -n 2 tests/test_update_roundtrip.py
 
 # Create an annotated PEP 440 template tag after verifying its changelog entry

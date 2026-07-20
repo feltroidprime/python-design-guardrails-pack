@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 def run_process(args: tuple[str, ...], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0003
+    return subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0002
         [sys.executable, "-m", "{{ package }}", *args],
         cwd=cwd,
         stdin=subprocess.DEVNULL,

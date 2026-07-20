@@ -52,6 +52,14 @@ agents_contract:
     - none
   default: full
 
+likec4:
+  type: bool
+  help: >-
+    Include the derived LikeC4 architecture model: docs/architecture/likec4/,
+    the sync script, the diagram gate checks, and `just diagrams`. Adds Bun to
+    the toolchain prerequisites. Import Linter enforces the layers either way.
+  default: false
+
 workspace_member:
   type: bool
   help: >-

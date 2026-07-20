@@ -47,7 +47,7 @@ SUPPORTED_CASE_TYPES = (
 
 def run_process(args: tuple[str, ...], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     """Invoke the installed module without a terminal or readable stdin."""
-    return subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0003
+    return subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0002
         [sys.executable, "-m", "{{ package }}", *args],
         cwd=cwd,
         stdin=subprocess.DEVNULL,

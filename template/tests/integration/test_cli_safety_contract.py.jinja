@@ -31,7 +31,7 @@ DESTRUCTIVE_CASES = tuple(
 
 
 def run_process(args: tuple[str, ...], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0005
+    return subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0004
         [sys.executable, "-m", "{{ package }}", *args],
         cwd=cwd,
         stdin=subprocess.DEVNULL,
