@@ -89,7 +89,10 @@ repository, not this one.
    check command in `template/README.md.jinja`; move all together. The root
    project
    version is the wheel fallback for Copier's `_commit`, so release wheels must
-   use the corresponding template tag version. The pytest-xdist pin appears in
+   use the corresponding template tag version. `CURRENT_RELEASE_CANDIDATE` in
+   `tests/test_update_roundtrip.py` must stay above every real release tag;
+   bump it with the release, or the first commit after a release fails the
+   round-trip when `copier check-update` finds a newer real tag. The pytest-xdist pin appears in
    both root `justfile` test invocations; move both together.
    The private session-profiler commit appears in `template/justfile.jinja`,
    `template/docs/adr/0003-agent-session-evidence.md`, and

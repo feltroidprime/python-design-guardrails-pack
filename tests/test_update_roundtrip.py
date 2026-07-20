@@ -11,7 +11,11 @@ import instantiate
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS_RELEASE = "v0.1.0"
-CURRENT_RELEASE_CANDIDATE = "v0.2.1"
+# The candidate tag this test plants on the cloned HEAD. It must sort above
+# every real release tag, or `copier check-update` reports the newest real tag
+# as a pending update and the round-trip never converges. Bump it after each
+# release, together with the root project version.
+CURRENT_RELEASE_CANDIDATE = "v0.3.1"
 RECIPE_BASE_RELEASE = "v1.2.3"
 RECIPE_NEXT_RELEASE = "v1.2.4"
 PROJECT_NAME = "roundtrip-project"
