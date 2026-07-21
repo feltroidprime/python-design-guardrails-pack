@@ -294,6 +294,7 @@ Forbidden without an ADR-backed exception:
 - `None` where "None discipline" prescribes a default, a parse, an exception, or a state (ARCH016–ARCH018);
 - filesystem paths typed as `str` (ARCH019–ARCH020/028);
 - comments that restate code instead of explaining a non-obvious invariant or trade-off;
+- reminder comments that schedule manual upkeep — "bump this after each release", "keep in sync with" (ARCH031); derive the value from its source of truth or enforce the invariant with a test or gate check;
 - broad refactors mixed into a feature change;
 - weakening a gate to make generated code pass.
 

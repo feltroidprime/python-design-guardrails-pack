@@ -11,6 +11,13 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Add ARCH031 to the generated architecture guard: reminder comments that
+  schedule manual upkeep ("bump this after each release", "keep in sync with",
+  "remember to", "must be updated") fail the gate. The check inspects comment
+  tokens only — string literals and docstrings are exempt — matches a closed
+  set of phrases recorded in ADR-0005, and accepts `ARCH-EXCEPTION: ADR-XXXX`.
+  Derive the value from its source of truth or enforce the invariant with a
+  test instead of asking a future editor to remember.
 - Make the derived LikeC4 architecture model an opt-in feature, off by default.
   `python-repo init --likec4` (Copier question `likec4`) ships
   `docs/architecture/likec4/`, `scripts/sync_architecture_diagrams.py`, the

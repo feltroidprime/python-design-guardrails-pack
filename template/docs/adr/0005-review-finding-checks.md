@@ -14,12 +14,15 @@ E0 found repeated unenforced rules:
 
 ARCH026 rejects mutable module containers except list `__all__`; ARCH027 exact
 same-named Enums; ARCH028 untokenized `str` path use; ARCH029 used CamelCase
-primitive aliases; and ARCH030 unmarked resolved overrides. All accept
-`ARCH-EXCEPTION: ADR-XXXX`.
+primitive aliases; ARCH030 unmarked resolved overrides; and ARCH031 reminder
+comments that schedule manual upkeep instead of deriving the value or enforcing
+the invariant with a test or gate check. All accept `ARCH-EXCEPTION: ADR-XXXX`.
 
 ARCH027 avoids semantic inference; ARCH029 ignores imports; ARCH030 skips
 relative/module-alias imports, transitive ancestors, structural Protocols,
 re-exports, dynamic bases, and ambiguity. `JsonString`/`JsonNumber` are allowed.
+ARCH031 matches a closed set of English phrases in comment tokens only; string
+literals and docstrings are never inspected.
 
 ## Alternatives considered
 
@@ -46,7 +49,7 @@ Violating, clean, and suppression fixtures; generated `just check`; pack
 
 ## Migration and rollback
 
-Adopt the required form; roll back all five codes and docs together.
+Adopt the required form; roll back all six codes and docs together.
 
 ## Removal / supersession criteria
 

@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "96a08a57ddc4106ad893ff97fbc18addbebf06aa5dd0293fb09e9b1d97b9adf8"
+EXPECTED_GENERATED_TREE_SHA256 = "f5932d4aabd9a183f973529a87c6b9037106c28ba1d6a9df5fac3e3ecdf11ee5"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 type ParsedModule = tuple[Path, str, ast.Module]
 
-MARKER_SUPPRESSIBLE_CODES = frozenset(f"ARCH{number:03}" for number in range(16, 31))
+MARKER_SUPPRESSIBLE_CODES = frozenset(f"ARCH{number:03}" for number in range(16, 32))
 
 
 def suppressed(item: Violation, lines: list[str], policy: Policy) -> bool:
@@ -59,7 +59,7 @@ def check_files(paths: Iterable[Path], policy: Policy) -> list[Violation]:
         violations.extend(check_none_discipline(path, tree, policy))
         violations.extend(check_path_discipline(path, tree))
         violations.extend(check_cli_discipline(path, tree, policy))
-        violations.extend(check_review_discipline(path, tree))
+        violations.extend(check_review_discipline(path, text, tree))
     modules = tuple((path, tree) for path, _text, tree in parsed)
     violations.extend(check_repository_review_discipline(modules))
     violations.extend(check_override_discipline(modules))

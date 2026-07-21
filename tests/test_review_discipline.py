@@ -1,4 +1,4 @@
-"""Tests for review-harvest architecture rules (ARCH026-ARCH030)."""
+"""Tests for review-harvest architecture rules (ARCH026-ARCH031)."""
 
 from pathlib import Path
 
@@ -177,6 +177,23 @@ class FileEvidenceWriter(EvidenceWriter):
 """,
     ),
 )
+
+ARCH031_VIOLATING_FIXTURE = """\
+# Remember to regenerate the schema after editing this module.
+LIMIT = 10  # bump this whenever the release cadence changes
+# Keep this table in sync with docs/catalog.md.
+THRESHOLD = 3  # must be updated with each release
+RETRIES = 2  # don't forget the retry budget in config.toml
+"""
+
+ARCH031_CLEAN_FIXTURE = """\
+# The candidate tag sorts above every release tag by construction.
+PROMPT = "remember to save your work"
+
+def describe() -> str:
+    # Sorted insertion keeps the index consistent without manual upkeep.
+    return "kept in sync by sync_catalog()"
+"""
 
 
 @pytest.fixture
@@ -404,7 +421,33 @@ def test_arch030_does_not_resolve_an_external_base_by_simple_name(
     assert run_repository_check(policy, fixtures) == []
 
 
-def test_arch026_through_arch030_share_adr_backed_marker_suppression(
+def test_arch031_rejects_reminder_comments(policy: Policy) -> None:
+    violations = run_check(
+        policy,
+        "src/pkg/settings.py",
+        ARCH031_VIOLATING_FIXTURE,
+    )
+    expected_message = (
+        "Comment schedules manual upkeep; derive the value or "
+        "enforce the invariant with a test or gate check."
+    )
+    assert violations == [("ARCH031", expected_message)] * 5
+
+
+def test_arch031_ignores_descriptive_comments_and_string_literals(
+    policy: Policy,
+) -> None:
+    assert (
+        run_check(
+            policy,
+            "src/pkg/settings.py",
+            ARCH031_CLEAN_FIXTURE,
+        )
+        == []
+    )
+
+
+def test_arch026_through_arch031_share_adr_backed_marker_suppression(
     policy: Policy,
 ) -> None:
     arch026 = run_check(
@@ -453,4 +496,16 @@ def test_arch026_through_arch030_share_adr_backed_marker_suppression(
             ),
         ),
     )
-    assert (arch026, arch027, arch028, arch029, arch030) == ([], [], [], [], [])
+    arch031 = run_check(
+        policy,
+        "src/pkg/release.py",
+        "LIMIT = 10  # bump this after each release  # ARCH-EXCEPTION: ADR-0099\n",
+    )
+    assert (arch026, arch027, arch028, arch029, arch030, arch031) == (
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+    )
