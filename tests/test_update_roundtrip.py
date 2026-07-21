@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+import re
 import subprocess
 
 from copier import run_copy, run_update
@@ -11,11 +12,7 @@ import instantiate
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS_RELEASE = "v0.1.0"
-# The candidate tag this test plants on the cloned HEAD. It must sort above
-# every real release tag, or `copier check-update` reports the newest real tag
-# as a pending update and the round-trip never converges. Bump it after each
-# release, together with the root project version.
-CURRENT_RELEASE_CANDIDATE = "v0.3.1"
+RELEASE_TAG_PATTERN = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 RECIPE_BASE_RELEASE = "v1.2.3"
 RECIPE_NEXT_RELEASE = "v1.2.4"
 PROJECT_NAME = "roundtrip-project"
@@ -54,6 +51,20 @@ def commit_all(repository: Path, message: str, environment: dict[str, str]) -> N
     assert committed.returncode == 0, committed.stdout + committed.stderr
 
 
+def candidate_release_tag(template: Path, environment: dict[str, str]) -> str:
+    """A tag that sorts above every release tag already present in the clone."""
+    listed = run(["git", "tag", "--list", "v*"], template, environment)
+    assert listed.returncode == 0, listed.stdout + listed.stderr
+    releases = [
+        tuple(int(part) for part in match.groups())
+        for line in listed.stdout.splitlines()
+        if (match := RELEASE_TAG_PATTERN.match(line.strip()))
+    ]
+    assert releases, listed.stdout
+    major, minor, patch = max(releases)
+    return f"v{major}.{minor}.{patch + 1}"
+
+
 def check_update(repository: Path, environment: dict[str, str]) -> int:
     return run(
         ["copier", "check-update", "--quiet"], repository, environment
@@ -72,6 +83,7 @@ def test_previous_release_updates_cleanly_to_current_ref(tmp_path: Path) -> None
     assert run(
         ["git", "rev-parse", "--verify", PREVIOUS_RELEASE], template, environment
     ).returncode == 0
+    candidate = candidate_release_tag(template, environment)
     tagged = run(
         [
             "git",
@@ -81,7 +93,7 @@ def test_previous_release_updates_cleanly_to_current_ref(tmp_path: Path) -> None
             "user.email=tests@localhost",
             "tag",
             "--annotate",
-            CURRENT_RELEASE_CANDIDATE,
+            candidate,
             "--message=current release candidate",
         ],
         template,
@@ -132,7 +144,7 @@ def test_previous_release_updates_cleanly_to_current_ref(tmp_path: Path) -> None
         assert answer in answers_before
         assert answer in answers_after
     assert f"_commit: {PREVIOUS_RELEASE}" in answers_before
-    assert f"_commit: {CURRENT_RELEASE_CANDIDATE}" in answers_after
+    assert f"_commit: {candidate}" in answers_after
     assert "copier check-update --quiet" in (project / "README.md").read_text(
         encoding="utf-8"
     )
