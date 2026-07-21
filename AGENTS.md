@@ -69,36 +69,18 @@ repository, not this one.
    lint rule, type setting, coverage floor, or architecture rule in
    `template/` requires an explicit rationale in the change description and an
    update to `DESIGN_GUARDRAILS.md` when the mapping changes.
-4. **Keep version pins coherent.** The pinned toolchain appears in several
-   places that must move together: `template/pyproject.toml.jinja` (dev group and
-   `tool.uv.required-version`), the conditional `prek.toml` template (hook
-   revisions), and `template/.github/workflows/quality.yml.jinja` (uv version). The
-   prek minimum/floor appears in the root `prek.toml`,
-   `template/pyproject.toml.jinja`, and the conditional `prek.toml` template;
-   move all three together.
-   Two diagram-toolchain pins join this rule, both inside the opt-in `likec4`
-   configuration: the grimp pin appears in `template/pyproject.toml.jinja`
-   (dev group) **and** the root `justfile` (`--with grimp==…` for the
-   diagram-sync tests) — move both together. The LikeC4 CLI version is pinned
-   in exactly one place, `[tool.likec4]` in `template/pyproject.toml.jinja`;
-   never introduce a second copy. The Copier
-   pin appears in the root `pyproject.toml`, both generating recipes in the root
-   `justfile`, the benchmark bootstraps in `benchmarks/run.py` and
-   `benchmarks/matrix.py`, `_min_copier_version` in `copier.yml`, the downstream
-   update recipe in `template/justfile.jinja`, and the downstream
-   check command in `template/README.md.jinja`; move all together. The root
-   project
-   version is the wheel fallback for Copier's `_commit`, so release wheels must
-   use the corresponding template tag version. `CURRENT_RELEASE_CANDIDATE` in
-   `tests/test_update_roundtrip.py` must stay above every real release tag;
-   bump it with the release, or the first commit after a release fails the
-   round-trip when `copier check-update` finds a newer real tag. The pytest-xdist pin appears in
-   both root `justfile` test invocations; move both together.
-   The private session-profiler commit appears in `template/justfile.jinja`,
-   `template/docs/adr/0003-agent-session-evidence.md`, and
-   `tests/test_instantiate.py`; move all three together. Keep it out of the
-   generated dependency groups and lockfile so baseline bootstrap and CI remain
-   credential-free.
+4. **Keep version pins coherent.** Several pins deliberately exist in more
+   than one place (Copier, uv, the prek floor, grimp, pytest-xdist, the
+   private session-profiler commit, the single-source LikeC4 CLI version).
+   `tests/test_pin_coherence.py` discovers every occurrence by scanning the
+   tracked tree and fails `just test` when any copy disagrees, so there is no
+   location list to memorize: move a pin, then update the copies the test
+   reports until it passes, and register any new multi-location pin in that
+   test in the same change. Two release-time couplings remain judgment calls:
+   the root project version is the wheel fallback for Copier's `_commit`, so
+   release wheels must use the corresponding template tag version, and the
+   session-profiler commit stays out of the generated dependency groups and
+   lockfile so baseline bootstrap and CI remain credential-free.
 5. **No local artifacts in `template/`.** Runtime caches (`.ruff_cache`,
    `__pycache__`, `.pytest_cache`, …) must never exist there; the authoritative
    pattern list is `_exclude` in `copier.yml`. Note that
