@@ -6,11 +6,7 @@ quality contract.
 ## Prerequisites
 
 - [`uv`](https://docs.astral.sh/uv/) — Python toolchain and dependencies.
-- [`just`](https://github.com/casey/just) — command runner.{% if likec4 %}
-- [`bun`](https://bun.sh) — runs the pinned LikeC4 CLI via `bunx` for the
-  architecture diagrams. No JavaScript project files live in this
-  repository; the first `bunx` invocation downloads the pinned package once,
-  then uses the cache.{% endif %}
+- [`just`](https://github.com/casey/just) — command runner.
 
 ## Bootstrap
 
@@ -31,8 +27,7 @@ without another install step.
 ```bash
 just check      # deterministic repairs followed by the full acceptance gate
 just doctor     # fast deployment and publication readiness verdict
-{% if likec4 %}just diagrams   # browse live architecture diagrams (LikeC4 viewer)
-{% endif %}just session-log <transcript> [output] [agent]  # preserve Claude/Codex evidence
+just session-log <transcript> [output] [agent]  # preserve Claude/Codex evidence
 just scaffold-update  # merge the newest tagged scaffold release
 just update     # update dependencies and hook revisions intentionally
 ```
@@ -140,18 +135,7 @@ bricks you keep and imitate. {% if agents_contract != 'none' %}The single owner 
 `docs/adr/0001-foundation-ports-and-reference-adapters.md`.{% else %}The decision that owns that distinction is
 `docs/adr/0001-foundation-ports-and-reference-adapters.md`.{% endif %}
 
-{% if likec4 %}## Architecture diagrams
-
-Diagrams are **derived from the code**, never hand-maintained
-(see `docs/adr/0006-derived-architecture-diagrams.md`):
-
-- `docs/architecture/likec4/generated/` — model and baseline views,
-  regenerated from the import graph. **Never edit these by hand**; the
-  `just check` repair phase regenerates them before validation.
-- `docs/architecture/likec4/views.c4` — team-owned free-form views; add your
-  own narration here. `specification.c4` is written once.
-
-{% endif %}## Documentation
+## Documentation
 
 `docs/README.md` is the documentation map: one row per document, saying who
 reads it, when, and how its freshness is guaranteed. {% if agents_contract != 'none' %}Read `AGENTS.md` before
