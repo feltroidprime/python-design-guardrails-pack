@@ -13,6 +13,11 @@ default:
 test:
     uv run --no-project --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 --with copier==9.17.0 pytest -q -n auto --dist loadscope tests
 
+# Fast pre-commit guard: render the complete default template, keep pins
+# coherent, and verify that pre-push still owns the comprehensive validation.
+test-fast:
+    uv run --no-project --python 3.14 --with pytest==9.1.1 --with copier==9.17.0 pytest -q tests/test_instantiate.py::test_default_generation_matches_recorded_output tests/test_pin_coherence.py tests/test_hook_policy.py
+
 # Canonical pack validation: generator tests, then a fresh instantiation in a
 # temporary directory that must pass the generated repository's full quality gate.
 validate: test

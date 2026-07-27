@@ -11,6 +11,9 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Make the pack's pre-commit hook run the fast rendered-template, pin-coherence,
+  and hook-policy checks. Keep the complete pack and downstream validation at
+  pre-push through `just validate`.
 - Add ARCH031 to the generated architecture guard: reminder comments that
   schedule manual upkeep ("bump this after each release", "keep in sync with",
   "remember to", "must be updated") fail the gate. The check inspects comment
