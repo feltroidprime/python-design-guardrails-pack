@@ -1,0 +1,347 @@
+schema_version: 1
+
+run:
+  id: guardrails-pack-spec0001-e4-v1
+  epoch: 1
+  predecessor_manifest_digest: null
+  source_main_sha: c08c07128cd749721cb0987cf57a166917789b68
+  base_ref: main
+  max_concurrent: 3
+  max_same_finding_rejections: 2
+  max_review_rejections: 4
+  require_ci: true
+
+epic:
+  id: feltroidprime/python-design-guardrails-pack#54
+  outcome: >-
+    The default generated repository contains no placeholder product domain: its
+    runtime composition, product CLI, and proof surface are derived from
+    capability declarations, and repository-generation is the only permanent
+    functional exemplar.
+  success_metrics:
+    - A freshly generated repository contains no occurrence of Item, ItemId, ItemName, CreateItem, ListItems, ItemRepository, ItemCreatedEvent, or items.db.
+    - A freshly generated repository passes bootstrap, prove, architecture, docs, and the full quality gate with zero product capabilities.
+    - Activating a capability without its required proof or CLI evidence is refused, and the refusal names the missing evidence.
+    - Retiring an active capability removes it from every derived index while leaving every one of its product files byte-identical.
+    - Regenerating derived indexes twice in a row produces byte-identical output and no other change.
+  non_goals:
+    - The recursive N0 to N1 to N2 acceptance test and the five application-shape fixtures.
+    - Mutation testing, 100-capability scaling, and performance budget recording.
+    - A destructive purge operation or product code deletion of any kind.
+    - Reintroducing SQLite, clocks, identifiers, or event publishing outside what the control plane itself needs.
+
+models:
+  planners:
+    opus: {family: anthropic, model: claude-opus-5, effort: high}
+    sol: {family: openai, model: gpt-5.6-sol, effort: max}
+  workers:
+    sonnet: {family: anthropic, model: claude-sonnet-5, effort: max}
+    terra: {family: openai, model: gpt-5.6-terra, effort: max}
+  reviewers:
+    sol: {family: openai, model: gpt-5.6-sol, effort: xhigh}
+    opus: {family: anthropic, model: claude-opus-5, effort: high}
+  routing:
+    planner_primary: opus
+    planner_escalation: sol
+    worker_default: terra
+    worker_by_risk: {mechanical: sonnet, novel: terra}
+    reviewer_by_worker: {sonnet: sol, terra: opus}
+
+checks:
+  - name: pack-tests
+    command: [just, test]
+  - name: pack-validate
+    command: [just, validate]
+
+protected_paths:
+  - .agents/skills/**
+  - benchmarks/**
+  - docs/vendored/**
+no_go_paths:
+  - .venv/**
+  - .jj/**
+  - smithers.db
+barriers: []
+
+goal_tree:
+  id: epic
+  goal: >-
+    Exposure follows declaration. What runs, what the CLI shows, and what the
+    proof surface covers are all compiled from capability status, so an empty
+    repository is a valid repository.
+  children:
+    - id: lifecycle
+      goal: >-
+        Draft, active, and retired are mechanically enforced states, and exposure
+        is a compiled projection of them rather than a hand-maintained list.
+      children:
+        - {id: task-lifecycle-transitions, task: lifecycle_transitions}
+        - {id: task-generate-command, task: generate_command}
+        - {id: task-lifecycle-cli-commands, task: lifecycle_cli_commands}
+    - id: cutover
+      goal: >-
+        The example application is removed surface by surface, deletion before
+        redesign, so no leaf both deletes a subsystem and invents its replacement.
+        The product CLI stops assuming a product exists; N0 becomes the answer to
+        "what does an empty repository look like".
+      children:
+        - {id: task-capability-driven-product-cli, task: capability_driven_product_cli}
+        - {id: task-remove-item-adapters, task: remove_item_adapters}
+        - {id: task-remove-item-core, task: remove_item_core}
+        - {id: task-n0-renders-empty, task: n0_renders_empty}
+    - id: truth-maintenance
+      goal: Every document and pack test that described the example application now describes N0.
+      children:
+        - {id: task-docs-and-pack-cutover, task: docs_and_pack_cutover}
+
+tasks:
+  lifecycle_transitions:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#56
+    outcome: >-
+      activate and retire are implemented as guarded transitions owning
+      REPOCTL::ACTIVATION-CLOSED and REPOCTL::RETIREMENT-NON-DESTRUCTIVE, with
+      deletion absent from the state machine.
+    decision_boundary: >-
+      Owns the activation evidence checklist, the transition failure vocabulary,
+      and how retirement records itself. May not delete or rewrite any product
+      file, may not add a purge transition, and may not change the plan or apply
+      protocols.
+    interfaces: [apply-protocol-v1, capability-lifecycle-v1, capability-plan-v1]
+    uncertainty: high
+    depends_on: []
+    risk: novel
+    lane:
+      - template/repoctl/modules/repository_generation/application/lifecycle.py
+      - template/proof/repoctl/repository-generation-lifecycle.toml
+      - template/verification/repoctl/test_lifecycle_state_machine.py
+    forbidden_paths: [template/src/**]
+    acceptance_criteria:
+      - "REPOCTL::ACTIVATION-CLOSED and REPOCTL::RETIREMENT-NON-DESTRUCTIVE appear in `uv run python -m scripts.proof_guard --report` with hypothesis-stateful evidence, and `just prove-one REPOCTL::ACTIVATION-CLOSED` passes."
+      - "A test attempts activation for a capability missing each of: passing architecture contract, a non-empty stable surface, a normative property with evidence, a port contract, and CLI process evidence; each attempt is refused and the structured outcome names the missing item."
+      - "A test retires an active capability, then asserts every file under that capability's product roots has an unchanged SHA-256 and the declaration still exists with status retired."
+      - "A test asserts the transition module defines no delete or purge operation, by enumerating its public callables."
+      - "A test reactivates a retired capability and asserts it must satisfy the current evidence checklist again."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/repoctl/modules/repository_generation/application/lifecycle.py
+
+  generate_command:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#55
+    outcome: >-
+      Derived runtime, composition, product CLI, and proof indexes are regenerated
+      from declarations alone, are byte-stable across repeated runs, and contain
+      exactly the active capabilities.
+    decision_boundary: >-
+      Owns the four derived files' rendered form, their banner and digest, and the
+      regeneration entry point. May not perform runtime module discovery, may not
+      read product source to decide index contents, and may not write outside the
+      derived zone.
+    interfaces: [derived-index-v1, apply-protocol-v1, generated-composition-v1]
+    uncertainty: medium
+    depends_on: []
+    risk: novel
+    lane:
+      - template/repoctl/modules/repository_generation/application/compilation.py
+      - template/repoctl/modules/repository_generation/adapters/outbound/derived_writer.py
+      - template/tests/repoctl/integration/test_generate.py
+    forbidden_paths: [template/src/**]
+    acceptance_criteria:
+      - "In a generated repository with zero capabilities, regeneration produces an empty active-capability index, an empty composition index, and an empty product CLI index, each carrying the banner and a source-state digest."
+      - "Running regeneration twice in a row leaves every file byte-identical, asserted by comparing a full-tree digest."
+      - "A test declares one active and one retired capability and asserts the derived active index contains exactly the active one, with no duplicate and no retired entry."
+      - "A test asserts the compilation module contains no import of importlib, pkgutil, or __import__."
+      - "A test asserts regeneration writes only paths the ownership classifier reports as DERIVED."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/repoctl/modules/repository_generation/application/compilation.py
+
+  lifecycle_cli_commands:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#58
+    outcome: >-
+      `capability activate`, `capability retire`, `generate`, and `proof-report`
+      are exposed on the control-plane CLI with process evidence for each declared
+      outcome.
+    decision_boundary: >-
+      Owns these commands' arguments, safety declarations, and outcome catalog.
+      May not change the transition rules or the derived index format; a defect
+      found in either is reported against its owning leaf.
+    interfaces: [repoctl-cli-v1, capability-lifecycle-v1, derived-index-v1]
+    uncertainty: low
+    depends_on: [lifecycle_transitions, generate_command]
+    risk: mechanical
+    lane:
+      - template/repoctl/modules/repository_generation/adapters/inbound/cli_lifecycle.py
+      - template/tests/repoctl/contract/test_lifecycle_cli_contract.py
+    forbidden_paths: [template/src/**]
+    acceptance_criteria:
+      - "In a generated repository, `uv run python -m repoctl generate` and `uv run python -m repoctl proof-report` exit 0 and print JSON on stdout with stderr empty."
+      - "`uv run python -m repoctl capability activate alpha` on a capability missing evidence exits non-zero, prints a structured failure on stderr, and leaves stdout empty."
+      - "Every new command has at least one detached-process case with stdin closed, and a test fails if a catalog command has no case."
+      - "A test asserts the four new commands appear in `uv run python -m repoctl capabilities` output."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/repoctl/modules/repository_generation/adapters/inbound/cli_lifecycle.py
+
+  capability_driven_product_cli:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#57
+    outcome: >-
+      The product CLI's command catalog is assembled from the derived product CLI
+      index, so a repository with zero capabilities exposes a valid, empty product
+      command surface.
+    decision_boundary: >-
+      Owns whether and how the product entry point behaves with an empty catalog,
+      and how capability-local catalogs are merged. May not delete any Item module
+      yet, and may not move the CLI protocol types out of their current location.
+    interfaces: [generated-composition-v1, product-cli-v1]
+    uncertainty: high
+    depends_on: [generate_command]
+    risk: novel
+    lane:
+      - template/src/**/adapters/inbound/cli_catalog.py.jinja
+      - template/src/**/adapters/inbound/cli_runtime.py.jinja
+      - template/src/**/__main__.py.jinja
+      - template/tests/integration/test_cli_discovery.py.jinja
+    forbidden_paths: [template/repoctl/**]
+    acceptance_criteria:
+      - "With zero active capabilities, `uv run python -m <package> capabilities` exits 0 and returns an empty command list plus the protocol-level commands, with stderr empty."
+      - "A test adds one active capability declaring a CLI catalog, regenerates, and asserts its commands appear in the product CLI without any edit to a hand-written catalog file."
+      - "A test asserts the product CLI module imports the derived index and does not enumerate modules at runtime."
+      - "The existing CLI protocol contract tests still pass unchanged."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/src/{{ package }}/adapters/inbound/cli_catalog.py.jinja
+
+  remove_item_adapters:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#59
+    outcome: >-
+      Every outbound adapter and example-only brick that exists solely for the
+      Item application is deleted, along with its contract tests.
+    decision_boundary: >-
+      Decides only what is example-only versus what the control plane needs. May
+      not redesign or reimplement any retained mechanism, and may not delete a
+      module that repoctl or the foundation CLI protocol imports.
+    interfaces: [product-cli-v1]
+    uncertainty: medium
+    depends_on: [capability_driven_product_cli]
+    risk: mechanical
+    lane:
+      - template/src/**/adapters/outbound/**
+      - template/tests/contract/**
+      - template/src/**/application/idempotency.py.jinja
+      - template/src/**/application/query_models.py.jinja
+    forbidden_paths: [template/repoctl/**, template/src/**/domain/**]
+    acceptance_criteria:
+      - "A generated repository contains no sqlite_repository, memory_repository, uuid_ids, system_clock, in_process_events, or audit_log module, and no items.db reference; asserted by a pack test that greps the generated tree."
+      - "`uv run lint-imports` exits 0 in the generated repository after the deletions."
+      - "A pack test enumerates every deleted module and asserts nothing in the generated tree imports it."
+      - "The change deletes files and their tests only; `git diff --stat` for this task shows no added non-test source module."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - tests/test_ownership_zones.py
+
+  remove_item_core:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#60
+    outcome: >-
+      The Item domain, its application use cases and ports, its unit and property
+      tests, and its eight proof properties are removed together, leaving the proof
+      surface closed.
+    decision_boundary: >-
+      Decides only which foundation mechanisms survive as `_foundation` code
+      versus which disappear with the example. May not invent a replacement
+      domain, may not add a placeholder entity, and may not leave an orphaned
+      property or an unowned public behavior.
+    interfaces: [proof-catalog-v2, product-cli-v1]
+    uncertainty: medium
+    depends_on: [remove_item_adapters]
+    risk: mechanical
+    lane:
+      - template/src/**/domain/**
+      - template/src/**/application/**
+      - template/tests/unit/**
+      - template/verification/tests/**
+      - template/proof/foundation.toml.jinja
+    forbidden_paths: [template/repoctl/**, template/src/**/adapters/**]
+    acceptance_criteria:
+      - "A pack test greps the generated tree and finds zero occurrences of Item, ItemId, ItemName, CreateItem, ListItems, ItemRepository, and ItemCreatedEvent."
+      - "In the generated repository, `uv run python -m scripts.proof_guard` exits 0 and `--report` lists only REPOCTL properties."
+      - "`just prove` passes in the generated repository."
+      - "`uv run python scripts/quality_gate.py` passes, including the coverage floor, with the Item tests removed."
+      - "A test asserts no proof property references a target module that no longer exists."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/proof/foundation.toml.jinja
+
+  n0_renders_empty:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#61
+    outcome: >-
+      The template renders a valid N0: a foundation package, empty derived
+      indexes, no product capability, and a green bootstrap and full gate.
+    decision_boundary: >-
+      Owns the final N0 package layout, the `_foundation` boundary, the
+      import-linter contract set, and the architecture policy roots. May not
+      reintroduce any example domain and may not weaken a ceiling or a coverage
+      floor to make the empty repository pass.
+    interfaces: [product-cli-v1, generated-composition-v1, capability-validator-v1]
+    uncertainty: high
+    depends_on: [remove_item_core]
+    risk: novel
+    lane:
+      - template/src/**/_foundation/**
+      - template/src/**/bootstrap.py.jinja
+      - template/pyproject.toml.jinja
+      - template/architecture.toml.jinja
+      - template/tests/integration/**
+      - template/justfile.jinja
+    forbidden_paths: [template/repoctl/**, template/docs/**]
+    acceptance_criteria:
+      - "`just validate` passes end to end on a freshly generated default repository."
+      - "In the generated repository, `just bootstrap` exits 0 from a clean checkout with no product capability present."
+      - "`uv run lint-imports` exits 0, and the layers contract names the foundation and generated packages rather than a product domain."
+      - "`uv run python -m scripts.capability_validator --root repoctl/modules/repository_generation` exits 0 and the capability root list contains exactly one entry."
+      - "A test asserts the generated tree contains no directory under the PRODUCT roots, confirming the specification's rule that product directories may be absent."
+      - "The coverage floor and every size ceiling in architecture.toml are unchanged from before this epic; a pack test compares them against recorded values."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/src/{{ package }}/bootstrap.py.jinja
+
+  docs_and_pack_cutover:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#62
+    outcome: >-
+      Every document and pack test that described the Item application now
+      describes N0 and the repository-generation exemplar, with no stale command
+      or path surviving the guards.
+    decision_boundary: >-
+      Owns the wording and the registry rows. May not change any guard, script, or
+      generated source; a needed behavior change is reported as a finding against
+      its owning leaf.
+    interfaces: [product-cli-v1, generated-composition-v1]
+    uncertainty: low
+    depends_on: [n0_renders_empty]
+    risk: mechanical
+    lane:
+      - template/docs/**
+      - template/README.md.jinja
+      - tests/test_instantiate.py
+      - README.md
+      - AGENTS.md
+      - DESIGN_GUARDRAILS.md
+      - CHANGELOG.md
+      - VALIDATION.md
+    forbidden_paths: [template/src/**, template/scripts/**, template/repoctl/**]
+    acceptance_criteria:
+      - "In the generated repository, `uv run python -m scripts.docs_guard` exits 0 and every documented path resolves."
+      - "`just test` passes with every Item-era assertion in tests/test_instantiate.py replaced by an N0 assertion; no test is deleted without an equivalent replacement, and the test count does not decrease."
+      - "A pack test greps all root and template Markdown for the removed vocabulary listed in the specification and finds zero occurrences."
+      - "VALIDATION.md records a dated run of `just validate` with the actual environment and outcome."
+      - "DESIGN_GUARDRAILS.md maps each new guard to the design intent it enforces."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - VALIDATION.md

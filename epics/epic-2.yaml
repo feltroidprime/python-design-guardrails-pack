@@ -1,0 +1,309 @@
+schema_version: 1
+
+run:
+  id: guardrails-pack-spec0001-e2-v1
+  epoch: 1
+  predecessor_manifest_digest: null
+  source_main_sha: c08c07128cd749721cb0987cf57a166917789b68
+  base_ref: main
+  max_concurrent: 3
+  max_same_finding_rejections: 2
+  max_review_rejections: 4
+  require_ci: true
+
+epic:
+  id: feltroidprime/python-design-guardrails-pack#36
+  outcome: >-
+    The generated repository contains a proof-carrying repository-generation
+    capability whose planner is pure, deterministic, and path-closed, and which
+    passes the same structural validator as any product capability.
+  success_metrics:
+    - plan(snapshot, intent) called twice on the same canonical inputs returns byte-identical output and the same plan ID, proven by Hypothesis and by CrossHair.
+    - Every planned target path is repository-relative and belongs to an allowed ownership zone; absolute paths and `..` escapes are rejected, proven symbolically.
+    - The derived-index compiler returns exactly the ACTIVE declarations for any declaration set, proven by Hypothesis and CrossHair.
+    - No module under the repository-generation domain or application layer performs filesystem, process, network, clock, or randomness access, proven by a guard rather than by review.
+    - The capability validator accepts repoctl/modules/repository_generation with the identical rule set it applies to a product capability root.
+  non_goals:
+    - Any CLI command, filesystem write, or process boundary.
+    - Removing or altering the existing Item application or its properties.
+    - The capability lifecycle transitions activate, retire, or generate.
+    - Transaction journaling, compare-and-swap, or recovery.
+
+models:
+  planners:
+    opus: {family: anthropic, model: claude-opus-5, effort: high}
+    sol: {family: openai, model: gpt-5.6-sol, effort: max}
+  workers:
+    sonnet: {family: anthropic, model: claude-sonnet-5, effort: max}
+    terra: {family: openai, model: gpt-5.6-terra, effort: max}
+  reviewers:
+    sol: {family: openai, model: gpt-5.6-sol, effort: xhigh}
+    opus: {family: anthropic, model: claude-opus-5, effort: high}
+  routing:
+    planner_primary: opus
+    planner_escalation: sol
+    worker_default: terra
+    worker_by_risk: {mechanical: sonnet, novel: terra}
+    reviewer_by_worker: {sonnet: sol, terra: opus}
+
+checks:
+  - name: pack-tests
+    command: [just, test]
+  - name: pack-validate
+    command: [just, validate]
+
+protected_paths:
+  - .agents/skills/**
+  - benchmarks/**
+  - docs/vendored/**
+  - template/src/**
+no_go_paths:
+  - .venv/**
+  - .jj/**
+  - smithers.db
+barriers: []
+
+goal_tree:
+  id: epic
+  goal: >-
+    The generator becomes one valid proof-carrying capability, so the repository
+    proves its guardrails on its own principal function.
+  children:
+    - id: capsule
+      goal: >-
+        The system capability exists as a real capability root and the proof
+        toolchain can reach a source root outside src/.
+      children:
+        - {id: task-repoctl-skeleton, task: repoctl_skeleton}
+        - {id: task-proof-toolchain-second-root, task: proof_toolchain_second_root}
+    - id: pure-core
+      goal: >-
+        Planning is a total function of declared state and intent. One vocabulary
+        of immutable values; one owner for path classification; no hidden input.
+      children:
+        - {id: task-plan-domain-models, task: plan_domain_models}
+        - {id: task-pure-path-classification, task: pure_path_classification}
+        - {id: task-pure-capability-planner, task: pure_capability_planner}
+        - {id: task-pure-derived-compiler, task: pure_derived_compiler}
+    - id: self-host
+      goal: >-
+        The generator is held to the rules it will impose, with no exception for
+        being the generator.
+      children:
+        - {id: task-repoctl-selfhost-proof, task: repoctl_selfhost_proof}
+
+tasks:
+  repoctl_skeleton:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#37
+    outcome: >-
+      A generated repository contains the repoctl control-plane package with a
+      repository_generation capability root whose empty layers already satisfy the
+      capability validator in draft state.
+    decision_boundary: >-
+      Owns the repoctl package layout, its module docstrings, and the capability's
+      draft declaration. May not implement any planning, classification, or
+      compilation behavior, and may not add a rule exemption for repoctl.
+    interfaces: [capability-validator-v1, ownership-zones-v1, repoctl-capsule-v1]
+    uncertainty: medium
+    depends_on: []
+    risk: novel
+    lane:
+      - template/repoctl/**
+      - template/tests/repoctl/**
+      - template/verification/repoctl/**
+      - template/proof/repoctl/**
+    forbidden_paths: []
+    acceptance_criteria:
+      - "In a generated repository, `uv run python -m scripts.capability_validator --root repoctl/modules/repository_generation` exits 0."
+      - "The capability root contains api.py, domain/, application/, adapters/inbound/, adapters/outbound/, and no module defining a fake entity, fake port, or NotImplementedError business method; a test asserts the tree shape by reading the real tree."
+      - "The ownership classifier returns FOUNDATION for every path under repoctl/."
+      - "`uv run python -m scripts.ownership_guard` exits 0 with the new paths present."
+      - "`just validate` passes."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/repoctl/modules/repository_generation/api.py
+
+  proof_toolchain_second_root:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#39
+    outcome: >-
+      Proof discovery, the CrossHair gate, and the Hypothesis verification harness
+      operate on a source root outside src/, so a repoctl property can carry the
+      same evidence kinds as a src/ property.
+    decision_boundary: >-
+      Owns how additional source roots are declared to the proof policy and how
+      the CrossHair gate resolves targets across roots. May not change the
+      evidence vocabulary, the property schema, or any existing property.
+    interfaces: [proof-catalog-v2, proof-toolchain-multiroot-v1, repoctl-capsule-v1]
+    uncertainty: high
+    depends_on: [repoctl_skeleton]
+    risk: novel
+    lane:
+      - template/scripts/crosshair_gate.py
+      - template/scripts/proof_sources.py
+      - template/scripts/proof_invocations.py
+      - template/scripts/proof_tests.py
+      - template/verification/conftest.py
+      - template/verification/harness/**
+      - tests/test_crosshair_gate.py
+    forbidden_paths: [template/scripts/proof_catalog.py]
+    acceptance_criteria:
+      - "In a generated repository, a throwaway property whose target is a repoctl module is discovered by `uv run python -m scripts.proof_guard --report` and appears with its evidence kinds."
+      - "`uv run python -m scripts.crosshair_gate fast` analyses a repoctl target and reports it in its target count."
+      - "`HYPOTHESIS_PROFILE=fast uv run pytest -q -m proof verification/tests` collects tests under verification/repoctl/."
+      - "The existing eight src/ properties still pass `just prove` with an unchanged report."
+      - "A test asserts the proof policy declares its source roots as data, not as a hard-coded pair."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/scripts/crosshair_gate.py
+
+  plan_domain_models:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#38
+    outcome: >-
+      Intent, snapshot, operation, and plan are immutable domain values with
+      icontract invariants, a canonical JSON encoding, and a stable content-derived
+      plan ID.
+    decision_boundary: >-
+      Owns the field sets, the canonical encoding rules, and the plan ID
+      derivation. May not decide path classification rules, planning behavior, or
+      index compilation.
+    interfaces: [repoctl-capsule-v1, capability-plan-v1]
+    uncertainty: medium
+    depends_on: [repoctl_skeleton]
+    risk: novel
+    lane:
+      - template/repoctl/modules/repository_generation/domain/intents.py
+      - template/repoctl/modules/repository_generation/domain/plans.py
+      - template/repoctl/modules/repository_generation/domain/specifications.py
+      - template/tests/repoctl/unit/**
+    forbidden_paths: []
+    acceptance_criteria:
+      - "Every class in the intent, plan, and operation modules is a frozen, slotted, kw_only dataclass; `uv run python -m scripts.architecture_guard` exits 0 and would report ARCH006 or ARCH007 if one were relaxed."
+      - "Encoding the same plan twice produces byte-identical JSON, and encoding two plans differing in one field produces different plan IDs; asserted by a test."
+      - "The canonical encoding is independent of dict insertion order and of locale; a test constructs the same plan from differently ordered inputs and asserts identical bytes."
+      - "A plan carrying an absolute path or a `..` segment fails construction with a named icontract violation."
+      - "`just prove` passes in the generated repository."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/repoctl/modules/repository_generation/domain/plans.py
+
+  pure_path_classification:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#41
+    outcome: >-
+      Path classification lives once, in the repository-generation domain, is
+      pure, and owns REPOCTL::PLAN-PATH-CLOSED with symbolic evidence; the
+      foundation guard consumes it rather than duplicating it.
+    decision_boundary: >-
+      Owns the classifier's domain signature, its normalization rules, and its
+      rejection errors. May not change the zone root table established in the
+      previous epic, and may not leave a second classification implementation in
+      the repository.
+    interfaces: [ownership-zones-v1, proof-toolchain-multiroot-v1, capability-plan-v1, path-classifier-v1]
+    uncertainty: high
+    depends_on: [plan_domain_models, proof_toolchain_second_root]
+    risk: novel
+    lane:
+      - template/repoctl/modules/repository_generation/domain/ownership.py
+      - template/scripts/ownership.py
+      - template/proof/repoctl/repository-generation.toml
+      - template/verification/repoctl/test_path_closed_properties.py
+    forbidden_paths: []
+    acceptance_criteria:
+      - "REPOCTL::PLAN-PATH-CLOSED appears in `uv run python -m scripts.proof_guard --report` with icontract, hypothesis, and crosshair evidence."
+      - "`uv run python -m scripts.crosshair_gate fast REPOCTL::PLAN-PATH-CLOSED` exits 0 and reports the classifier as an analysed target."
+      - "A test asserts the repository contains exactly one implementation of path classification: scripts/ownership.py imports the domain classifier and defines no independent rule table."
+      - "Hypothesis generates absolute paths, `..` escapes, Unicode normalization variants, and empty segments; each is rejected with a named error rather than silently classified."
+      - "`just prove-one REPOCTL::PLAN-PATH-CLOSED` passes."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/repoctl/modules/repository_generation/domain/ownership.py
+
+  pure_capability_planner:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#42
+    outcome: >-
+      plan(snapshot, intent) is a pure, total, deterministic function that emits
+      every intended write with a precondition and no hidden write, owning
+      REPOCTL::PLAN-DETERMINISTIC.
+    decision_boundary: >-
+      Owns the operation kinds, the deterministic ordering rule, and the
+      precondition vocabulary. May not perform or describe any effect, may not
+      invent product semantics, and may not add an operation kind that writes an
+      existing product path.
+    interfaces: [capability-plan-v1, path-classifier-v1, proof-toolchain-multiroot-v1]
+    uncertainty: high
+    depends_on: [plan_domain_models, pure_path_classification]
+    risk: novel
+    lane:
+      - template/repoctl/modules/repository_generation/domain/decisions.py
+      - template/repoctl/modules/repository_generation/domain/plans_planner.py
+      - template/verification/repoctl/test_plan_deterministic_properties.py
+    forbidden_paths: [template/repoctl/modules/repository_generation/application/**]
+    acceptance_criteria:
+      - "REPOCTL::PLAN-DETERMINISTIC appears in the proof report with icontract, hypothesis, and crosshair evidence, and `just prove-one REPOCTL::PLAN-DETERMINISTIC` passes."
+      - "Hypothesis generates snapshots holding 0 to 100 existing capabilities and asserts plan(s, i) == plan(s, i) byte-for-byte including the plan ID."
+      - "A test asserts every operation in a generated plan carries a precondition and that the set of operation target paths equals the set of paths the plan claims to write."
+      - "`uv run python -m scripts.architecture_guard` reports no forbidden import or call in the planner module, and a deliberate `import os` there makes it fail with ARCH011."
+      - "A test asserts planning is unaffected by CWD, environment variables, and filesystem enumeration order by planning from two shuffled snapshot orderings."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/repoctl/modules/repository_generation/domain/decisions.py
+
+  pure_derived_compiler:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#40
+    outcome: >-
+      compile_indexes(declarations) is a pure function whose output contains
+      exactly the ACTIVE declarations, owning REPOCTL::DERIVED-INDEX-EXACT.
+    decision_boundary: >-
+      Owns the derived index value shapes and the compilation ordering. May not
+      write files, may not perform runtime module discovery, and may not decide
+      the lifecycle transitions that set a declaration's status.
+    interfaces: [capability-plan-v1, proof-toolchain-multiroot-v1, derived-index-v1]
+    uncertainty: medium
+    depends_on: [plan_domain_models, proof_toolchain_second_root]
+    risk: novel
+    lane:
+      - template/repoctl/modules/repository_generation/domain/indexes.py
+      - template/verification/repoctl/test_derived_index_properties.py
+    forbidden_paths: [template/repoctl/modules/repository_generation/domain/decisions.py]
+    acceptance_criteria:
+      - "REPOCTL::DERIVED-INDEX-EXACT appears in the proof report with icontract, hypothesis, and crosshair evidence, and `just prove-one REPOCTL::DERIVED-INDEX-EXACT` passes."
+      - "Hypothesis generates declaration sets mixing draft, active, and retired states and asserts the compiled index membership equals exactly the active subset, with no duplicate and no undeclared entry."
+      - "A test asserts the compiler contains no import of importlib, pkgutil, or __import__, so runtime discovery is structurally impossible."
+      - "Compiling the same declaration set twice produces byte-identical output; asserted by a test."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - template/repoctl/modules/repository_generation/domain/indexes.py
+
+  repoctl_selfhost_proof:
+    repo: feltroidprime/python-design-guardrails-pack
+    issue: feltroidprime/python-design-guardrails-pack#43
+    outcome: >-
+      A test proves the repository-generation capability is validated by the
+      identical rule set applied to a product capability, and that weakening any
+      rule for the system root fails the pack.
+    decision_boundary: >-
+      Owns how the two validations are compared and what the equality assertion
+      covers. May not add, remove, or reword any validator rule, and may not
+      introduce a repoctl-specific configuration key.
+    interfaces: [capability-validator-v1, repoctl-capsule-v1, derived-index-v1, capability-plan-v1]
+    uncertainty: medium
+    depends_on: [pure_capability_planner, pure_derived_compiler]
+    risk: novel
+    lane:
+      - tests/test_selfhost_validator.py
+      - template/tests/repoctl/test_capability_contract.py
+    forbidden_paths: [template/scripts/capability_validator.py]
+    acceptance_criteria:
+      - "`just test` passes with tests/test_selfhost_validator.py collected and green."
+      - "The test runs the validator over repoctl/modules/repository_generation and over a product-shaped fixture capability, and asserts the executed rule identifier sets are equal."
+      - "The test fails when a rule is skipped for the system root, demonstrated by a temporary mutation that the test detects."
+      - "The test asserts the repository contains no configuration key, environment variable, or code path that disables a rule for repoctl."
+      - "`just validate` passes."
+    required_checks: [pack-tests, pack-validate]
+    done_artifacts:
+      - tests/test_selfhost_validator.py

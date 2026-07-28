@@ -12,3 +12,6 @@ uv.lock
 .DS_Store
 dist/
 *.egg-info/
+# Epic sources under epics/ are tracked; their compiled manifests are derived
+# artifacts bound to one run's base SHA and are rebuilt by compile_epic.py.
+epics/*.manifest.json
