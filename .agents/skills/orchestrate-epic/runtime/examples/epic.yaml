@@ -1,0 +1,83 @@
+schema_version: 1
+run:
+  id: owner-repo-epic-123-v1
+  epoch: 1
+  predecessor_manifest_digest: null
+  source_main_sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  base_ref: main
+  max_concurrent: 2
+  max_same_finding_rejections: 2
+  max_review_rejections: 4
+  require_ci: true
+epic:
+  id: owner/repo#123
+  outcome: Deliver one observable capability through a durable vertical slice.
+  success_metrics:
+    - The real scenario passes after a process restart.
+  non_goals:
+    - Rebuilding generic infrastructure already owned by a dependency.
+models:
+  planners:
+    opus: {family: anthropic, model: claude-opus-5, effort: xhigh}
+    sol: {family: openai, model: gpt-5.6-sol, effort: max}
+  workers:
+    sonnet: {family: anthropic, model: claude-sonnet-5, effort: xhigh}
+    terra: {family: openai, model: gpt-5.6-terra, effort: max}
+  reviewers:
+    sol: {family: openai, model: gpt-5.6-sol, effort: max}
+    opus: {family: anthropic, model: claude-opus-5, effort: xhigh}
+  routing:
+    planner_primary: opus
+    planner_escalation: sol
+    worker_default: sonnet
+    worker_by_risk: {mechanical: terra, novel: sonnet}
+    reviewer_by_worker: {sonnet: sol, terra: opus}
+checks:
+  - name: unit
+    command: [uv, run, pytest, -q]
+protected_paths: [graders/**]
+no_go_paths: [external-corpus/**]
+barriers: []
+goal_tree:
+  id: epic
+  goal: Deliver the epic outcome.
+  children:
+    - id: foundation
+      goal: Establish the shared contract once.
+      children:
+        - {id: task-foundation, task: foundation}
+    - id: delivery
+      goal: Exercise the shared contract in a real vertical slice.
+      children:
+        - {id: task-feature, task: feature}
+tasks:
+  foundation:
+    repo: owner/repo
+    issue: owner/repo#124
+    outcome: The shared interface exists and one real path uses it.
+    decision_boundary: May choose local representation but not change epic semantics.
+    interfaces: [public-api-v1]
+    uncertainty: high
+    depends_on: []
+    risk: novel
+    lane: [src/foundation/**]
+    forbidden_paths: [graders/**]
+    acceptance_criteria:
+      - One real scenario executes through the shared interface.
+    required_checks: [unit]
+    done_artifacts: [src/foundation/api.py]
+  feature:
+    repo: owner/repo
+    issue: owner/repo#125
+    outcome: The user-visible feature works end to end.
+    decision_boundary: May decide task-local implementation details.
+    interfaces: [public-api-v1]
+    uncertainty: low
+    depends_on: [foundation]
+    risk: mechanical
+    lane: [src/feature/**]
+    forbidden_paths: []
+    acceptance_criteria:
+      - The observable feature passes its focused test.
+    required_checks: [unit]
+    done_artifacts: [src/feature/implementation.py]
