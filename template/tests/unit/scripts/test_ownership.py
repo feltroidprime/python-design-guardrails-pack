@@ -16,6 +16,8 @@ IGNORED_DIRECTORY_NAMES = frozenset(
         ".codebase-memory",
         ".git",
         ".hypothesis",
+        ".import_linter_cache",
+        ".idea",
         ".mypy_cache",
         ".pytest_cache",
         ".ruff_cache",
