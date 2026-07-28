@@ -1,0 +1,13 @@
+{
+  "command": [
+    "just",
+    "test"
+  ],
+  "exit_code": 0,
+  "name": "pack-tests",
+  "output_digest": "ca47e22410c4a31c581ee5683acc9fdff5a1a2d833b8a4fc58ad6cc44b4a9a11",
+  "sha": "4831868c0e5b08c8cccd7abb50cbd4bff5e3aecf",
+  "stderr": "uv run --no-project --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 --with copier==9.17.0 pytest -q -n auto --dist loadscope tests\n",
+  "stdout": "bringing up nodes...\nbringing up nodes...\n\n........................................................................ [ 22%]\n........................................................................ [ 45%]\n........................................................................ [ 68%]\n........................................................................ [ 91%]\n..........................                                               [100%]\n=============================== warnings summary ===============================\ntests/test_benchmark_pipeline.py::TestOrchestration::test_dirty_template_identity_is_flagged_in_fake_agent_pipeline\n  /home/felt/.cache/uv/archive-v0/yQ1M0BZH75LP-rtY/lib/python3.14/site-packages/copier/_vcs.py:407: DirtyLocalWarning: Dirty template changes included automatically.\n    warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n314 passed, 1 warning in 47.49s\n",
+  "task": "ownership_zones"
+}
