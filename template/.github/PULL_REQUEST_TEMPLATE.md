@@ -15,7 +15,7 @@ What user/domain behavior changes?
 - Exact scope of each changed property:
 - Minimal counterexample for each changed property:
 - External assumptions that remain outside the pure proof boundary:
-- `proof.toml` changed: yes / no — why
+- `proof/policy.toml` or an ownership-zone catalog changed: yes / no — why
 
 ## Tests and evidence
 

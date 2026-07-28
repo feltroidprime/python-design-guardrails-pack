@@ -8,7 +8,10 @@ whose correctness is a law rather than a finite list of examples.
 
 ### 1. State the property before the implementation
 
-Add one entry to `proof.toml` containing:
+Read `proof/policy.toml`, then add one entry to the catalog whose configured
+ownership-zone root owns the property. Every catalog declares the same zone its
+root assigns, and the loader aggregates the policy and all catalogs into one
+proof index. The entry contains:
 
 - a stable `UPPER-KEBAB-CASE` ID;
 - one falsifiable statement;
@@ -105,7 +108,7 @@ Use ordinary `@given` tests for input spaces and algebraic laws. Use
 
 Hypothesis then searches action sequences and shrinks a failure to a small
 counterexample. The canonical test must invoke the exact target and oracle
-declared in `proof.toml`; a constructor call alone never satisfies a targeted
+declared in its owning proof catalog; a constructor call alone never satisfies a targeted
 `__call__` method. A stateful proof passes one literal local
 `RuleBasedStateMachine` to `run_state_machine_as_test`. Only its `__init__`,
 stateful rules/invariants/initializers, and helpers reachable from those methods
@@ -185,7 +188,7 @@ just proof-report                  # review the complete property matrix
 - a new public domain class, function, or method with no property;
 - a catalog target or oracle that does not exist;
 - an `icontract` contract without a literal `PROPERTY[ID]` description;
-- a contract whose ID or oracle disagrees with `proof.toml`;
+- a contract whose ID or oracle disagrees with its owning proof catalog;
 - an oracle that is async, non-boolean, effect-shaped, stored outside a
   specification module, or coupled back to implementation code;
 - a property without an explicit scope, assumptions field, exactly one broad
