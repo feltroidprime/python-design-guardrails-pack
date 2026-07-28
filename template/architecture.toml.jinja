@@ -3,6 +3,67 @@ package = "{{ package }}"
 source_root = "src"
 profile = "system"
 
+[ownership.roots]
+FOUNDATION = [
+  ".copier-answers.yml",
+  ".github",
+  ".gitignore",
+  ".python-version",
+  ".vscode",
+  "AGENTS.md",
+  "CLAUDE.md",
+  "README.md",
+  "architecture.toml",
+  "docs/README.md",
+  "docs/adr",
+  "docs/architecture/EXCEPTIONS.md",
+  "docs/architecture/MIGRATION_CHECKLIST.md",
+  "docs/architecture/PATTERN_ADMISSION.md",
+  "docs/architecture/PROVABILITY.md",
+  "docs/architecture/README.md",
+  "justfile",
+  "prek.toml",
+  "proof.toml",
+  "proof/foundation.toml",
+  "proof/policy.toml",
+  "proof/repoctl",
+  "pyproject.toml",
+  "repoctl",
+  "scripts",
+  "src/{{ package }}/__init__.py",
+  "src/{{ package }}/__main__.py",
+  "src/{{ package }}/_foundation",
+  "src/{{ package }}/adapters",
+  "src/{{ package }}/application",
+  "src/{{ package }}/bootstrap.py",
+  "src/{{ package }}/domain",
+  "src/{{ package }}/py.typed",
+  "tests/contract",
+  "tests/e2e",
+  "tests/foundation",
+  "tests/integration",
+  "tests/repoctl",
+  "tests/unit",
+  "uv.lock",
+  "verification/conftest.py",
+  "verification/harness",
+  "verification/repoctl",
+  "verification/tests",
+]
+PRODUCT = [
+  "src/{{ package }}/modules",
+  "proof/modules",
+  "tests/modules",
+  "verification/modules",
+  "docs/product",
+]
+DERIVED = [
+  "src/{{ package }}/_generated",
+  "proof/_generated",
+  "docs/architecture/generated",
+]
+DECLARATION = [".repo"]
+
 [limits]
 max_module_lines = 400
 max_test_module_lines = 500
