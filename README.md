@@ -69,13 +69,6 @@ worktrees created later use them automatically. Use `--public`, `--no-github`,
 `--no-git`, or `--package NAME` as needed; `--no-git` is the generation-only
 escape hatch and therefore skips bootstrap too.
 
-`--likec4` adds the opt-in derived architecture model: `docs/architecture/likec4/`,
-`scripts/sync_architecture_diagrams.py`, the gate's three `diagram *` checks,
-`just diagrams`, and `ADR-0007`. It makes [`bun`](https://bun.sh) a prerequisite
-of the generated repository, because the gate validates the model with
-`bunx likec4@<pinned>`. Without the flag none of that ships, and Import Linter
-still enforces the same layer contract.
-
 If bootstrap or GitHub creation fails, the local repository remains intact and
 the CLI returns non-zero; GitHub failures also print the recovery command. Run
 `python-repo init --help` for the complete interface.
@@ -192,7 +185,6 @@ One opinionated stack. One reason for every choice.
 | Import Linter contracts | Make dependency direction and adapter independence build failures. |
 | pytest, Hypothesis, and deterministic integration tests | Cover examples, broad invariant spaces, adapter contracts, and real local wiring. |
 | Sockets disabled and 90% branch coverage floor | Block accidental live-network tests and expose untested decisions. |
-| Opt-in derived LikeC4 model (`--likec4`) | Generate diagrams from the same import graph the gate enforces, through a `bunx`-pinned CLI — no `package.json`, `node_modules`, or JavaScript lockfile. Off by default: no Bun prerequisite. |
 | Documentation map and guard | Reject broken paths, unregistered docs, malformed ADRs, numbering gaps, and dangling exceptions. |
 | ADR, exception, pattern, and migration rules | Make design debt owned, scoped, revisitable, and removable. |
 | Optional `AGENTS.md` plus `CLAUDE.md` bridge | Give humans and coding agents one operating contract without duplicated instructions. |
@@ -225,7 +217,8 @@ See `benchmarks/README.md` for methodology, variants, bias controls, and all ben
 This is a meta-repository: `template/` is the product, `copier.yml` owns rendering, `instantiate.py` owns the CLI, and the root `AGENTS.md` is the maintainer contract.
 
 ```bash
-just test           # parallel generator tests
+just test-fast      # pre-commit guard: render, pins, and hook-policy checks
+just test           # complete parallel generator tests
 just validate       # canonical full validation
 just release vX.Y.Z # verify and create an annotated release tag
 ```

@@ -60,8 +60,6 @@ more importantly, makes an empty symbolic run fail instead of pass.
 
 ## Commands and actual results
 
-### Canonical pack validation — default configuration
-
 ```bash
 just validate
 ```

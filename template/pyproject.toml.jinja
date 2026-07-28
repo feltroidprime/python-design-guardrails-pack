@@ -19,8 +19,7 @@ dependencies = ["icontract>=2.7.3"]
 dev = [
   "basedpyright>=1.39.9",
   "coverage[toml]>=7.15.0",
-{% if likec4 %}  "grimp>=3.15",
-{% endif %}  "crosshair-tool>=0.0.109",
+  "crosshair-tool>=0.0.109",
   "hypothesis>=6.161.5",
   "import-linter>=2.13",
 {% if precommit %}  "prek>=0.4.9",
@@ -39,13 +38,7 @@ required-version = ">=0.11.28,<0.12"
 constraint-dependencies = ["z3-solver!=5.0.0.0"]
 {% endif %}
 
-{% if likec4 %}# The only place the LikeC4 CLI version is pinned. Every invocation goes
-# through `bunx likec4@<version>` (quality gate and `just diagrams`), which
-# keeps this Python repository free of JavaScript project files.
-[tool.likec4]
-version = "1.58.0"
-
-{% endif %}{% if not workspace_member %}[tool.ruff]
+{% if not workspace_member %}[tool.ruff]
 target-version = "py314"
 line-length = 100
 src = ["src", "tests", "verification", "scripts"]

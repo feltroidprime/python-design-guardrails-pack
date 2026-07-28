@@ -145,11 +145,8 @@ def run_instantiate(
     script: Path = INSTANTIATE,
     env: dict[str, str] | None = None,
     cwd: Path | None = None,
-    likec4: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     command = [sys.executable, str(script), project, package, str(output)]
-    if likec4:
-        command.append("--likec4")
     return subprocess.run(
         command,
         cwd=cwd,
@@ -165,15 +162,6 @@ def generated(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """One shared successful instantiation for read-only assertions."""
     output = tmp_path_factory.mktemp("generated") / PROJECT_NAME
     result = run_instantiate(PROJECT_NAME, PACKAGE_NAME, output)
-    assert result.returncode == 0, result.stdout + result.stderr
-    return output
-
-
-@pytest.fixture(scope="session")
-def generated_likec4(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """One shared instantiation with the opt-in LikeC4 architecture model."""
-    output = tmp_path_factory.mktemp("generated-likec4") / PROJECT_NAME
-    result = run_instantiate(PROJECT_NAME, PACKAGE_NAME, output, likec4=True)
     assert result.returncode == 0, result.stdout + result.stderr
     return output
 
@@ -628,55 +616,6 @@ def test_workspace_member_has_exact_file_delta(tmp_path: Path) -> None:
     assert "uv lock" not in justfile
     assert "prek" not in justfile
     assert "just check" in justfile
-
-
-def test_likec4_has_exact_file_delta(tmp_path: Path) -> None:
-    """The opt-in adds the LikeC4 model, its script, and its ADR — nothing else."""
-    baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
-    variant = _generated_snapshot(
-        _generate_with_answers(tmp_path / "likec4", {"likec4": True})
-    )
-
-    assert set(baseline) - set(variant) == set()
-    assert set(variant) - set(baseline) == {
-        "docs/adr/0007-derived-architecture-diagrams.md",
-        "docs/architecture/likec4/generated/baseline-views.c4",
-        "docs/architecture/likec4/generated/model.c4",
-        "docs/architecture/likec4/likec4.config.json",
-        "docs/architecture/likec4/specification.c4",
-        "docs/architecture/likec4/views.c4",
-        "scripts/sync_architecture_diagrams.py",
-    }
-    assert {
-        path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
-    } == {
-        ".copier-answers.yml",
-        ".github/workflows/quality.yml",
-        "AGENTS.md",
-        "README.md",
-        "docs/README.md",
-        "docs/architecture/README.md",
-        "justfile",
-        "pyproject.toml",
-        "scripts/quality_gate.py",
-    }
-
-    # Outside the Copier answers file, the default repository names neither the
-    # CLI, the runtime, nor the pin.
-    for path, content in baseline.items():
-        if path == ".copier-answers.yml":
-            continue
-        assert b"likec4" not in content.lower(), path
-        assert b"bunx" not in content, path
-    assert b"grimp" not in baseline["pyproject.toml"]
-    assert b"oven-sh/setup-bun" not in baseline[".github/workflows/quality.yml"]
-
-    gate = variant["scripts/quality_gate.py"].decode("utf-8")
-    assert "diagram regeneration" in gate
-    assert "diagram sync" in gate
-    assert "diagram views" in gate
-    pyproject = tomllib.loads(variant["pyproject.toml"].decode("utf-8"))
-    assert pyproject["tool"]["likec4"]["version"] == "1.58.0"
 
 
 def test_no_agents_md_has_exact_file_delta(tmp_path: Path) -> None:
@@ -1290,57 +1229,6 @@ def test_generated_docs_guard_runs_and_passes(generated: Path) -> None:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Documentation guard passed." in result.stdout
-
-
-def run_diagram_sync(repo: Path, mode: str) -> subprocess.CompletedProcess[str]:
-    """Run the diagram sync script inside a generated repository (pure Python, no Bun)."""
-    return subprocess.run(
-        [sys.executable, "-m", "scripts.sync_architecture_diagrams", mode],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-
-GENERATED_DIAGRAM_FILES = (
-    "docs/architecture/likec4/generated/model.c4",
-    "docs/architecture/likec4/generated/baseline-views.c4",
-)
-
-
-def test_diagram_sync_check_passes_on_fresh_repository(generated_likec4: Path) -> None:
-    """The committed derived model must match the import graph byte for byte."""
-    result = run_diagram_sync(generated_likec4, "--check")
-    assert result.returncode == 0, result.stdout + result.stderr
-
-
-def test_diagram_sync_detects_drift_and_names_the_fix(tmp_path: Path) -> None:
-    output = tmp_path / "repo"
-    assert run_instantiate(PROJECT_NAME, PACKAGE_NAME, output, likec4=True).returncode == 0
-
-    planted = output / "src" / PACKAGE_NAME / "domain" / "planted_policy.py"
-    planted.write_text('"""Planted module for drift detection."""\n', encoding="utf-8")
-
-    drifted = run_diagram_sync(output, "--check")
-    assert drifted.returncode == 1, drifted.stdout + drifted.stderr
-    assert "just check" in drifted.stdout + drifted.stderr
-
-    written = run_diagram_sync(output, "--write")
-    assert written.returncode == 0, written.stdout + written.stderr
-    resynced = run_diagram_sync(output, "--check")
-    assert resynced.returncode == 0, resynced.stdout + resynced.stderr
-
-
-def test_diagram_sync_output_is_byte_stable(tmp_path: Path) -> None:
-    output = tmp_path / "repo"
-    assert run_instantiate(PROJECT_NAME, PACKAGE_NAME, output, likec4=True).returncode == 0
-
-    assert run_diagram_sync(output, "--write").returncode == 0
-    first = [(output / name).read_bytes() for name in GENERATED_DIAGRAM_FILES]
-    assert run_diagram_sync(output, "--write").returncode == 0
-    second = [(output / name).read_bytes() for name in GENERATED_DIAGRAM_FILES]
-    assert first == second
 
 
 def declared_runtime_environment(generated: Path) -> list[str]:

@@ -231,22 +231,12 @@ outcome, and composition extension.
   Backward-compatible capability fields and explicit output modes remain 1.x.
   Run the full quality gate; there is no parallel CLI-only acceptance command.
 
-{% if likec4 %}## Architecture diagrams (derived, never drawn)
-
-The LikeC4 model under `docs/architecture/likec4/generated/` is derived from the import-linter contracts and the real import graph (grimp). See `docs/adr/0007-derived-architecture-diagrams.md`.
-
-- Never edit files under `docs/architecture/likec4/generated/`; the check loop regenerates them before validating them.
-- Declare layers in exactly one place: the import-linter `layers` contract in `pyproject.toml`. Adding a layer there updates the linter and the diagrams simultaneously.
-- Put hand-written views in `docs/architecture/likec4/views.c4` (never regenerated). The gate's `diagram views` check validates them against the generated model, so renaming or deleting a module moves the views in the same commit. Extend `specification.c4` only deliberately.
-- The LikeC4 CLI version is pinned in exactly one place, `[tool.likec4]` in `pyproject.toml`; every invocation goes through `bunx likec4@<version>` (Bun is a toolchain prerequisite). Do not introduce `package.json`, JavaScript lockfiles, or `node_modules`. A version bump moves that single pin and must pass the full gate.
-- To reason from the current architecture, browse `just diagrams` or query the LikeC4 model instead of trusting stale prose.
-
-{% endif %}## Documentation
+## Documentation
 
 `docs/README.md` is the documentation map: one row per document, stating who reads it and how its freshness is guaranteed. Three rules, enforced by the gate's `docs guard` check (`scripts/docs_guard.py`):
 
 1. **One owner per fact.** Link to the owning document; never paraphrase it into a second copy.
-2. **Freshness ladder — derived > checked > dated.** Generate documentation from code where possible{% if likec4 %} (the LikeC4 model){% endif %}. Otherwise cite real repository paths so the guard can verify them — renaming a file fails the gate until every document that cited it moves in the same commit. Prose no gate can verify (context, decisions) carries a status, owner, and revisit trigger: that is what `docs/adr/` is for.
+2. **Freshness ladder — derived > checked > dated.** Generate documentation from code where possible. Otherwise cite real repository paths so the guard can verify them — renaming a file fails the gate until every document that cited it moves in the same commit. Prose no gate can verify (context, decisions) carries a status, owner, and revisit trigger: that is what `docs/adr/` is for.
 3. **Admission.** A new documentation file claims a row in the map in the same commit; a kind of knowledge with no fitting row requires an ADR before the file exists.
 
 ADR conventions are mechanical: `NNNN-kebab-case.md` file names, a matching `# ADR-NNNN:` heading, the front-matter keys of `docs/adr/0000-template.md`, contiguous numbering. Supersede a decision with a new ADR; never delete or rewrite an old one.

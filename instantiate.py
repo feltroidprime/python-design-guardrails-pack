@@ -95,9 +95,7 @@ def without_local_git_context() -> Iterator[None]:
             os.environ.update(inherited)
 
 
-def generate(
-    project_name: str, package_name: str, output: Path, *, likec4: bool = False
-) -> str | None:
+def generate(project_name: str, package_name: str, output: Path) -> str | None:
     """Render the template into *output*. Return an error message, or None on success."""
     source = Path(__file__).resolve().parent
     if output.exists() and any(output.iterdir()):
@@ -110,7 +108,6 @@ def generate(
                 data={
                     "project_name": project_name,
                     "package": package_name,
-                    "likec4": likec4,
                     "_packaged_template_version": packaged_template_version(),
                     "_packaged_template_source": TEMPLATE_SOURCE,
                 },
@@ -222,10 +219,8 @@ def print_next_steps(project_name: str, output: Path) -> None:
     print("  just bootstrap")
 
 
-def run_init(
-    project_name: str, package_name: str, output: Path, *, likec4: bool = False
-) -> int:
-    error = generate(project_name, package_name, output, likec4=likec4)
+def run_init(project_name: str, package_name: str, output: Path) -> int:
+    error = generate(project_name, package_name, output)
     if error is not None:
         print(error)
         return 2
@@ -235,17 +230,13 @@ def run_init(
 
 def main() -> int:
     """Legacy positional interface, kept for the pack's own tests and validation."""
-    arguments = [argument for argument in sys.argv[1:] if argument != "--likec4"]
-    likec4 = "--likec4" in sys.argv[1:]
-    if len(arguments) != 3:
-        print(
-            "Usage: python3 instantiate.py <project-name> <package_name> <output-dir> [--likec4]"
-        )
+    if len(sys.argv) != 4:
+        print("Usage: python3 instantiate.py <project-name> <package_name> <output-dir>")
         print("   or: python-repo init <project-name> [directory] [--package NAME]")
         return 2
-    project_name, package_name, output_arg = arguments
+    project_name, package_name, output_arg = sys.argv[1:]
     output = Path(output_arg).expanduser().resolve()
-    return run_init(project_name, package_name, output, likec4=likec4)
+    return run_init(project_name, package_name, output)
 
 
 def cli(argv: list[str] | None = None) -> int:
@@ -277,14 +268,6 @@ def cli(argv: list[str] | None = None) -> int:
         help="import package name (default: derived from the project name)",
     )
     init.add_argument(
-        "--likec4",
-        action="store_true",
-        help=(
-            "include the derived LikeC4 architecture model, its gate checks, and "
-            "'just diagrams' (adds Bun to the toolchain prerequisites)"
-        ),
-    )
-    init.add_argument(
         "--public",
         action="store_true",
         help="create the GitHub repository public instead of private",
@@ -310,7 +293,7 @@ def cli(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    error = generate(args.name, package_name, output, likec4=args.likec4)
+    error = generate(args.name, package_name, output)
     if error is not None:
         print(error)
         return 2

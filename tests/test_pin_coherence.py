@@ -68,10 +68,6 @@ def test_pytest_xdist_pin_is_coherent() -> None:
     assert_coherent(occurrences(rf"pytest-xdist=={VERSION}"), 2)
 
 
-def test_grimp_pin_is_coherent() -> None:
-    assert_coherent(occurrences(rf"grimp[>=]={VERSION}"), 3)
-
-
 def test_prek_floor_is_coherent() -> None:
     assert_coherent(
         occurrences(rf"minimum_prek_version = \"{VERSION}\"", rf"prek>={VERSION}"),
@@ -99,22 +95,3 @@ def test_session_profiler_commit_is_coherent() -> None:
         for match in COMMIT.finditer(text)
     ]
     assert_coherent(found, 3)
-
-
-def test_likec4_cli_version_has_a_single_source() -> None:
-    template_texts = [
-        (relative, text)
-        for relative, text in texts()
-        if relative.startswith("template/")
-    ]
-    hardcoded = [
-        relative
-        for relative, text in template_texts
-        if re.search(r"likec4@[0-9]", text)
-    ]
-    assert hardcoded == []
-    declaration = re.compile(r"\[tool\.likec4\]\s*\nversion = \"")
-    sources = [
-        relative for relative, text in template_texts if declaration.search(text)
-    ]
-    assert sources == ["template/pyproject.toml.jinja"]
