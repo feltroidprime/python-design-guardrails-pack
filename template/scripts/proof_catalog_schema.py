@@ -1,10 +1,10 @@
 """TOML schema parsing for a policy and its independent property catalogs."""
 
-import re
-import tomllib
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
+import re
+import tomllib
 from typing import cast
 
 from scripts.proof_catalog_model import (
@@ -115,8 +115,7 @@ def _policy_paths(root: Path, value: object, name: str) -> tuple[Path, ...]:
     return tuple(root / path for path in relative_paths)
 
 
-def _catalog_locations(raw: dict[str, object]) -> tuple[CatalogLocation, ...]:
-    catalogs = table(raw.get("catalogs"), "catalogs")
+def _validate_catalog_zones(catalogs: dict[str, object]) -> None:
     declared_zones = frozenset(catalogs)
     unknown_zones = sorted(declared_zones - ALLOWED_OWNERSHIP_ZONES)
     if unknown_zones:
@@ -128,23 +127,34 @@ def _catalog_locations(raw: dict[str, object]) -> tuple[CatalogLocation, ...]:
         raise CatalogError(
             f"catalogs is missing ownership zone(s): {', '.join(missing_zones)}"
         )
+
+
+def _catalog_location(
+    relative_path: Path, name: str, ownership_zone: str
+) -> CatalogLocation:
+    relative_path = _relative_path(relative_path, name)
+    if relative_path == Path("policy.toml"):
+        raise CatalogError("catalogs cannot include policy.toml")
+    if relative_path.suffix not in ("", ".toml"):
+        raise CatalogError(
+            f"{name} location '{relative_path.as_posix()}' must name a TOML file or directory"
+        )
+    return CatalogLocation(
+        ownership_zone=ownership_zone,
+        relative_path=relative_path,
+    )
+
+
+def _catalog_locations(raw: dict[str, object]) -> tuple[CatalogLocation, ...]:
+    catalogs = table(raw.get("catalogs"), "catalogs")
+    _validate_catalog_zones(catalogs)
     locations: list[CatalogLocation] = []
     for ownership_zone in sorted(ALLOWED_OWNERSHIP_ZONES):
         name = f"catalogs.{ownership_zone}"
-        for item in text_tuple(catalogs.get(ownership_zone), name):
-            relative_path = _relative_path(Path(item), name)
-            if relative_path == Path("policy.toml"):
-                raise CatalogError("catalogs cannot include policy.toml")
-            if relative_path.suffix not in ("", ".toml"):
-                raise CatalogError(
-                    f"{name} location '{item}' must name a TOML file or directory"
-                )
-            locations.append(
-                CatalogLocation(
-                    ownership_zone=ownership_zone,
-                    relative_path=relative_path,
-                )
-            )
+        locations.extend(
+            _catalog_location(Path(value), name, ownership_zone)
+            for value in text_tuple(catalogs.get(ownership_zone), name)
+        )
     paths = tuple(location.relative_path for location in locations)
     if len(set(paths)) != len(paths):
         raise CatalogError("catalogs repeats a catalog path")
@@ -255,7 +265,8 @@ def _validate_state_machine(
         )
     if "crosshair" in evidence:
         raise CatalogError(
-            f"State-machine property '{property_id}' cannot target effectful workflow code with CrossHair"
+            f"State-machine property '{property_id}' cannot target effectful "
+            "workflow code with CrossHair"
         )
 
 
@@ -264,7 +275,8 @@ def _validate_crosshair(
 ) -> None:
     if bool(links.crosshair_targets) != ("crosshair" in evidence):
         raise CatalogError(
-            f"Property '{property_id}' must declare crosshair evidence and crosshair_targets together"
+            f"Property '{property_id}' must declare crosshair evidence and "
+            "crosshair_targets together"
         )
     undeclared = sorted(set(links.crosshair_targets) - set(links.targets))
     if undeclared:

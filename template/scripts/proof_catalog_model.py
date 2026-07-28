@@ -1,8 +1,11 @@
 """Immutable models and stable wire shape for the multi-catalog proof surface."""
 
 from dataclasses import dataclass
-from datetime import date
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import date
+    from pathlib import Path
 
 POLICY_SCHEMA_VERSION = 2
 CATALOG_SCHEMA_VERSION = 1

@@ -1,6 +1,9 @@
 """Public loader for the repository's policy-led proof catalog tree."""
 
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from scripts.proof_catalog_model import (
     ALLOWED_OWNERSHIP_ZONES,
