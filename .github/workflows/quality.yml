@@ -1,0 +1,39 @@
+name: quality
+
+# The canonical pack gate, run on every pull request and on main. This is the
+# same command AGENTS.md names as the completion criterion for any change to
+# `instantiate.py` or `template/`: generator tests, then a fresh instantiation
+# in a temporary directory that must pass the generated repository's own
+# quality gate.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # The root is intentionally venv-less and lock-free; uv provisions the
+      # exact pins each recipe names, including the 3.14 interpreter.
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install just
+        run: uv tool install rust-just
+
+      - name: just validate
+        run: just validate
