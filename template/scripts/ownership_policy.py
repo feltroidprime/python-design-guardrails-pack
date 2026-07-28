@@ -38,10 +38,11 @@ def _non_blank_string(value: object, name: str) -> str:
     return value.strip()
 
 
-def _root_path(value: object, name: str) -> PurePosixPath:
-    root = PurePosixPath(_non_blank_string(value, name))
+def _root_path(value: object, label: str) -> PurePosixPath:
+    text = _non_blank_string(value, label)
+    root = PurePosixPath(text)
     if root.is_absolute() or ".." in root.parts or root == PurePosixPath("."):
-        raise OwnershipPolicyError(f"{name} must be a non-empty repository-relative path")
+        raise OwnershipPolicyError(f"{label} must be a non-empty repository-relative path")
     return root
 
 

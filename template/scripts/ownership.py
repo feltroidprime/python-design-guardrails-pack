@@ -1,10 +1,13 @@
 """Classify repository-relative paths from the declared ownership roots."""
 
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NewType
 
 if TYPE_CHECKING:
     from scripts.ownership_policy import OwnershipPolicy
+
+
+OwnershipZone = NewType("OwnershipZone", str)
 
 
 class OwnershipPathError(ValueError):
@@ -40,17 +43,17 @@ def _contains(root: PurePosixPath, path: PurePosixPath) -> bool:
     return path == root or root in path.parents
 
 
-def matching_zones(path: Path, policy: OwnershipPolicy) -> tuple[str, ...]:
+def matching_zones(path: Path, policy: OwnershipPolicy) -> tuple[OwnershipZone, ...]:
     """Return all declared zones containing ``path`` in declaration order."""
     normalized = normalized_relative_path(path)
     return tuple(
-        zone.name
+        OwnershipZone(zone.name)
         for zone in policy.zones
         if any(_contains(root, normalized) for root in zone.roots)
     )
 
 
-def classify_path(path: Path, policy: OwnershipPolicy) -> str:
+def classify_path(path: Path, policy: OwnershipPolicy) -> OwnershipZone:
     """Return one ownership zone or reject an invalid, unknown, or ambiguous path."""
     zones = matching_zones(path, policy)
     if not zones:
