@@ -16,7 +16,7 @@ test:
 # Fast pre-commit guard: render the complete default template, keep pins
 # coherent, and verify that pre-push still owns the comprehensive validation.
 test-fast:
-    uv run --no-project --python 3.14 --with pytest==9.1.1 --with copier==9.17.0 pytest -q tests/test_instantiate.py::test_default_generation_matches_recorded_output tests/test_pin_coherence.py tests/test_hook_policy.py
+    uv run --no-project --python 3.14 --with pytest==9.1.1 --with copier==9.17.0 pytest -q tests/test_instantiate.py::test_expected_files_are_preserved tests/test_instantiate.py::test_no_unrendered_jinja_survives tests/test_instantiate.py::test_fast_recipe_renders_default_template_and_runs_policy_checks tests/test_pin_coherence.py tests/test_hook_policy.py
 
 # Canonical pack validation: generator tests, then a fresh instantiation in a
 # temporary directory that must pass the generated repository's full quality gate.
