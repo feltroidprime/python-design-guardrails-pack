@@ -1,0 +1,17 @@
+schema_version = 2
+
+# This policy is the repository's single proof-system configuration. Catalogs
+# own laws; this file owns the shared discovery and catalog-layout rules.
+[policy]
+source_roots = ["src", "."]
+test_roots = ["verification/tests"]
+behavior_roots = ["{{ package }}.domain"]
+excluded_module_stems = ["__init__", "errors", "specifications"]
+oracle_module_stems = ["specifications"]
+
+# A catalog's declared ownership_zone must agree with the location that
+# discovers it. Empty directories are allowed so a future capability can add
+# an empty catalog before it owns any public behavior.
+[catalogs]
+foundation = ["foundation.toml", "repoctl"]
+product = ["modules"]

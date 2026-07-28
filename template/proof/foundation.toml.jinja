@@ -1,13 +1,5 @@
 schema_version = 1
-
-# This is the repository's executable specification index. A public behavior in
-# the proof surface cannot exist without a named property or a dated exemption.
-[policy]
-source_root = "src"
-test_root = "verification/tests"
-behavior_roots = ["{{ package }}.domain"]
-excluded_module_stems = ["__init__", "errors", "specifications"]
-oracle_module_stems = ["specifications"]
+ownership_zone = "foundation"
 
 [[properties]]
 id = "ITEM-ID-VALID"

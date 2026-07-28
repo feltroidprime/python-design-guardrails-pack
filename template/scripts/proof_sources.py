@@ -1,9 +1,9 @@
 """Discover public core behaviors, contracts, and executable oracles."""
 
 import ast
+import re
 from dataclasses import dataclass
 from pathlib import Path
-import re
 from typing import TYPE_CHECKING
 
 from scripts.proof_ast import direct_invoked_targets, dotted_name, import_bindings
@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 
     from scripts.proof_catalog import ProofPolicy
 
+SourceRoots = Path | tuple[Path, ...]
+
 PROPERTY_DESCRIPTION = re.compile(r"^PROPERTY\[([A-Z][A-Z0-9-]+)\](?:: .+)?$")
 CONTRACT_DECORATORS = frozenset({"require", "ensure", "invariant"})
 ORACLE_FORBIDDEN_NODES = (
@@ -39,25 +41,54 @@ ORACLE_FORBIDDEN_NODES = (
 )
 
 
-def _module_name(path: Path, source_root: Path) -> str:
+def _module_name(path: Path, source_roots: SourceRoots) -> str:
+    containing_roots = tuple(
+        source_root
+        for source_root in _source_roots(source_roots)
+        if path.is_relative_to(source_root)
+    )
+    if not containing_roots:
+        raise DiscoveryError(
+            f"Path '{path}' does not belong to a configured source root"
+        )
+    source_root = max(containing_roots, key=lambda candidate: len(candidate.parts))
     relative = path.relative_to(source_root).with_suffix("")
     parts = relative.parts[:-1] if relative.name == "__init__" else relative.parts
     return ".".join(parts)
 
 
-def _module_path(module: str, source_root: Path) -> Path:
+def _source_roots(source_roots: SourceRoots) -> tuple[Path, ...]:
+    if isinstance(source_roots, Path):
+        return (source_roots,)
+    return source_roots
+
+
+def _module_path(module: str, source_roots: SourceRoots) -> Path:
     relative = Path().joinpath(*module.split("."))
-    file_path = source_root / relative.with_suffix(".py")
-    if file_path.is_file():
-        return file_path
-    package_path = source_root / relative
-    if package_path.is_dir():
-        return package_path
-    raise DiscoveryError(f"Module '{module}' does not exist under {source_root}")
+    candidates: list[Path] = []
+    for source_root in _source_roots(source_roots):
+        file_path = source_root / relative.with_suffix(".py")
+        if file_path.is_file():
+            candidates.append(file_path)
+            continue
+        package_path = source_root / relative
+        if package_path.is_dir():
+            candidates.append(package_path)
+    if not candidates:
+        roots = ", ".join(path.as_posix() for path in _source_roots(source_roots))
+        raise DiscoveryError(
+            f"Module '{module}' does not exist under source roots: {roots}"
+        )
+    if len(candidates) > 1:
+        paths = ", ".join(path.as_posix() for path in candidates)
+        raise DiscoveryError(
+            f"Module '{module}' is ambiguous across source roots: {paths}"
+        )
+    return candidates[0]
 
 
-def _module_file(module: str, source_root: Path) -> Path | None:
-    path = _module_path(module, source_root)
+def _module_file(module: str, source_roots: SourceRoots) -> Path | None:
+    path = _module_path(module, source_roots)
     candidate = path / "__init__.py" if path.is_dir() else path
     return candidate if candidate.is_file() else None
 
@@ -102,7 +133,9 @@ def module_facts(tree: ast.Module) -> ModuleFacts:
 
 
 def _literal_description(call: ast.Call) -> str | None:
-    descriptions = [keyword.value for keyword in call.keywords if keyword.arg == "description"]
+    descriptions = [
+        keyword.value for keyword in call.keywords if keyword.arg == "description"
+    ]
     if len(descriptions) != 1:
         return None
     value = descriptions[0]
@@ -119,7 +152,11 @@ def _condition_invoked_targets(call: ast.Call, facts: ModuleFacts) -> frozenset[
         if isinstance(argument, ast.Name)
     )
     return frozenset[str]().union(
-        *(direct_invoked_targets(condition, facts.imports) for condition in named if condition)
+        *(
+            direct_invoked_targets(condition, facts.imports)
+            for condition in named
+            if condition
+        )
     )
 
 
@@ -134,7 +171,9 @@ def _contract_link(
     if name not in CONTRACT_DECORATORS:
         return None
     description = _literal_description(decorator)
-    match = PROPERTY_DESCRIPTION.fullmatch(description) if description is not None else None
+    match = (
+        PROPERTY_DESCRIPTION.fullmatch(description) if description is not None else None
+    )
     return ContractLink(
         path=path,
         line=decorator.lineno,
@@ -200,19 +239,24 @@ def _class_targets(
             facts,
         )
         for member in node.body
-        if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)) and _public_name(member.name)
+        if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and _public_name(member.name)
     )
     return tuple(targets)
 
 
-def _targets_in_file(path: Path, source_root: Path) -> tuple[SourceTarget, ...]:
+def _targets_in_file(path: Path, source_roots: SourceRoots) -> tuple[SourceTarget, ...]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    module = _module_name(path, source_root)
+    module = _module_name(path, source_roots)
     facts = module_facts(tree)
     targets: list[SourceTarget] = []
     for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _public_name(node.name):
-            targets.append(_source_target(path, module, node.name, node, "function", facts))
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _public_name(
+            node.name
+        ):
+            targets.append(
+                _source_target(path, module, node.name, node, "function", facts)
+            )
         elif isinstance(node, ast.ClassDef) and _public_name(node.name):
             targets.extend(_class_targets(path, module, node, facts))
     return tuple(targets)
@@ -251,7 +295,7 @@ def _find_qualified_node(tree: ast.Module, qualname: str) -> Definition | None:
 
 
 def _resolved_definition(
-    source_root: Path,
+    source_roots: SourceRoots,
     target: str,
     *,
     label: str,
@@ -259,7 +303,7 @@ def _resolved_definition(
     module, separator, qualname = target.partition(":")
     if not separator:
         raise DiscoveryError(f"Invalid {label} '{target}'")
-    path = _module_file(module, source_root)
+    path = _module_file(module, source_roots)
     if path is None:
         return None
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -269,8 +313,8 @@ def _resolved_definition(
     return path, module, qualname, node
 
 
-def discover_target(source_root: Path, target: str) -> SourceTarget | None:
-    resolved = _resolved_definition(source_root, target, label="target")
+def discover_target(source_roots: SourceRoots, target: str) -> SourceTarget | None:
+    resolved = _resolved_definition(source_roots, target, label="target")
     if resolved is None:
         return None
     path, module, qualname, node = resolved
@@ -327,8 +371,8 @@ def _oracle_body(tree: ast.Module, node: Definition) -> tuple[ast.AST, ...]:
     return (node, *reached.values())
 
 
-def discover_oracle(source_root: Path, target: str) -> OracleShape | None:
-    resolved = _resolved_definition(source_root, target, label="oracle target")
+def discover_oracle(source_roots: SourceRoots, target: str) -> OracleShape | None:
+    resolved = _resolved_definition(source_roots, target, label="oracle target")
     if resolved is None:
         return None
     path, module, _, node = resolved
@@ -343,8 +387,11 @@ def discover_oracle(source_root: Path, target: str) -> OracleShape | None:
         module_stem=module.rpartition(".")[2],
         is_async=isinstance(node, ast.AsyncFunctionDef),
         return_annotation=dotted_name(node.returns) if node.returns is not None else "",
-        has_variadic_parameters=node.args.vararg is not None or node.args.kwarg is not None,
+        has_variadic_parameters=node.args.vararg is not None
+        or node.args.kwarg is not None,
         called_names=frozenset[str]().union(*(_called_names(part) for part in body)),
         imported_modules=_imported_modules(tree),
-        forbidden_nodes=frozenset[str]().union(*(_forbidden_node_names(part) for part in body)),
+        forbidden_nodes=frozenset[str]().union(
+            *(_forbidden_node_names(part) for part in body)
+        ),
     )
