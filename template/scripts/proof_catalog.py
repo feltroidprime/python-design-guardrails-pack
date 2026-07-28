@@ -127,8 +127,12 @@ def _load_catalog_entry(entry: Path, ownership_zone: str) -> CatalogEntry:
         )
     if declared_zone != ownership_zone:
         raise CatalogOwnershipError(
-            f"Catalog '{entry.as_posix()}' declares ownership zone '{declared_zone}', "
-            f"but its path belongs to '{ownership_zone}'"
+            " ".join(
+                (
+                    f"Catalog '{entry.as_posix()}' declares ownership zone '{declared_zone}',",
+                    f"but its path belongs to '{ownership_zone}'",
+                )
+            )
         )
     return CatalogEntry(
         path=entry,

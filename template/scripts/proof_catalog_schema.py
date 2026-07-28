@@ -265,8 +265,12 @@ def _validate_state_machine(
         )
     if "crosshair" in evidence:
         raise CatalogError(
-            f"State-machine property '{property_id}' cannot target effectful "
-            "workflow code with CrossHair"
+            " ".join(
+                (
+                    f"State-machine property '{property_id}' cannot target effectful",
+                    "workflow code with CrossHair",
+                )
+            )
         )
 
 
@@ -275,14 +279,22 @@ def _validate_crosshair(
 ) -> None:
     if bool(links.crosshair_targets) != ("crosshair" in evidence):
         raise CatalogError(
-            f"Property '{property_id}' must declare crosshair evidence and "
-            "crosshair_targets together"
+            " ".join(
+                (
+                    f"Property '{property_id}' must declare crosshair evidence and",
+                    "crosshair_targets together",
+                )
+            )
         )
     undeclared = sorted(set(links.crosshair_targets) - set(links.targets))
     if undeclared:
         raise CatalogError(
-            f"Property '{property_id}' crosshair target(s) are not property targets: "
-            f"{', '.join(undeclared)}"
+            " ".join(
+                (
+                    f"Property '{property_id}' crosshair target(s) are not property targets:",
+                    ", ".join(undeclared),
+                )
+            )
         )
 
 
