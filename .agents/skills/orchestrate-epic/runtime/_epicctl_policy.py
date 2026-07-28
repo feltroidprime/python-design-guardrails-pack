@@ -116,10 +116,21 @@ def _task_states(
 
 
 def _effective_manifest(
-    manifest: dict[str, Any], events: list[dict[str, Any]]
+    manifest: dict[str, Any], events: list[dict[str, Any]], only: str | None = None
 ) -> dict[str, Any]:
+    """Fold granted leases into task lanes.
+
+    ``only`` restricts the fold to one task. Every per-task derivation must
+    pass it: the core digests whatever manifest it is handed into the review
+    packet and re-derives that digest to validate the packet later, so folding
+    *every* task's leases makes one task's packet depend on its siblings. A
+    sibling acquiring an unrelated lease would then invalidate an in-flight
+    packet, which has nothing to do with the reviewed task's contract.
+    """
     effective = deepcopy(manifest)
     leases = _lease_map(events)
+    if only is not None:
+        leases = {task: paths for task, paths in leases.items() if task == only}
     for task, paths in leases.items():
         definition = effective.get("tasks", {}).get(task)
         if not isinstance(definition, dict):
@@ -193,7 +204,8 @@ def _accept_task(
     args: argparse.Namespace,
     github_collector: _core.GitHubCollector,
 ) -> dict[str, Any]:
-    task_manifest = _manifest_for_task(_effective_manifest(manifest, events), str(args.task))
+    task = str(args.task)
+    task_manifest = _manifest_for_task(_effective_manifest(manifest, events, task), task)
     with _pinned_manifest(manifest):
         return _BASE_ACCEPT_TASK(task_manifest, events, journal, args, github_collector)
 
@@ -205,7 +217,8 @@ def _review_packet(
     args: argparse.Namespace,
     github_collector: _core.GitHubCollector,
 ) -> dict[str, Any]:
-    task_manifest = _manifest_for_task(_effective_manifest(manifest, events), str(args.task))
+    task = str(args.task)
+    task_manifest = _manifest_for_task(_effective_manifest(manifest, events, task), task)
     with _pinned_manifest(manifest):
         return _BASE_REVIEW_PACKET(task_manifest, events, journal, args, github_collector)
 
@@ -220,7 +233,8 @@ def _record_review(
     # against a differently-derived manifest rejects every packet the moment a
     # lease exists, because the packet's ``manifest_digest`` and its
     # ``task_contract`` are both taken from the lease-folded manifest.
-    task_manifest = _manifest_for_task(_effective_manifest(manifest, events), str(args.task))
+    task = str(args.task)
+    task_manifest = _manifest_for_task(_effective_manifest(manifest, events, task), task)
     with _pinned_manifest(manifest):
         return _BASE_RECORD_REVIEW(task_manifest, events, journal, args)
 
