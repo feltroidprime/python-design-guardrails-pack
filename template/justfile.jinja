@@ -17,17 +17,31 @@ bootstrap:
 check:
     uv run python scripts/quality_gate.py --fix
 
+# Fast local proof loop: structural closure, bounded generators, symbolic core.
+prove:
+    uv run python -m scripts.proof_guard
+    HYPOTHESIS_PROFILE=fast uv run pytest -q -m proof verification/tests -o addopts="--strict-config --strict-markers --disable-socket"
+    uv run python -m scripts.crosshair_gate fast
+
+# Sub-second-to-seconds feedback on one changed law; the structural catalog still closes globally.
+prove-one property_id:
+    uv run python -m scripts.proof_guard
+    HYPOTHESIS_PROFILE=fast uv run pytest -q -m proof verification/tests --property-id "$1" -o addopts="--strict-config --strict-markers --disable-socket"
+    uv run python -m scripts.crosshair_gate fast "$1"
+
+# Larger search budget for release candidates, risky concurrency changes, or nightly CI.
+prove-deep:
+    uv run python -m scripts.proof_guard
+    HYPOTHESIS_PROFILE=deep uv run pytest -q -m proof verification/tests -o addopts="--strict-config --strict-markers --disable-socket"
+    uv run python -m scripts.crosshair_gate deep
+
+proof-report:
+    uv run python -m scripts.proof_guard --report
+
 doctor:
     uv run --no-sync python -m scripts.doctor
 
-{% if likec4 %}# Browse live architecture diagrams (requires Bun; first run downloads the pinned LikeC4 CLI).
-diagrams:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    version="$(uv run python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['tool']['likec4']['version'])")"
-    exec bunx "likec4@${version}" serve docs/architecture/likec4
-
-{% endif %}# Preserve one complete Claude Code or Codex CLI session as local ATIF evidence.
+# Preserve one complete Claude Code or Codex CLI session as local ATIF evidence.
 session-log input output=".agent-sessions" agent="auto":
     uv run --with "$SESSION_PROFILER_DEPENDENCY" session-profiler --agent "$3" "$1" "$2"
 

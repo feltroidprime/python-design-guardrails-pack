@@ -6,11 +6,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-{% if likec4 %}import tomllib
-from typing import cast
-{% endif %}
-{% if likec4 %}LIKEC4_PROJECT = "docs/architecture/likec4"
-{% endif %}HOOK_REPAIR_COMMAND = ("uv", "run", "prek", "install", "-f")
+
+HOOK_REPAIR_COMMAND = ("uv", "run", "prek", "install", "-f")
 REQUIRED_PREK_HOOKS = ("pre-commit", "pre-push")
 GIT_COMMON_DIR_COMMAND = ("git", "rev-parse", "--git-common-dir")
 TRACKED_PYTHON_COMMAND = ("git", "ls-files", "-z", "--", "*.py")
@@ -35,42 +32,14 @@ def repository_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-{% if likec4 %}def table(value: object, name: str) -> dict[str, object]:
-    if not isinstance(value, dict):
-        raise TypeError(f"{name} must be a TOML table")
-    return cast("dict[str, object]", value)
-
-
-def likec4_version() -> str:
-    """Read the pinned LikeC4 CLI version from its single home in pyproject.toml."""
-    pyproject = table(
-        tomllib.loads((repository_root() / "pyproject.toml").read_text(encoding="utf-8")),
-        "pyproject.toml",
-    )
-    likec4 = table(table(pyproject["tool"], "tool")["likec4"], "tool.likec4")
-    version = likec4["version"]
-    if not isinstance(version, str):
-        raise TypeError("tool.likec4.version must be a string")
-    return version
-
-
-{% endif %}def repairs() -> tuple[Check, ...]:
+def repairs() -> tuple[Check, ...]:
     return (
         Check(
             name="safe lint repairs",
             command=("ruff", "check", "--fix", "--exit-zero", "--quiet", "."),
         ),
         Check(name="format repairs", command=("ruff", "format", "--quiet", ".")),
-{% if likec4 %}        Check(
-            name="diagram regeneration",
-            command=(
-                sys.executable,
-                "-m",
-                "scripts.sync_architecture_diagrams",
-                "--write",
-            ),
-        ),
-{% endif %}    )
+    )
 
 
 def checks() -> tuple[Check, ...]:
@@ -84,30 +53,16 @@ def checks() -> tuple[Check, ...]:
             command=(sys.executable, "-m", "scripts.architecture_guard"),
         ),
         Check(name="docs guard", command=(sys.executable, "-m", "scripts.docs_guard")),
-        Check(name="import contracts", command=("lint-imports",)),
-{% if likec4 %}        Check(
-            name="diagram sync",
-            command=(
-                sys.executable,
-                "-m",
-                "scripts.sync_architecture_diagrams",
-                "--check",
-            ),
+        Check(
+            name="proof contract",
+            command=(sys.executable, "-m", "scripts.proof_guard"),
         ),
         Check(
-            name="diagram views",
-            command=(
-                "bunx",
-                f"likec4@{likec4_version()}",
-                "validate",
-                LIKEC4_PROJECT,
-            ),
-            missing_tool_hint=(
-                "'bunx' was not found on PATH. Install Bun (https://bun.sh); it is a "
-                "toolchain prerequisite alongside uv and just."
-            ),
+            name="symbolic core",
+            command=(sys.executable, "-m", "scripts.crosshair_gate", "ci"),
         ),
-{% endif %}        Check(name="tests", command=("pytest",)),
+        Check(name="import contracts", command=("lint-imports",)),
+        Check(name="tests", command=("pytest",)),
     )
 
 

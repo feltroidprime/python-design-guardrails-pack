@@ -11,6 +11,27 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Reorient generated repositories around a proof-carrying functional core. A
+  closed `proof.toml` catalog gives every critical public behavior a normative
+  property ID, exact scope, explicit assumptions, failure modes, counterexample,
+  production targets, and independent executable oracles.
+- Add `icontract` as the single runtime proof dependency, Hypothesis evidence
+  (including a reference `RuleBasedStateMachine` for idempotent retries), and
+  bounded CrossHair analysis over every pure contracted function or method.
+- Add `scripts/proof_guard.py`: it rejects unclassified core behavior, orphaned
+  or mismatched contracts, example-only evidence, missing falsifying canaries,
+  coupled, effectful, or non-boolean oracles, constructor-only method evidence,
+  same-named symbols from the wrong module, dead state-machine evidence, and
+  symbolic targets outside the contract.
+- Add fast/full/deep proof lanes: `just prove-one PROPERTY-ID`, `just prove`,
+  `just prove-deep`, and `just proof-report`; the normal quality gate runs the
+  structural proof contract and the bounded symbolic core before tests.
+- Freeze the reference entity and event state, extract pure create/rename/event
+  decisions, separate primitive specification predicates from implementation,
+  and document the design in ADR-0006 and `docs/architecture/PROVABILITY.md`.
+- Make the pack's pre-commit hook run the fast rendered-template, pin-coherence,
+  and hook-policy checks. Keep the complete pack and downstream validation at
+  pre-push through `just validate`.
 - Add ARCH031 to the generated architecture guard: reminder comments that
   schedule manual upkeep ("bump this after each release", "keep in sync with",
   "remember to", "must be updated") fail the gate. The check inspects comment
@@ -18,21 +39,17 @@ identity, including the dirty marker when the experiment has uncommitted changes
   set of phrases recorded in ADR-0005, and accepts `ARCH-EXCEPTION: ADR-XXXX`.
   Derive the value from its source of truth or enforce the invariant with a
   test instead of asking a future editor to remember.
-- Make the derived LikeC4 architecture model an opt-in feature, off by default.
-  `python-repo init --likec4` (Copier question `likec4`) ships
-  `docs/architecture/likec4/`, `scripts/sync_architecture_diagrams.py`, the
-  gate's `diagram regeneration`/`diagram sync`/`diagram views` checks,
-  `just diagrams`, the `grimp` dev dependency, the `[tool.likec4]` pin, the CI
-  `setup-bun` step, and ADR-0006. Without it, none of that is generated and
-  **Bun is no longer a prerequisite** of a generated repository. Import Linter
-  enforces the layer contract in both configurations.
-- Renumber the shipped ADRs so the optional decision sits last: 0002-0006 move
-  down to 0001-0005, and the derived-diagrams ADR becomes 0006. This keeps the
-  docs guard's contiguous-numbering rule (DOC006) satisfied in both
-  configurations. Repositories updating with `just scaffold-update` will see
-  these renames; adjust local `ARCH-EXCEPTION: ADR-NNNN` markers accordingly.
+- Remove the derived LikeC4 architecture model. Generated repositories no
+  longer ship `docs/architecture/likec4/`, `scripts/sync_architecture_diagrams.py`,
+  the gate's `diagram *` checks, `just diagrams`, the `grimp` dev dependency, or
+  the CI `setup-bun` step, and **Bun is no longer a prerequisite**. Import Linter
+  still enforces the layer contract.
+- Renumber the shipped foundation ADRs so previous 0002-0006 become 0001-0005
+  and add the proof-carrying-core decision as 0006. Repositories updating with
+  `just scaffold-update` will see these renames; adjust local
+  `ARCH-EXCEPTION: ADR-NNNN` markers accordingly.
 - Scope the docs guard's derived-documentation exclusion to any `generated/`
-  directory under `docs/` instead of the LikeC4 path specifically.
+  directory under `docs/`.
 - Harden `just check` as a mechanical gate: before any repair or acceptance
   work it verifies the prek pre-commit and pre-push shims in Git's common hooks
   directory, repairs missing or invalid shims with `uv run prek install -f`, and

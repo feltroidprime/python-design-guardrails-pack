@@ -10,8 +10,7 @@ from {{ package }}.application.query_models import (
     ListItemsQuery,
     NoMoreItems,
 )
-from {{ package }}.domain.entities import Item
-from {{ package }}.domain.events import ItemCreatedEvent
+from {{ package }}.domain.decisions import create_item, item_created_event
 from {{ package }}.domain.value_objects import ItemName
 
 if TYPE_CHECKING:
@@ -21,6 +20,7 @@ if TYPE_CHECKING:
         ItemIdFactory,
         ItemRepository,
     )
+    from {{ package }}.domain.entities import Item
     from {{ package }}.domain.value_objects import ItemId
 
 
@@ -83,10 +83,10 @@ class CreateItem:
         return CreateItemResult(item=result.item, replayed=result.replayed, retry_safe=True)
 
     def _new_item(self, name: ItemName) -> Item:
-        return Item(item_id=self._id_factory(), name=name)
+        return create_item(item_id=self._id_factory(), name=name)
 
     def _publish(self, item: Item) -> None:
-        event = ItemCreatedEvent(item_id=item.item_id, name=item.name, occurred_at=self._clock())
+        event = item_created_event(item=item, occurred_at=self._clock())
         self._events.publish(event)
 
 

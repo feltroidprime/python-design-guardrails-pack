@@ -51,6 +51,7 @@ exclude = [
   "AGENTS.md",
   "CLAUDE.md",
   "architecture.toml",
+  "proof.toml",
   "justfile",
   "prek.toml",
   ".python-version",

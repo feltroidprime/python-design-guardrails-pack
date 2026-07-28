@@ -55,6 +55,13 @@ language = "system"
 pass_filenames = false
 
 [[repos.hooks]]
+id = "proof-contract"
+name = "proof contract"
+entry = "env PYTHONPYCACHEPREFIX=.venv/pycache uv run python -m scripts.proof_guard"
+language = "system"
+pass_filenames = false
+
+[[repos.hooks]]
 id = "full-quality-gate"
 name = "full quality gate"
 entry = "env PYTHONPYCACHEPREFIX=.venv/pycache uv run python scripts/quality_gate.py"

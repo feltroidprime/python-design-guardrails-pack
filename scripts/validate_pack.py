@@ -7,8 +7,7 @@ The loop:
 2. instantiate a throwaway repository inside a temporary directory;
 3. verify no unrendered Jinja survives in file names or contents;
 4. initialize Git, then bootstrap dependencies, prek hooks, and checks;
-5. seed deterministic repair probes (diagram drift only with --likec4) and
-   verify bootstrap repairs them;
+5. seed deterministic repair probes and verify bootstrap repairs them;
 6. delete both prek shims and prove the generated gate repairs them;
 7. commit the baseline and prove a tracked, un-imported syntax error fails early;
 8. prove the generated doctor is fast, green, and detects a dirty tree;
@@ -18,9 +17,6 @@ The loop:
 Every failure message states what broke and how to fix it, so both humans
 and coding agents can act on it without re-deriving the intent.
 
-Pass ``--likec4`` to validate the opt-in LikeC4 configuration instead of the
-default one; that run additionally requires Bun on PATH, because the generated
-gate then validates the derived model with ``bunx likec4@<pinned>``.
 """
 
 import fnmatch
@@ -93,10 +89,9 @@ def find_unrendered_jinja(root: Path) -> list[str]:
     return occurrences
 
 
-def seed_repair_probes(root: Path, *, likec4: bool) -> dict[Path, str]:
-    """Introduce lint/format and diagram drift for the downstream loop to repair."""
+def seed_repair_probes(root: Path) -> dict[Path, str]:
+    """Introduce lint and format drift for the downstream loop to repair."""
     entry_point = root / "src" / PACKAGE_NAME / "__main__.py"
-    model = root / "docs" / "architecture" / "likec4" / "generated" / "model.c4"
     expected: dict[Path, str] = {}
     for path in root.rglob("*"):
         if not path.is_file():
@@ -111,9 +106,6 @@ def seed_repair_probes(root: Path, *, likec4: bool) -> dict[Path, str]:
     if broken_entry_point == expected[entry_point]:
         raise ValueError("repair probe could not find the generated __main__ guard")
     _ = entry_point.write_text(broken_entry_point, encoding="utf-8")
-    if likec4:
-        # Only the LikeC4 configuration has a derived model to drift.
-        _ = model.write_text(f"{expected[model]}\n", encoding="utf-8")
     return expected
 
 
@@ -208,8 +200,10 @@ def worktree_hook_errors(primary: Path, linked: Path) -> list[str]:
 
 
 def main() -> int:
-    likec4 = "--likec4" in sys.argv[1:]
-    print(f"=== template cleanliness (likec4={'on' if likec4 else 'off'}) ===")
+    if len(sys.argv) != 1:
+        print("Usage: python3 scripts/validate_pack.py", file=sys.stderr)
+        return 2
+    print("=== template cleanliness ===")
     artifacts = find_forbidden_artifacts(TEMPLATE_ROOT)
     if artifacts:
         return fail(
@@ -220,7 +214,7 @@ def main() -> int:
         )
     print("template/ contains no local runtime artifacts.")
 
-    for tool in ("git", "just", "uv", *(("bun",) if likec4 else ())):
+    for tool in ("git", "just", "uv"):
         if shutil.which(tool) is None:
             return fail(
                 "toolchain",
@@ -238,8 +232,6 @@ def main() -> int:
             PACKAGE_NAME,
             str(target),
         ]
-        if likec4:
-            instantiate_command.append("--likec4")
         exit_code = run_step(
             "instantiate throwaway repository",
             instantiate_command,
@@ -276,7 +268,7 @@ def main() -> int:
                 "before bootstrap installs hooks.",
             )
 
-        expected_after_repairs = seed_repair_probes(target, likec4=likec4)
+        expected_after_repairs = seed_repair_probes(target)
         exit_code = run_step("bootstrap generated repository", ["just", "bootstrap"], target)
         if exit_code != 0:
             return fail(

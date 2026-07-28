@@ -1,5 +1,13 @@
 # Python Design Guardrails Pack
 
+Generated repositories include a proof-carrying core: `proof.toml` closes the
+critical domain surface, `icontract` attaches named laws to production code,
+Hypothesis searches broad inputs and action histories, and CrossHair searches
+the explicit pure core symbolically. Exact target/oracle resolution, scoped
+state-machine evidence, independent predicates, mandatory counterexamples, and a
+fast `just prove-one PROPERTY-ID` loop prevent coverage from substituting for the
+right property.
+
 Generated repositories include an agent-native CLI contract: one closed
 command catalog drives help and machine-readable capabilities, while an
 independent typed case set must cover every command at the detached process
@@ -61,13 +69,6 @@ worktrees created later use them automatically. Use `--public`, `--no-github`,
 `--no-git`, or `--package NAME` as needed; `--no-git` is the generation-only
 escape hatch and therefore skips bootstrap too.
 
-`--likec4` adds the opt-in derived architecture model: `docs/architecture/likec4/`,
-`scripts/sync_architecture_diagrams.py`, the gate's three `diagram *` checks,
-`just diagrams`, and `ADR-0006`. It makes [`bun`](https://bun.sh) a prerequisite
-of the generated repository, because the gate validates the model with
-`bunx likec4@<pinned>`. Without the flag none of that ships, and Import Linter
-still enforces the same layer contract.
-
 If bootstrap or GitHub creation fails, the local repository remains intact and
 the CLI returns non-zero; GitHub failures also print the recovery command. Run
 `python-repo init --help` for the complete interface.
@@ -113,7 +114,10 @@ dependency group, and those tool config tables — and drops the `uv sync`,
 never creates its own environment or lockfile. Everything else is unchanged: the
 `src` layout, the `uv_build` build system, the README, the CLI contract, and the
 per-package **Import Linter** contracts (`[tool.importlinter]`) all stay, because
-dependency-direction rules belong to each package, not the root.
+dependency-direction rules belong to each package, not the root. The workspace
+root must therefore provide Hypothesis, CrossHair, pytest marker registration,
+and shared Ruff/BasedPyright coverage for each member's `verification/` tree;
+the member keeps `icontract` as its own runtime dependency.
 
 ## Consuming feltroid-py packages
 
@@ -154,7 +158,7 @@ One opinionated stack. One reason for every choice.
 | Copier provenance and `just scaffold-update` | Pull tagged template releases with a three-way merge instead of blindly replacing local changes. |
 | Automatic Git and optional GitHub setup | Start from a committed baseline and publish without manual remote wiring. |
 | Python 3.14 only | Use current typing and language semantics without compatibility branches. |
-| No third-party runtime dependencies by default | Add only what the product needs; keep guardrails in the development group. |
+| One deliberate runtime proof dependency | `icontract` keeps preconditions, postconditions, and invariants executable in production; Hypothesis and CrossHair remain development-only. |
 | `uv`, not pip or Poetry | One tool owns Python, dependency resolution, environments, the lockfile, and builds. |
 | `just`, not Make | One repair-and-verification route, plus explicit setup and dependency-update branches. |
 | `prek`, not pre-commit | Install shared Git shims before the first commit, with fast commit checks and the full gate before every push from any linked worktree. |
@@ -181,7 +185,6 @@ One opinionated stack. One reason for every choice.
 | Import Linter contracts | Make dependency direction and adapter independence build failures. |
 | pytest, Hypothesis, and deterministic integration tests | Cover examples, broad invariant spaces, adapter contracts, and real local wiring. |
 | Sockets disabled and 90% branch coverage floor | Block accidental live-network tests and expose untested decisions. |
-| Opt-in derived LikeC4 model (`--likec4`) | Generate diagrams from the same import graph the gate enforces, through a `bunx`-pinned CLI — no `package.json`, `node_modules`, or JavaScript lockfile. Off by default: no Bun prerequisite. |
 | Documentation map and guard | Reject broken paths, unregistered docs, malformed ADRs, numbering gaps, and dangling exceptions. |
 | ADR, exception, pattern, and migration rules | Make design debt owned, scoped, revisitable, and removable. |
 | Optional `AGENTS.md` plus `CLAUDE.md` bridge | Give humans and coding agents one operating contract without duplicated instructions. |
@@ -214,7 +217,8 @@ See `benchmarks/README.md` for methodology, variants, bias controls, and all ben
 This is a meta-repository: `template/` is the product, `copier.yml` owns rendering, `instantiate.py` owns the CLI, and the root `AGENTS.md` is the maintainer contract.
 
 ```bash
-just test           # parallel generator tests
+just test-fast      # pre-commit guard: render, pins, and hook-policy checks
+just test           # complete parallel generator tests
 just validate       # canonical full validation
 just release vX.Y.Z # verify and create an annotated release tag
 ```

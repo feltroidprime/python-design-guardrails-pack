@@ -9,17 +9,26 @@ What user/domain behavior changes?
 - New pattern or dependency introduced: no / ADR-XXXX
 - Dependency direction changed: no / explain
 
-## Invariants and failure modes
+## Property delta
 
-What invalid states, retries, cancellation, cleanup, or external failures were considered?
+- Added/changed property IDs:
+- Exact scope of each changed property:
+- Minimal counterexample for each changed property:
+- External assumptions that remain outside the pure proof boundary:
+- `proof.toml` changed: yes / no — why
 
 ## Tests and evidence
 
-- [ ] Regression/example tests
-- [ ] Property tests where invariants have a broad input space
-- [ ] Port contract tests for adapter changes
+- [ ] The oracle is primitive-fact based, effect-free, and independent from the behavior it judges
+- [ ] `icontract` pre/postcondition or invariant calls the declared oracle
+- [ ] One canonical Hypothesis proof invokes the exact declared target and oracle
+- [ ] One falsifying canary exists for every changed property
+- [ ] Stateful behavior uses one literal local `RuleBasedStateMachine`; only reachable rules/helpers carry evidence
+- [ ] Every contracted public function or method is a CrossHair target
+- [ ] Regression/example tests cover the concrete bug or user path
+- [ ] Port contract tests cover adapter changes
 - [ ] CLI catalog changes have independent input/query/retry/safety/outcome process cases
-- [ ] `just check` passes
+- [ ] `just prove-one PROPERTY-ID` (or `just prove`) and `just check` pass
 
 ## Change amplification
 

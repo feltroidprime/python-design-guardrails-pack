@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "f5932d4aabd9a183f973529a87c6b9037106c28ba1d6a9df5fac3e3ecdf11ee5"
+EXPECTED_GENERATED_TREE_SHA256 = "411324c7515ad2205b0e4ffcf5a31a2ee13e3671159e2d146aacb8db91eb239d"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -41,6 +41,7 @@ INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", ""
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
 
 EXPECTED_FILES = (
+    ".github/PULL_REQUEST_TEMPLATE.md",
     ".github/workflows/quality.yml",
     ".gitignore",
     "prek.toml",
@@ -57,18 +58,36 @@ EXPECTED_FILES = (
     "docs/adr/0003-agent-session-evidence.md",
     "docs/adr/0004-agent-input-retry-and-composition-contract.md",
     "docs/adr/0005-review-finding-checks.md",
+    "docs/adr/0006-proof-carrying-core.md",
     "docs/architecture/EXCEPTIONS.md",
+    "docs/architecture/PROVABILITY.md",
     "justfile",
+    "proof.toml",
     "pyproject.toml",
     "scripts/architecture_guard.py",
     "scripts/architecture_rules.py",
     "scripts/__init__.py",
     "scripts/agent_sessions.py",
     "scripts/cli_discipline.py",
+    "scripts/crosshair_gate.py",
     "scripts/docs_guard.py",
     "scripts/doctor.py",
     "scripts/none_discipline.py",
     "scripts/override_discipline.py",
+    "scripts/proof_assertions.py",
+    "scripts/proof_ast.py",
+    "scripts/proof_catalog.py",
+    "scripts/proof_discovery.py",
+    "scripts/proof_evidence_rules.py",
+    "scripts/proof_guard.py",
+    "scripts/proof_guard_model.py",
+    "scripts/proof_invocations.py",
+    "scripts/proof_model.py",
+    "scripts/proof_oracle_rules.py",
+    "scripts/proof_sources.py",
+    "scripts/proof_stateful.py",
+    "scripts/proof_target_rules.py",
+    "scripts/proof_tests.py",
     "scripts/quality_gate.py",
     "scripts/review_discipline.py",
     "tests/e2e/session_contract.py",
@@ -83,7 +102,12 @@ EXPECTED_FILES = (
     f"src/{PACKAGE_NAME}/application/errors.py",
     f"src/{PACKAGE_NAME}/application/idempotency.py",
     f"src/{PACKAGE_NAME}/application/query_models.py",
+    f"src/{PACKAGE_NAME}/application/specifications.py",
     f"src/{PACKAGE_NAME}/bootstrap.py",
+    f"src/{PACKAGE_NAME}/domain/decisions.py",
+    f"src/{PACKAGE_NAME}/domain/entities.py",
+    f"src/{PACKAGE_NAME}/domain/events.py",
+    f"src/{PACKAGE_NAME}/domain/specifications.py",
     f"src/{PACKAGE_NAME}/domain/value_objects.py",
     f"src/{PACKAGE_NAME}/py.typed",
     "tests/contract/item_repository_contract.py",
@@ -101,6 +125,15 @@ EXPECTED_FILES = (
     "tests/integration/test_cli_safety_contract.py",
     "tests/unit/adapters/test_cli_protocol.py",
     "tests/unit/domain/test_value_objects.py",
+    "verification/conftest.py",
+    "verification/harness/assertions.py",
+    "verification/harness/stateful.py",
+    "verification/harness/strategies.py",
+    "verification/harness/symbolic_canary.py",
+    "verification/tests/test_create_item_state_machine.py",
+    "verification/tests/test_decision_properties.py",
+    "verification/tests/test_domain_state_properties.py",
+    "verification/tests/test_value_object_properties.py",
 )
 
 
@@ -112,11 +145,8 @@ def run_instantiate(
     script: Path = INSTANTIATE,
     env: dict[str, str] | None = None,
     cwd: Path | None = None,
-    likec4: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     command = [sys.executable, str(script), project, package, str(output)]
-    if likec4:
-        command.append("--likec4")
     return subprocess.run(
         command,
         cwd=cwd,
@@ -132,15 +162,6 @@ def generated(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """One shared successful instantiation for read-only assertions."""
     output = tmp_path_factory.mktemp("generated") / PROJECT_NAME
     result = run_instantiate(PROJECT_NAME, PACKAGE_NAME, output)
-    assert result.returncode == 0, result.stdout + result.stderr
-    return output
-
-
-@pytest.fixture(scope="session")
-def generated_likec4(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """One shared instantiation with the opt-in LikeC4 architecture model."""
-    output = tmp_path_factory.mktemp("generated-likec4") / PROJECT_NAME
-    result = run_instantiate(PROJECT_NAME, PACKAGE_NAME, output, likec4=True)
     assert result.returncode == 0, result.stdout + result.stderr
     return output
 
@@ -165,6 +186,7 @@ def test_generated_repository_uses_prek_for_git_hooks(generated: Path) -> None:
     assert config["default_install_hook_types"] == ["pre-commit", "pre-push"]
     assert set(hooks) >= {
         "architecture-guard",
+        "proof-contract",
         "full-quality-gate",
         "ruff-check",
         "ruff-format",
@@ -187,15 +209,28 @@ def test_generated_justfile_has_one_routine_gate_and_one_private_e2e_route(
 ) -> None:
     justfile = (generated / "justfile").read_text(encoding="utf-8")
 
-    assert re.findall(r"(?m)^([a-z][a-z-]*):(?:\s|$)", justfile) == [
+    assert re.findall(r"(?m)^([a-z][a-z0-9-]*):(?:\s|$)", justfile) == [
         "default",
         "bootstrap",
         "check",
+        "prove",
+        "prove-deep",
+        "proof-report",
         "doctor",
+        "session-e2e",
         "scaffold-update",
         "update",
     ]
+    assert re.findall(r"(?m)^([a-z][a-z0-9-]*) [^:\n]+:$", justfile) == [
+        "prove-one",
+        "session-log",
+    ]
+    assert re.search(r"(?m)^prove-one property_id:$", justfile) is not None
     assert "uv run python scripts/quality_gate.py --fix" in justfile
+    assert "uv run python -m scripts.proof_guard" in justfile
+    assert "uv run python -m scripts.crosshair_gate fast" in justfile
+    assert '--property-id "$1"' in justfile
+    assert "HYPOTHESIS_PROFILE=fast" in justfile
     assert (
         "env -u PYTHONPYCACHEPREFIX uvx --from copier==9.17.0 copier update "
         "--defaults --conflict inline" in justfile
@@ -583,55 +618,6 @@ def test_workspace_member_has_exact_file_delta(tmp_path: Path) -> None:
     assert "just check" in justfile
 
 
-def test_likec4_has_exact_file_delta(tmp_path: Path) -> None:
-    """The opt-in adds the LikeC4 model, its script, and its ADR — nothing else."""
-    baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
-    variant = _generated_snapshot(
-        _generate_with_answers(tmp_path / "likec4", {"likec4": True})
-    )
-
-    assert set(baseline) - set(variant) == set()
-    assert set(variant) - set(baseline) == {
-        "docs/adr/0006-derived-architecture-diagrams.md",
-        "docs/architecture/likec4/generated/baseline-views.c4",
-        "docs/architecture/likec4/generated/model.c4",
-        "docs/architecture/likec4/likec4.config.json",
-        "docs/architecture/likec4/specification.c4",
-        "docs/architecture/likec4/views.c4",
-        "scripts/sync_architecture_diagrams.py",
-    }
-    assert {
-        path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
-    } == {
-        ".copier-answers.yml",
-        ".github/workflows/quality.yml",
-        "AGENTS.md",
-        "README.md",
-        "docs/README.md",
-        "docs/architecture/README.md",
-        "justfile",
-        "pyproject.toml",
-        "scripts/quality_gate.py",
-    }
-
-    # Outside the Copier answers file, the default repository names neither the
-    # CLI, the runtime, nor the pin.
-    for path, content in baseline.items():
-        if path == ".copier-answers.yml":
-            continue
-        assert b"likec4" not in content.lower(), path
-        assert b"bunx" not in content, path
-    assert b"grimp" not in baseline["pyproject.toml"]
-    assert b"oven-sh/setup-bun" not in baseline[".github/workflows/quality.yml"]
-
-    gate = variant["scripts/quality_gate.py"].decode("utf-8")
-    assert "diagram regeneration" in gate
-    assert "diagram sync" in gate
-    assert "diagram views" in gate
-    pyproject = tomllib.loads(variant["pyproject.toml"].decode("utf-8"))
-    assert pyproject["tool"]["likec4"]["version"] == "1.58.0"
-
-
 def test_no_agents_md_has_exact_file_delta(tmp_path: Path) -> None:
     baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
     variant = _generated_snapshot(
@@ -663,11 +649,13 @@ def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> Non
     } == {".copier-answers.yml", "AGENTS.md"}
 
     expected_agents = baseline["AGENTS.md"].replace(
-        b"4. Green means the unmodified gate exits zero. Then report the behavior changed, tests "
-        b"added, architecture impact, and remaining risks.\n\n",
-        b"4. Green means the unmodified gate exits zero. Then report the behavior changed, tests "
-        b"added, architecture impact, and remaining risks.\n"
-        b"5. Commit and push. Publication is complete when the commit and pre-push hooks succeed "
+        b"6. Green means the unmodified gate exits zero. Then report the property IDs changed, "
+        b"counterexamples considered, architecture impact, external assumptions, and remaining "
+        b"risks.\n\n",
+        b"6. Green means the unmodified gate exits zero. Then report the property IDs changed, "
+        b"counterexamples considered, architecture impact, external assumptions, and remaining "
+        b"risks.\n"
+        b"7. Commit and push. Publication is complete when the commit and pre-push hooks succeed "
         b"and `just doctor` reports no failures.\n\n",
     )
     assert variant["AGENTS.md"] == expected_agents
@@ -1243,55 +1231,20 @@ def test_generated_docs_guard_runs_and_passes(generated: Path) -> None:
     assert "Documentation guard passed." in result.stdout
 
 
-def run_diagram_sync(repo: Path, mode: str) -> subprocess.CompletedProcess[str]:
-    """Run the diagram sync script inside a generated repository (pure Python, no Bun)."""
-    return subprocess.run(
-        [sys.executable, "-m", "scripts.sync_architecture_diagrams", mode],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+def declared_runtime_environment(generated: Path) -> list[str]:
+    """The interpreter command the generated repository declares for itself.
 
-
-GENERATED_DIAGRAM_FILES = (
-    "docs/architecture/likec4/generated/model.c4",
-    "docs/architecture/likec4/generated/baseline-views.c4",
-)
-
-
-def test_diagram_sync_check_passes_on_fresh_repository(generated_likec4: Path) -> None:
-    """The committed derived model must match the import graph byte for byte."""
-    result = run_diagram_sync(generated_likec4, "--check")
-    assert result.returncode == 0, result.stdout + result.stderr
-
-
-def test_diagram_sync_detects_drift_and_names_the_fix(tmp_path: Path) -> None:
-    output = tmp_path / "repo"
-    assert run_instantiate(PROJECT_NAME, PACKAGE_NAME, output, likec4=True).returncode == 0
-
-    planted = output / "src" / PACKAGE_NAME / "domain" / "planted_policy.py"
-    planted.write_text('"""Planted module for drift detection."""\n', encoding="utf-8")
-
-    drifted = run_diagram_sync(output, "--check")
-    assert drifted.returncode == 1, drifted.stdout + drifted.stderr
-    assert "just check" in drifted.stdout + drifted.stderr
-
-    written = run_diagram_sync(output, "--write")
-    assert written.returncode == 0, written.stdout + written.stderr
-    resynced = run_diagram_sync(output, "--check")
-    assert resynced.returncode == 0, resynced.stdout + resynced.stderr
-
-
-def test_diagram_sync_output_is_byte_stable(tmp_path: Path) -> None:
-    output = tmp_path / "repo"
-    assert run_instantiate(PROJECT_NAME, PACKAGE_NAME, output, likec4=True).returncode == 0
-
-    assert run_diagram_sync(output, "--write").returncode == 0
-    first = [(output / name).read_bytes() for name in GENERATED_DIAGRAM_FILES]
-    assert run_diagram_sync(output, "--write").returncode == 0
-    second = [(output / name).read_bytes() for name in GENERATED_DIAGRAM_FILES]
-    assert first == second
+    Reading the interpreter and the runtime dependencies out of the generated
+    metadata keeps the smoke test honest twice over: the slice runs against the
+    real runtime contract (contracts are executable, never optional), and the
+    run fails if `pyproject.toml` stops declaring something the slice imports.
+    """
+    metadata = tomllib.loads((generated / "pyproject.toml").read_text(encoding="utf-8"))
+    interpreter = (generated / ".python-version").read_text(encoding="utf-8").strip()
+    command = ["uv", "run", "--no-project", "--python", interpreter]
+    for dependency in metadata["project"]["dependencies"]:
+        command += ["--with", dependency]
+    return command + ["python"]
 
 
 def test_generated_vertical_slice_executes(generated: Path) -> None:
@@ -1314,7 +1267,7 @@ def test_generated_vertical_slice_executes(generated: Path) -> None:
         "print('slice ok')\n"
     )
     result = subprocess.run(
-        [sys.executable, "-c", program],
+        [*declared_runtime_environment(generated), "-c", program],
         cwd=generated,
         capture_output=True,
         text=True,

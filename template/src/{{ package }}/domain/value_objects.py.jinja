@@ -1,12 +1,33 @@
-"""Immutable domain value objects."""
+"""Immutable domain values guarded by executable invariants."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
+from typing import cast, override
+
+import icontract
 
 from {{ package }}.domain.errors import InvalidItemNameError
+from {{ package }}.domain.specifications import (
+    MAX_ITEM_NAME_LENGTH,
+    item_id_text_is_valid,
+    item_name_input_is_valid,
+    item_name_text_is_canonical,
+)
 
-MAX_ITEM_NAME_LENGTH = 80
+
+def _item_id_holds(self: object) -> bool:
+    """Class invariant condition; `icontract` supplies the decorated instance."""
+    return item_id_text_is_valid(cast("ItemId", self).value)
 
 
+def _item_name_holds(self: object) -> bool:
+    """Class invariant condition; `icontract` supplies the decorated instance."""
+    return item_name_text_is_canonical(cast("ItemName", self).value)
+
+
+@icontract.invariant(
+    _item_id_holds,
+    description="PROPERTY[ITEM-ID-VALID]: every constructed identifier is valid",
+)
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ItemId:
     """Stable item identifier."""
@@ -19,21 +40,45 @@ class ItemId:
         if any(character in self.value for character in "\r\n"):
             raise ValueError("Item identifier must be a single line.")
 
+    @override
+    def __getstate__(self) -> list[object]:
+        """Stay copyable while a field is still unset, which symbolic execution requires."""
+        return [getattr(self, field.name, None) for field in fields(self)]
 
+    def __setstate__(self, state: list[object]) -> None:
+        """Rebuild a pickled instance so invariant decoration keeps a named hook."""
+        for field, value in zip(fields(self), state, strict=True):
+            object.__setattr__(self, field.name, value)
+
+
+@icontract.invariant(
+    _item_name_holds,
+    description="PROPERTY[ITEM-NAME-CANONICAL]: every stored name is canonical",
+)
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ItemName:
-    """Validated item name."""
+    """Validated and canonical item name."""
 
     value: str
 
     def __post_init__(self) -> None:
         normalized = self.value.strip()
-        if not normalized:
-            raise InvalidItemNameError("Item name must not be blank.")
-        if len(normalized) > MAX_ITEM_NAME_LENGTH:
-            raise InvalidItemNameError(
-                f"Item name must contain at most {MAX_ITEM_NAME_LENGTH} characters."
-            )
-        if any(character in normalized for character in "\r\n"):
+        if not item_name_input_is_valid(self.value):
+            if not normalized:
+                raise InvalidItemNameError("Item name must not be blank.")
+            if len(normalized) > MAX_ITEM_NAME_LENGTH:
+                raise InvalidItemNameError(
+                    f"Item name must contain at most {MAX_ITEM_NAME_LENGTH} characters."
+                )
             raise InvalidItemNameError("Item name must be a single line.")
         object.__setattr__(self, "value", normalized)
+
+    @override
+    def __getstate__(self) -> list[object]:
+        """Stay copyable while a field is still unset, which symbolic execution requires."""
+        return [getattr(self, field.name, None) for field in fields(self)]
+
+    def __setstate__(self, state: list[object]) -> None:
+        """Rebuild a pickled instance so invariant decoration keeps a named hook."""
+        for field, value in zip(fields(self), state, strict=True):
+            object.__setattr__(self, field.name, value)

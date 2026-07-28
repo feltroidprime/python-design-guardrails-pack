@@ -50,7 +50,6 @@ repository, not this one.
 | Downstream architecture policy | `template/architecture.toml.jinja` + `template/scripts/architecture_rules.py` |
 | Downstream agent contract | `template/{% if agents_contract != 'none' %}AGENTS.md{% endif %}.jinja` |
 | Downstream quality gate | `template/scripts/quality_gate.py.jinja` (mirrored by `template/.github/workflows/quality.yml.jinja` and the pre-push hook) |
-| Optional derived-diagram feature | the `likec4` question in `copier.yml`, `--likec4` in `instantiate.py`, and every `likec4` Jinja branch under `template/` |
 | Pack validation loop | `justfile` (root) + `scripts/validate_pack.py` + `tests/test_instantiate.py` |
 | Design-to-guardrail rationale | `DESIGN_GUARDRAILS.md` |
 | Last executed validation record | `VALIDATION.md` |
@@ -70,8 +69,8 @@ repository, not this one.
    `template/` requires an explicit rationale in the change description and an
    update to `DESIGN_GUARDRAILS.md` when the mapping changes.
 4. **Keep version pins coherent.** Several pins deliberately exist in more
-   than one place (Copier, uv, the prek floor, grimp, pytest-xdist, the
-   private session-profiler commit, the single-source LikeC4 CLI version).
+   than one place (Copier, uv, the prek floor, pytest-xdist, and the
+   private session-profiler commit).
    `tests/test_pin_coherence.py` discovers every occurrence by scanning the
    tracked tree and fails `just test` when any copy disagrees, so there is no
    location list to memorize: move a pin, then update the copies the test
@@ -108,18 +107,12 @@ just validate
 It runs the generator unit tests, then instantiates a fresh repository in a
 temporary directory, verifies template cleanliness and complete Jinja
 rendering, resolves the pinned dependencies, runs the generated repository's
-own quality gate, and cleans up. It instantiates the **default** answers, so
-the LikeC4 assets are absent from that run; `just validate likec4` performs the
-same loop against the opt-in configuration, including the gate's `diagram sync`
-and `diagram views` checks.
+own quality gate, and cleans up.
 
 Required before claiming completion:
 
 - change to `instantiate.py` or anything under `template/` → `just validate`;
 - change to root tests/validation scripts → `just validate`;
-- change to any `likec4`-conditional branch, the sync script, or the LikeC4
-  assets → `just validate likec4` as well, since the default run never
-  instantiates that configuration;
 - docs-only change at the root → no run required, but commands quoted in docs
   must match the justfile and scripts.
 
@@ -127,14 +120,12 @@ Required before claiming completion:
 loop, not a completion criterion for template changes.
 
 Prerequisites: `python3` (3.14), `uv`, `just`, and network access for the first
-dependency resolution. `just validate likec4` additionally requires `bun`: it
-generates the opt-in LikeC4 configuration, whose gate downloads the pinned
-LikeC4 CLI through `bunx` for its `diagram views` check.
-`uv run --no-project --with` supplies Copier, pytest, pytest-xdist, and grimp;
+dependency resolution. `uv run --no-project --with` supplies Copier, pytest,
+and pytest-xdist;
 the root `pyproject.toml` is packaging-only (Copier is its sole runtime
 dependency; it has no dev tooling) and the
 root intentionally has no virtualenv or lock file, so IDE warnings about
-unresolved `pytest`/`validate_pack`/`grimp` imports are expected. If you
+unresolved `pytest`/`validate_pack` imports are expected. If you
 change what a wheel must ship (new top-level template asset, renamed
 generator), update the hatchling include/force-include sections in the root
 `pyproject.toml` in the same change.

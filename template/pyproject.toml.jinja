@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A Python 3.14 application with an executable architecture and quality contract."
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
-dependencies = []
+dependencies = ["icontract>=2.7.3"]
 
 {% if not workspace_member %}# Dev tooling floats: floors are the last versions this repository's toolchain
 # was validated against, and the first `uv sync` resolves the latest releases.
@@ -19,8 +19,8 @@ dependencies = []
 dev = [
   "basedpyright>=1.39.9",
   "coverage[toml]>=7.15.0",
-{% if likec4 %}  "grimp>=3.15",
-{% endif %}  "hypothesis>=6.156.6",
+  "crosshair-tool>=0.0.109",
+  "hypothesis>=6.161.5",
   "import-linter>=2.13",
 {% if precommit %}  "prek>=0.4.9",
 {% endif %}  "pytest>=9.1.1",
@@ -31,17 +31,17 @@ dev = [
 
 {% endif %}[tool.uv]
 required-version = ">=0.11.28,<0.12"
+{% if not workspace_member %}# z3-solver 5.0.0.0 (a crosshair-tool dependency) ships a macOS arm64 wheel whose
+# internal WHEEL tag (macosx_13_3_arm64) disagrees with its filename tag, so uv
+# reinstalls it on every sync and `uv sync --check` never converges, which keeps
+# `just doctor` red. Drop this constraint once a later release is tagged correctly.
+constraint-dependencies = ["z3-solver!=5.0.0.0"]
+{% endif %}
 
-{% if likec4 %}# The only place the LikeC4 CLI version is pinned. Every invocation goes
-# through `bunx likec4@<version>` (quality gate and `just diagrams`), which
-# keeps this Python repository free of JavaScript project files.
-[tool.likec4]
-version = "1.58.0"
-
-{% endif %}{% if not workspace_member %}[tool.ruff]
+{% if not workspace_member %}[tool.ruff]
 target-version = "py314"
 line-length = 100
-src = ["src", "tests", "scripts"]
+src = ["src", "tests", "verification", "scripts"]
 force-exclude = true
 
 [tool.ruff.lint]
@@ -105,9 +105,17 @@ unfixable = ["ERA001"]
   "S101",
   "SLF001",
 ]
+"verification/tests/**/*.py" = [
+  "ANN201",
+  "ARG001",
+  "PLR2004",
+  "S101",
+  "SLF001",
+]
 "scripts/**/*.py" = ["T201"]
 "scripts/architecture_policy.py" = ["TC003"]
 "scripts/architecture_rules.py" = ["TC003"]
+"scripts/crosshair_gate.py" = ["S603"]
 "scripts/doctor.py" = ["S603"]
 "scripts/quality_gate.py" = ["S603"]
 
@@ -116,10 +124,23 @@ allow-star-arg-any = false
 mypy-init-return = false
 suppress-dummy-args = true
 
+[tool.ruff.lint.flake8-type-checking]
+# These decorators mark code whose annotations are read at run time:
+# `inspect.signature` (Hypothesis, pluggy) and CrossHair's icontract analysis
+# resolve them, so their imports must stay outside type-checking blocks.
+runtime-evaluated-decorators = [
+  "hypothesis.given",
+  "icontract.ensure",
+  "icontract.invariant",
+  "icontract.require",
+  "icontract.snapshot",
+  "pytest.hookimpl",
+]
+
 [tool.ruff.lint.isort]
 # "tests" is declared explicitly because namespace packages (no __init__.py)
 # are not auto-detected as first-party.
-known-first-party = ["{{ package }}", "scripts", "tests"]
+known-first-party = ["{{ package }}", "scripts", "tests", "verification"]
 combine-as-imports = true
 force-sort-within-sections = true
 
@@ -145,7 +166,7 @@ line-ending = "lf"
 docstring-code-format = true
 
 [tool.basedpyright]
-include = ["src", "tests", "scripts"]
+include = ["src", "tests", "verification", "scripts"]
 # Locate the project venv explicitly so the editor language server resolves
 # third-party imports the same way the CLI does. Without this, the basedpyright
 # VS Code extension analyses against an empty environment and reports spurious
@@ -168,7 +189,7 @@ reportUnnecessaryTypeIgnoreComment = "error"
 
 [tool.pytest.ini_options]
 minversion = "9.1"
-testpaths = ["tests"]
+testpaths = ["tests", "verification/tests"]
 # Test packages are namespace packages (PEP 420): no __init__.py under tests/
 # (enforced by ARCH014). The repository root on sys.path plus namespace
 # detection keeps `tests.*` imports (the contract kit) working without them.
@@ -189,6 +210,10 @@ addopts = [
 markers = [
   "contract: shared behavioral contract for a port implementation",
   "integration: deterministic integration test across real local components",
+  "proof: canonical executable evidence owned by proof.toml",
+  "proves(id): one broad Hypothesis proof for a stable property ID",
+  "falsifies(id): one minimal canary demonstrating that a property is non-vacuous",
+  "stateful: Hypothesis RuleBasedStateMachine proof of a protocol",
   "session_e2e: opt-in conversion of private Claude Code and Codex session logs",
 ]
 xfail_strict = true
