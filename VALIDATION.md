@@ -1,9 +1,15 @@
 # Validation record — 2026-07-28
 
-Validated on macOS 26 Apple Silicon with Python 3.14.6, uv 0.11.28, just
-1.56.0, Copier 9.17.0, pytest 9.1.1, and pytest-xdist 3.8.0. Copier emitted the
+Validated on macOS 26 Apple Silicon with Python 3.14.6, uv 0.11.31, just
+1.57.0, Copier 9.17.0, pytest 9.1.1, and pytest-xdist 3.8.0. Copier emitted the
 usual `DirtyLocalWarning` instances because the canonical template changes were
 intentionally uncommitted.
+
+This record covers the proof-carrying core together with the merge of
+`agent/simplify-template`, which removes the optional LikeC4 derived-diagram
+feature and moves the pack's full suite from pre-commit to pre-push. Bun is no
+longer a prerequisite of a generated repository, and there is no longer a
+`just validate likec4` lane.
 
 ## Change validated
 
@@ -64,25 +70,33 @@ more importantly, makes an empty symbolic run fail instead of pass.
 just validate
 ```
 
-- `just test`: **317 passed**, 26 expected warnings, 66.8 s.
+`just validate` exits **0** end to end.
+
+- `just test`: **314 passed**, 25 expected warnings, 66.8 s.
 - `scripts/validate_pack.py`: **passed** — template clean, instantiation fully
   rendered, bootstrap repaired drift, generated pre-commit and pre-push shims
   and the full generated quality gate all green from a linked worktree.
-- `PACK_RUN_DOWNSTREAM_GATE=1 pytest tests/test_update_roundtrip.py`: **1 passed,
-  1 failed**. `test_previous_release_updates_cleanly_to_current_ref` fails its
-  optional downstream-gate assertion on `ruff format` drift in the merged tree.
-  This failure reproduces unchanged on a clean clone of commit `5668b33`, so it
-  predates this change and is not caused by it. Without the environment variable
-  (the plain `just test` lane) the same test passes.
+- `PACK_RUN_DOWNSTREAM_GATE=1 pytest tests/test_update_roundtrip.py`:
+  **2 passed**, 40.1 s. `test_previous_release_updates_cleanly_to_current_ref`
+  was red before the LikeC4 removal, on `ruff format` drift in the
+  Copier-merged tree; removing the derived-diagram assets resolves it.
 
 ### Generated repository, instantiated fresh and synced
 
 ```bash
 uv run python -m scripts.proof_guard   # Proof contract passed: 8 properties, 3 CrossHair target(s).
-just prove                             # 17 proof tests passed; 4 symbolic targets; exit 0; ~9 s
-just prove-deep                        # 17 proof tests passed (50 s); 4 symbolic targets; exit 0; 108 s
-uv run python scripts/quality_gate.py  # All quality gates passed; branch coverage 94%
+just prove                             # 16 proof tests passed; 4 symbolic targets; exit 0
+just prove-deep                        # 16 proof tests passed; 4 symbolic targets; exit 0
+uv run python scripts/quality_gate.py  # All quality gates passed; 166 passed, coverage 93.94%
 ```
+
+Feedback-loop timings in that repository, after one warm-up run, three runs
+each (`real` seconds):
+
+| command | median | max |
+|---|---:|---:|
+| `just prove-one CREATE-ITEM-PRESERVES-FACTS` | 3.23 | 3.25 |
+| `just prove` | 6.83 | 6.83 |
 
 `just prove` symbolic output:
 
@@ -141,5 +155,11 @@ Before this change the same fault exited 0 in 0.32 s.
   the source and asserts `result is not item`), not by the symbolic layer.
 - The `z3-solver!=5.0.0.0` constraint is still a workaround for one upstream
   release; drop it once a correctly tagged release exists.
-- The update round-trip's optional downstream gate is red on this branch (see
-  above) and needs a separate fix.
+- **The `slots=True` + `@icontract.invariant` interaction is load-bearing and
+  only partly mechanized.** A new invariant-guarded value object that omits
+  `__setstate__` fails at import; one that omits `__getstate__` still imports
+  but silently withdraws itself from symbolic analysis. The symbolic canary
+  catches the second case only for the argument types it names, which it tracks
+  by convention rather than by construction.
+- Only macOS on Apple Silicon was exercised. Linux and Windows behavior of the
+  CrossHair/z3 stack on Python 3.14 is untested here.
