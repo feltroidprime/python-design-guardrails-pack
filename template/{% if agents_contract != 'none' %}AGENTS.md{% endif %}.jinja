@@ -15,7 +15,7 @@ When goals conflict, the higher rule wins:
 
 Before editing:
 
-1. Read the nearest `AGENTS.md`, `architecture.toml`, `proof.toml`, and relevant ADRs.
+1. Read the nearest `AGENTS.md`, `architecture.toml`, `proof/policy.toml`, its relevant ownership-zone catalog(s), and relevant ADRs.
 2. Identify the domain concept, use case, boundary, and reason to change.
 3. Name the property, its exact scope, external assumptions, and one plausible counterexample before choosing an implementation.
 4. Trace existing call paths and imports; extend an existing abstraction before creating a parallel one.
@@ -71,9 +71,14 @@ baseline bootstrap and CI do not resolve it.
 
 ## Proof-carrying core contract
 
-`proof.toml` is normative. It connects a business property to production code,
-a pure oracle, executable evidence, and—where appropriate—symbolic analysis.
-The repository rejects an incomplete chain before review:
+`proof/policy.toml` is normative policy, and the ownership-zone catalogs it
+names are normative property declarations. Together they connect a business
+property to production code, a pure oracle, executable evidence, and—where
+appropriate—symbolic analysis. Read the policy before adding a property, place
+that property in its owning catalog, and keep the catalog's declared
+`ownership_zone` aligned with its configured root; the loader aggregates all
+catalogs into one proof index. The repository rejects an incomplete chain before
+review:
 
 - Every public class, function, or method under the configured domain proof
   roots is owned by a normative property or a future-dated exemption. Every
@@ -168,7 +173,7 @@ The example application separates two kinds of code (see ADR-0001):
 | Talk to an external system | `adapters/outbound/sqlite_repository.py`: injected resource, errors translated to the application-owned error with causes preserved |
 | Resource lifecycle | `bootstrap.sqlite_application` context manager; acquire at the edge, release deterministically |
 | Certify a port implementation | subclass the port's contract in `tests/contract/` (see `item_repository_contract.py`) and provide a `repository` fixture |
-| Add/change a domain invariant or pure transition | declare it in `proof.toml`, write the oracle in `domain/specifications.py`, attach `icontract`, then add the canonical property and canary under `verification/tests/` |
+| Add/change a domain invariant or pure transition | declare it in the ownership-zone catalog selected by `proof/policy.toml`, write the oracle in `domain/specifications.py`, attach `icontract`, then add the canonical property and canary under `verification/tests/` |
 | Prove retries, ordering, leases, or legal transitions | write a small reference predicate and a Hypothesis `RuleBasedStateMachine`; keep external effects behind fakes/ports |
 | New port | single operation → callable `type` alias; multiple operations → `Protocol` (both in `application/ports.py`) |
 | Expose a CLI command | add one `CommandSpec` in `adapters/inbound/cli_catalog.py` and matching independent command/outcome process cases; preserve ADR-0002 and ADR-0004 |
@@ -321,7 +326,7 @@ A filesystem location is a `pathlib.Path` from the moment it exists. A `str` pat
 ## Testing policy
 
 - Test externally observable behavior and invariants, not private implementation details.
-- A critical law starts in `proof.toml`, not in a test name. The broad proof calls an independent oracle over generated data.
+- A critical law starts in the ownership-zone catalog selected by `proof/policy.toml`, not in a test name. The broad proof calls an independent oracle over generated data.
 - Use ordinary Hypothesis for input partitions, algebraic laws, models, and metamorphic relations; use `RuleBasedStateMachine` when history matters.
 - Every declared oracle has a falsifying canary that depends on it alone. An oracle that cannot reject a plausible mutant is not ready.
 - Every contracted public function or method in the proof surface is a CrossHair target. Keep such symbols pure and deterministic; adapters remain under shared contracts, examples, integration tests, and fault scenarios.

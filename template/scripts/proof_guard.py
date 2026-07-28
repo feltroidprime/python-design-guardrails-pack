@@ -25,9 +25,13 @@ def check(root: Path) -> tuple[ProofCatalog | None, tuple[Violation, ...]]:
         catalog = load_catalog(root)
         behavior_targets = discover_behavior_targets(catalog.policy)
         target_map = build_target_map(catalog)
-        tests = discover_tests(catalog.policy.test_root)
+        tests = tuple(
+            proof_test
+            for test_root in catalog.policy.test_roots
+            for proof_test in discover_tests(test_root)
+        )
     except (CatalogError, DiscoveryError, OSError, SyntaxError) as error:
-        return None, (violation(root / "proof.toml", 1, "PROOF000", str(error)),)
+        return None, (violation(root / "proof" / "policy.toml", 1, "PROOF000", str(error)),)
     violations = [
         *closure_violations(catalog, behavior_targets),
         *property_target_violations(catalog, target_map),
@@ -35,7 +39,10 @@ def check(root: Path) -> tuple[ProofCatalog | None, tuple[Violation, ...]]:
         *evidence_coverage_violations(catalog, tests),
     ]
     return catalog, tuple(
-        sorted(violations, key=lambda item: (str(item.path), item.line, item.code, item.message))
+        sorted(
+            violations,
+            key=lambda item: (str(item.path), item.line, item.code, item.message),
+        )
     )
 
 

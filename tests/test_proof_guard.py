@@ -2,18 +2,32 @@
 
 from pathlib import Path
 
+import pytest
+from scripts.proof_catalog import (
+    CatalogOwnershipError,
+    DuplicatePropertyIdError,
+    load_catalog,
+)
 from scripts.proof_guard import check
 
-
-PROOF_TOML = '''
-schema_version = 1
+POLICY_TOML = """
+schema_version = 2
 
 [policy]
-source_root = "src"
-test_root = "verification/tests"
+source_roots = ["src", "."]
+test_roots = ["verification/tests"]
 behavior_roots = ["demo.domain"]
 excluded_module_stems = ["__init__", "errors", "specifications"]
 oracle_module_stems = ["specifications"]
+
+[catalogs]
+foundation = ["foundation.toml", "repoctl"]
+product = ["modules"]
+"""
+
+PROOF_TOML = """
+schema_version = 1
+ownership_zone = "foundation"
 
 [[properties]]
 id = "DEMO-PRESERVES-VALUE"
@@ -29,14 +43,14 @@ evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]
 crosshair_targets = ["demo.domain.decisions:identity"]
 counterexample = "The result differs from the supplied value."
 failure_modes = ["value substitution", "hidden nondeterminism"]
-'''
+"""
 
-SPECIFICATION = '''
+SPECIFICATION = """
 def identity_matches(value: int, result: int) -> bool:
     return value == result
-'''
+"""
 
-DECISION = '''
+DECISION = """
 import icontract
 
 from demo.domain.specifications import identity_matches
@@ -48,9 +62,9 @@ from demo.domain.specifications import identity_matches
 )
 def identity(value: int) -> int:
     return value
-'''
+"""
 
-EVIDENCE = '''
+EVIDENCE = """
 from hypothesis import given, strategies as st
 import pytest
 
@@ -74,7 +88,17 @@ def test_changed_value_is_a_counterexample() -> None:
         condition=identity_matches(1, 2),
         property_id="DEMO-PRESERVES-VALUE",
     )
-'''
+"""
+
+
+def foundation_catalog(root: Path) -> Path:
+    return root / "proof" / "foundation.toml"
+
+
+def write_policy(root: Path, policy: str = POLICY_TOML) -> None:
+    proof_root = root / "proof"
+    proof_root.mkdir(parents=True, exist_ok=True)
+    (proof_root / "policy.toml").write_text(policy, encoding="utf-8")
 
 
 def proof_project(tmp_path: Path) -> Path:
@@ -82,7 +106,8 @@ def proof_project(tmp_path: Path) -> Path:
     (root / "src/demo/domain").mkdir(parents=True)
     (root / "verification/tests").mkdir(parents=True)
     (root / "verification/harness").mkdir(parents=True)
-    (root / "proof.toml").write_text(PROOF_TOML, encoding="utf-8")
+    write_policy(root)
+    foundation_catalog(root).write_text(PROOF_TOML, encoding="utf-8")
     (root / "src/demo/domain/specifications.py").write_text(
         SPECIFICATION,
         encoding="utf-8",
@@ -106,6 +131,79 @@ def test_complete_property_chain_passes(tmp_path: Path) -> None:
     catalog, violations = check(root)
 
     assert catalog is not None
+    assert violations == ()
+    assert catalog.index.as_dict() == {
+        "schema_version": 1,
+        "catalogs": [
+            {
+                "path": "proof/foundation.toml",
+                "ownership_zone": "foundation",
+                "property_ids": ["DEMO-PRESERVES-VALUE"],
+                "exemption_targets": [],
+            }
+        ],
+    }
+
+
+def test_loader_rejects_duplicate_property_id_across_catalogs(tmp_path: Path) -> None:
+    root = proof_project(tmp_path)
+    duplicate = root / "proof/modules/duplicate.toml"
+    duplicate.parent.mkdir()
+    duplicate.write_text(
+        PROOF_TOML.replace(
+            'ownership_zone = "foundation"', 'ownership_zone = "product"'
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        DuplicatePropertyIdError, match="Duplicate property IDs across catalogs"
+    ):
+        load_catalog(root)
+
+
+def test_loader_rejects_catalog_ownership_zone_that_disagrees_with_path(
+    tmp_path: Path,
+) -> None:
+    root = proof_project(tmp_path)
+    misplaced = root / "proof/modules/misplaced.toml"
+    misplaced.parent.mkdir()
+    misplaced.write_text(
+        'schema_version = 1\nownership_zone = "foundation"\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        CatalogOwnershipError, match="declares ownership zone 'foundation'"
+    ):
+        load_catalog(root)
+
+
+def test_one_policy_discovers_a_catalog_target_outside_src(tmp_path: Path) -> None:
+    root = proof_project(tmp_path)
+    write_policy(
+        root,
+        POLICY_TOML.replace(
+            'behavior_roots = ["demo.domain"]', 'behavior_roots = ["repoctl"]'
+        ),
+    )
+    foundation_catalog(root).write_text(
+        PROOF_TOML.replace("demo.domain", "repoctl"),
+        encoding="utf-8",
+    )
+    (root / "repoctl").mkdir()
+    (root / "repoctl/specifications.py").write_text(SPECIFICATION, encoding="utf-8")
+    (root / "repoctl/decisions.py").write_text(
+        DECISION.replace("demo.domain", "repoctl"),
+        encoding="utf-8",
+    )
+    (root / "verification/tests/test_properties.py").write_text(
+        EVIDENCE.replace("demo.domain", "repoctl"),
+        encoding="utf-8",
+    )
+
+    _, violations = check(root)
+
     assert violations == ()
 
 
@@ -137,7 +235,7 @@ def test_property_target_without_linked_icontract_is_rejected(tmp_path: Path) ->
 
 def test_pure_contracted_function_requires_crosshair_evidence(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    manifest = root / "proof.toml"
+    manifest = foundation_catalog(root)
     manifest.write_text(
         PROOF_TOML.replace(
             'evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]',
@@ -156,10 +254,12 @@ def test_example_only_evidence_cannot_replace_hypothesis(tmp_path: Path) -> None
     root = proof_project(tmp_path)
     evidence = root / "verification/tests/test_properties.py"
     evidence.write_text(
-        EVIDENCE.replace("@given(value=st.integers())\n", "").replace(
+        EVIDENCE.replace("@given(value=st.integers())\n", "")
+        .replace(
             "def test_identity_property(value: int) -> None:",
             "def test_identity_property() -> None:",
-        ).replace(
+        )
+        .replace(
             "condition=identity_matches(value, identity(value)),",
             "condition=identity_matches(1, identity(1)),",
         ),
@@ -172,7 +272,9 @@ def test_example_only_evidence_cannot_replace_hypothesis(tmp_path: Path) -> None
 def test_property_without_falsifying_canary_is_rejected(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
     evidence = root / "verification/tests/test_properties.py"
-    evidence.write_text(EVIDENCE.split("@pytest.mark.falsifies", maxsplit=1)[0], encoding="utf-8")
+    evidence.write_text(
+        EVIDENCE.split("@pytest.mark.falsifies", maxsplit=1)[0], encoding="utf-8"
+    )
 
     assert "PROOF021" in violation_codes(root)
 
@@ -212,8 +314,7 @@ def test_oracle_must_be_an_explicit_boolean_predicate(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
     specification = root / "src/demo/domain/specifications.py"
     specification.write_text(
-        "def identity_matches(value: int, result: int):\n"
-        "    return value == result\n",
+        "def identity_matches(value: int, result: int):\n    return value == result\n",
         encoding="utf-8",
     )
 
@@ -233,16 +334,11 @@ def test_canonical_proof_must_reference_the_production_target(tmp_path: Path) ->
 
     assert "PROOF026" in violation_codes(root)
 
+
 CALLABLE_PROPERTY_ID = "CALLABLE-HANDLER-PRESERVES-VALUE"
 CALLABLE_TOML = f'''
 schema_version = 1
-
-[policy]
-source_root = "src"
-test_root = "verification/tests"
-behavior_roots = ["demo.core"]
-excluded_module_stems = ["__init__", "specifications", "callable_target"]
-oracle_module_stems = ["specifications"]
+ownership_zone = "foundation"
 
 [[properties]]
 id = "{CALLABLE_PROPERTY_ID}"
@@ -260,12 +356,19 @@ counterexample = "Construction occurs, but the callable method is never invoked.
 failure_modes = ["constructor-only evidence", "ambiguous callable alias"]
 '''
 
-CALLABLE_SPECIFICATION = '''
+CALLABLE_POLICY_TOML = POLICY_TOML.replace(
+    'behavior_roots = ["demo.domain"]', 'behavior_roots = ["demo.core"]'
+).replace(
+    'excluded_module_stems = ["__init__", "errors", "specifications"]',
+    'excluded_module_stems = ["__init__", "specifications", "callable_target"]',
+)
+
+CALLABLE_SPECIFICATION = """
 def call_matches(value: int, result: int) -> bool:
     return value == result
-'''
+"""
 
-CALLABLE_TARGET = f'''
+CALLABLE_TARGET = f"""
 import icontract
 
 from demo.core.specifications import call_matches
@@ -281,7 +384,7 @@ class CreateItem:
     )
     def __call__(self, value: int) -> int:
         return value
-'''
+"""
 
 CALLABLE_CANARY = f'''
 
@@ -321,7 +424,8 @@ def callable_project(tmp_path: Path, invocation: str) -> Path:
     (root / "src/demo/core").mkdir(parents=True)
     (root / "verification/tests").mkdir(parents=True)
     (root / "verification/harness").mkdir(parents=True)
-    (root / "proof.toml").write_text(CALLABLE_TOML, encoding="utf-8")
+    write_policy(root, CALLABLE_POLICY_TOML)
+    foundation_catalog(root).write_text(CALLABLE_TOML, encoding="utf-8")
     (root / "src/demo/core/specifications.py").write_text(
         CALLABLE_SPECIFICATION,
         encoding="utf-8",
@@ -364,8 +468,7 @@ def test_method_target_accepts_assigned_instance_call(tmp_path: Path) -> None:
 def test_method_target_accepts_explicit_dunder_call(tmp_path: Path) -> None:
     root = callable_project(
         tmp_path,
-        "    handler = CreateItem()\n"
-        "    result = CreateItem.__call__(handler, value)",
+        "    handler = CreateItem()\n    result = CreateItem.__call__(handler, value)",
     )
 
     assert violation_codes(root) == set()
@@ -377,7 +480,9 @@ def test_top_level_function_target_remains_recognized(tmp_path: Path) -> None:
     assert violation_codes(root) == set()
 
 
-def test_ambiguous_callable_alias_does_not_create_false_evidence(tmp_path: Path) -> None:
+def test_ambiguous_callable_alias_does_not_create_false_evidence(
+    tmp_path: Path,
+) -> None:
     root = callable_project(
         tmp_path,
         "    handler = CreateItem()\n"
@@ -390,7 +495,7 @@ def test_ambiguous_callable_alias_does_not_create_false_evidence(tmp_path: Path)
 
 def test_state_machine_module_tracks_bound_callable_method(tmp_path: Path) -> None:
     root = callable_project(tmp_path, "    result = CreateItem()(value)")
-    manifest = root / "proof.toml"
+    manifest = foundation_catalog(root)
     manifest.write_text(
         CALLABLE_TOML.replace('kind = "model"', 'kind = "state_machine"')
         .replace(
@@ -481,7 +586,7 @@ def test_exact_oracle_import_alias_is_accepted(tmp_path: Path) -> None:
 
 def stateful_callable_project(tmp_path: Path, machine_source: str) -> Path:
     root = callable_project(tmp_path, "    result = CreateItem()(value)")
-    manifest = root / "proof.toml"
+    manifest = foundation_catalog(root)
     manifest.write_text(
         CALLABLE_TOML.replace('kind = "model"', 'kind = "state_machine"')
         .replace(
@@ -634,7 +739,7 @@ def test_oracle_cannot_be_async_or_variadic(tmp_path: Path) -> None:
 
 def test_missing_declared_target_is_rejected(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    manifest = root / "proof.toml"
+    manifest = foundation_catalog(root)
     manifest.write_text(
         PROOF_TOML.replace(
             "demo.domain.decisions:identity",
@@ -648,7 +753,7 @@ def test_missing_declared_target_is_rejected(tmp_path: Path) -> None:
 
 def test_missing_declared_oracle_is_rejected(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    manifest = root / "proof.toml"
+    manifest = foundation_catalog(root)
     manifest.write_text(
         PROOF_TOML.replace(
             "demo.domain.specifications:identity_matches",
@@ -777,9 +882,11 @@ def test_icontract_accepts_exact_oracle_import_alias(tmp_path: Path) -> None:
     assert violation_codes(root) == set()
 
 
-def test_blank_scope_or_counterexample_is_rejected_by_the_catalog(tmp_path: Path) -> None:
+def test_blank_scope_or_counterexample_is_rejected_by_the_catalog(
+    tmp_path: Path,
+) -> None:
     root = proof_project(tmp_path)
-    manifest = root / "proof.toml"
+    manifest = foundation_catalog(root)
     manifest.write_text(
         PROOF_TOML.replace(
             'scope = "The synchronous identity decision."',
@@ -835,16 +942,16 @@ def test_canary_must_use_a_falsifying_helper(tmp_path: Path) -> None:
     assert "PROOF019" in violation_codes(root)
 
 
-TWO_ORACLE_SPECIFICATION = '''
+TWO_ORACLE_SPECIFICATION = """
 def identity_matches(value: int, result: int) -> bool:
     return value == result
 
 
 def value_is_bounded(value: int) -> bool:
     return -1000 < value < 1000
-'''
+"""
 
-TWO_ORACLE_PROOF = '''
+TWO_ORACLE_PROOF = """
 @pytest.mark.proves("DEMO-PRESERVES-VALUE")
 @given(value=st.integers(min_value=-999, max_value=999))
 def test_identity_property(value: int) -> None:
@@ -852,18 +959,18 @@ def test_identity_property(value: int) -> None:
         condition=identity_matches(value, identity(value)) and value_is_bounded(value),
         property_id="DEMO-PRESERVES-VALUE",
     )
-'''
+"""
 
-CONJOINED_CANARY = '''
+CONJOINED_CANARY = """
 @pytest.mark.falsifies("DEMO-PRESERVES-VALUE")
 def test_changed_value_is_a_counterexample() -> None:
     assert_falsifies(
         condition=identity_matches(1, 2) and value_is_bounded(5000),
         property_id="DEMO-PRESERVES-VALUE",
     )
-'''
+"""
 
-SPLIT_CANARIES = '''
+SPLIT_CANARIES = """
 @pytest.mark.falsifies("DEMO-PRESERVES-VALUE")
 def test_changed_value_is_a_counterexample() -> None:
     assert_falsifies(
@@ -878,18 +985,18 @@ def test_out_of_range_value_is_a_counterexample() -> None:
         condition=value_is_bounded(5000),
         property_id="DEMO-PRESERVES-VALUE",
     )
-'''
+"""
 
 
 def two_oracle_project(tmp_path: Path, canaries: str) -> Path:
     root = proof_project(tmp_path)
-    (root / "proof.toml").write_text(
+    foundation_catalog(root).write_text(
         PROOF_TOML.replace(
             'oracles = ["demo.domain.specifications:identity_matches"]',
-            'oracles = [\n'
+            "oracles = [\n"
             '  "demo.domain.specifications:identity_matches",\n'
             '  "demo.domain.specifications:value_is_bounded",\n'
-            ']',
+            "]",
         ),
         encoding="utf-8",
     )
@@ -927,7 +1034,9 @@ def test_one_canary_per_declared_oracle_closes_the_chain(tmp_path: Path) -> None
     assert violations == ()
 
 
-def test_oracle_effect_hidden_behind_a_private_helper_is_rejected(tmp_path: Path) -> None:
+def test_oracle_effect_hidden_behind_a_private_helper_is_rejected(
+    tmp_path: Path,
+) -> None:
     root = proof_project(tmp_path)
     (root / "src/demo/domain/specifications.py").write_text(
         "def _recorded(value: int) -> int:\n"
@@ -941,7 +1050,7 @@ def test_oracle_effect_hidden_behind_a_private_helper_is_rejected(tmp_path: Path
     assert "PROOF023" in violation_codes(root)
 
 
-EXEMPTED_BEHAVIOR = '\n\ndef unclassified(value: int) -> int:\n    return value\n'
+EXEMPTED_BEHAVIOR = "\n\ndef unclassified(value: int) -> int:\n    return value\n"
 
 
 def exempting_project(tmp_path: Path, revisit: str) -> Path:
@@ -951,9 +1060,8 @@ def exempting_project(tmp_path: Path, revisit: str) -> Path:
         decisions.read_text(encoding="utf-8") + EXEMPTED_BEHAVIOR,
         encoding="utf-8",
     )
-    (root / "proof.toml").write_text(
-        PROOF_TOML
-        + "\n[[exemptions]]\n"
+    foundation_catalog(root).write_text(
+        PROOF_TOML + "\n[[exemptions]]\n"
         'target = "demo.domain.decisions:unclassified"\n'
         'reason = "Scheduled for a property once the shape settles."\n'
         f'revisit = "{revisit}"\n',

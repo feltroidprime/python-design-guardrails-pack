@@ -1,7 +1,8 @@
 # Python Design Guardrails Pack
 
-Generated repositories include a proof-carrying core: `proof.toml` closes the
-critical domain surface, `icontract` attaches named laws to production code,
+Generated repositories include a proof-carrying core: one `proof/policy.toml`
+sets the shared discovery policy, and its ownership-zone catalogs close the
+critical domain surface. `icontract` attaches named laws to production code,
 Hypothesis searches broad inputs and action histories, and CrossHair searches
 the explicit pure core symbolically. Exact target/oracle resolution, scoped
 state-machine evidence, independent predicates, mandatory counterexamples, and a

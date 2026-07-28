@@ -2,24 +2,18 @@
 
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
-from tests.test_proof_guard import PROOF_TOML
+from tests.test_proof_guard import POLICY_TOML, PROOF_TOML
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE_SCRIPTS = REPO_ROOT / "template" / "scripts"
 
-STATEFUL_PROOF_TOML = '''
+STATEFUL_PROOF_TOML = """
 schema_version = 1
-
-[policy]
-source_root = "src"
-test_root = "verification/tests"
-behavior_roots = ["demo.domain"]
-excluded_module_stems = ["__init__", "specifications"]
-oracle_module_stems = ["specifications"]
+ownership_zone = "foundation"
 
 [[properties]]
 id = "DEMO-REPLAY-SAFE"
@@ -34,7 +28,7 @@ oracles = ["demo.application.specifications:replay_is_safe"]
 evidence = ["hypothesis-stateful", "falsifier"]
 counterexample = "One retry duplicates an effect."
 failure_modes = ["duplicate effect"]
-'''
+"""
 
 
 def crosshair_project(tmp_path: Path, manifest: str) -> Path:
@@ -42,12 +36,20 @@ def crosshair_project(tmp_path: Path, manifest: str) -> Path:
     scripts = root / "scripts"
     scripts.mkdir(parents=True)
     (scripts / "__init__.py").write_text("", encoding="utf-8")
-    for name in ("crosshair_gate.py", "proof_catalog.py"):
+    for name in (
+        "crosshair_gate.py",
+        "proof_catalog.py",
+        "proof_catalog_model.py",
+        "proof_catalog_schema.py",
+    ):
         (scripts / name).write_text(
             (TEMPLATE_SCRIPTS / name).read_text(encoding="utf-8"),
             encoding="utf-8",
         )
-    (root / "proof.toml").write_text(manifest, encoding="utf-8")
+    proof_root = root / "proof"
+    proof_root.mkdir()
+    (proof_root / "policy.toml").write_text(POLICY_TOML, encoding="utf-8")
+    (proof_root / "foundation.toml").write_text(manifest, encoding="utf-8")
     return root
 
 
@@ -178,4 +180,7 @@ def test_reported_counterexample_names_the_owning_property(tmp_path: Path) -> No
     completed = run_gate(root, "fast", "DEMO-PRESERVES-VALUE")
 
     assert completed.returncode == 1
-    assert "PROPERTY[DEMO-PRESERVES-VALUE] demo.domain.decisions:identity" in completed.stderr
+    assert (
+        "PROPERTY[DEMO-PRESERVES-VALUE] demo.domain.decisions:identity"
+        in completed.stderr
+    )
