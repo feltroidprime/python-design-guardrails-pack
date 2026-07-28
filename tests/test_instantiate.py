@@ -560,7 +560,9 @@ def _generated_snapshot(root: Path) -> dict[str, bytes]:
     return snapshot
 
 
-def test_explicit_default_toggles_are_byte_identical_to_defaults(tmp_path: Path) -> None:
+def test_delta_or_identical_explicit_default_toggles_are_byte_identical_to_defaults(
+    tmp_path: Path,
+) -> None:
     implicit = _generate_with_answers(tmp_path / "implicit", {})
     explicit = _generate_with_answers(
         tmp_path / "explicit",
@@ -570,7 +572,7 @@ def test_explicit_default_toggles_are_byte_identical_to_defaults(tmp_path: Path)
     assert _generated_snapshot(implicit) == _generated_snapshot(explicit)
 
 
-def test_no_precommit_has_exact_file_delta(tmp_path: Path) -> None:
+def test_delta_or_identical_no_precommit_has_exact_file_delta(tmp_path: Path) -> None:
     baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
     variant = _generated_snapshot(
         _generate_with_answers(tmp_path / "no-precommit", {"precommit": False})
@@ -586,7 +588,9 @@ def test_no_precommit_has_exact_file_delta(tmp_path: Path) -> None:
         assert b"pre-push" not in variant[path]
 
 
-def test_workspace_member_has_exact_file_delta(tmp_path: Path) -> None:
+def test_delta_or_identical_workspace_member_has_exact_file_delta(
+    tmp_path: Path,
+) -> None:
     baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
     variant = _generated_snapshot(
         _generate_with_answers(tmp_path / "workspace-member", {"workspace_member": True})
@@ -616,7 +620,7 @@ def test_workspace_member_has_exact_file_delta(tmp_path: Path) -> None:
     assert "just check" in justfile
 
 
-def test_no_agents_md_has_exact_file_delta(tmp_path: Path) -> None:
+def test_delta_or_identical_no_agents_md_has_exact_file_delta(tmp_path: Path) -> None:
     baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
     variant = _generated_snapshot(
         _generate_with_answers(tmp_path / "no-agents-md", {"agents_contract": "none"})
