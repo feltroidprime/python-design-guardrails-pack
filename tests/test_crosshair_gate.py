@@ -36,7 +36,12 @@ def crosshair_project(tmp_path: Path, manifest: str) -> Path:
     scripts = root / "scripts"
     scripts.mkdir(parents=True)
     (scripts / "__init__.py").write_text("", encoding="utf-8")
-    for name in ("crosshair_gate.py", "proof_catalog.py"):
+    for name in (
+        "crosshair_gate.py",
+        "proof_catalog.py",
+        "proof_catalog_model.py",
+        "proof_catalog_schema.py",
+    ):
         (scripts / name).write_text(
             (TEMPLATE_SCRIPTS / name).read_text(encoding="utf-8"),
             encoding="utf-8",

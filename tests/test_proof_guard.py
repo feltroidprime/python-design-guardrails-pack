@@ -97,7 +97,7 @@ def foundation_catalog(root: Path) -> Path:
 
 def write_policy(root: Path, policy: str = POLICY_TOML) -> None:
     proof_root = root / "proof"
-    proof_root.mkdir(parents=True)
+    proof_root.mkdir(parents=True, exist_ok=True)
     (proof_root / "policy.toml").write_text(policy, encoding="utf-8")
 
 
@@ -177,6 +177,34 @@ def test_loader_rejects_catalog_ownership_zone_that_disagrees_with_path(
         CatalogOwnershipError, match="declares ownership zone 'foundation'"
     ):
         load_catalog(root)
+
+
+def test_one_policy_discovers_a_catalog_target_outside_src(tmp_path: Path) -> None:
+    root = proof_project(tmp_path)
+    write_policy(
+        root,
+        POLICY_TOML.replace(
+            'behavior_roots = ["demo.domain"]', 'behavior_roots = ["repoctl"]'
+        ),
+    )
+    foundation_catalog(root).write_text(
+        PROOF_TOML.replace("demo.domain", "repoctl"),
+        encoding="utf-8",
+    )
+    (root / "repoctl").mkdir()
+    (root / "repoctl/specifications.py").write_text(SPECIFICATION, encoding="utf-8")
+    (root / "repoctl/decisions.py").write_text(
+        DECISION.replace("demo.domain", "repoctl"),
+        encoding="utf-8",
+    )
+    (root / "verification/tests/test_properties.py").write_text(
+        EVIDENCE.replace("demo.domain", "repoctl"),
+        encoding="utf-8",
+    )
+
+    _, violations = check(root)
+
+    assert violations == ()
 
 
 def test_new_public_core_behavior_is_rejected_until_classified(tmp_path: Path) -> None:

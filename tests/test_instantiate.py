@@ -76,6 +76,8 @@ EXPECTED_FILES = (
     "scripts/proof_assertions.py",
     "scripts/proof_ast.py",
     "scripts/proof_catalog.py",
+    "scripts/proof_catalog_model.py",
+    "scripts/proof_catalog_schema.py",
     "scripts/proof_discovery.py",
     "scripts/proof_evidence_rules.py",
     "scripts/proof_guard.py",
