@@ -1,11 +1,15 @@
 # ADR-0001: Foundation ports and reference adapters ship with the template
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-07-13
 - Owners: repository maintainers
 - Revisit trigger: the first real feature of this repository replaces the
   example slice, or a foundation brick stays unused after the domain has
   three or more aggregates
+
+> Superseded by ADR-0007: the repository retires the committed Item example
+> in favor of ownership zones and a self-hosting capability generator. This
+> record stands as written below; only its status changed.
 
 ## Context and forces
 
