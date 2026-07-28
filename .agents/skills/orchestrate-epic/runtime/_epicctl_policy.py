@@ -16,9 +16,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 
 try:
     from . import _epicctl_core as _core
@@ -33,6 +34,54 @@ _BASE_REVIEW_PACKET = _core._review_packet
 _BASE_RECORD_REVIEW = _core._record_review
 _BASE_CHECKPOINT_TASK = _core._checkpoint_task
 _BASE_HOOK_PRE_TOOL_USE = _core._hook_pre_tool_use
+_BASE_APPEND_EVENT = _core._append_event
+
+# The manifest a command was invoked with, while that command is delegating to
+# the core through a derived manifest. See ``_append_event`` below.
+_PINNED_MANIFEST: dict[str, Any] | None = None
+
+
+@contextmanager
+def _pinned_manifest(manifest: dict[str, Any]) -> Iterator[None]:
+    """Preserve the invoked manifest across one derive-and-delegate call."""
+    global _PINNED_MANIFEST
+    previous = _PINNED_MANIFEST
+    _PINNED_MANIFEST = manifest
+    try:
+        yield
+    finally:
+        _PINNED_MANIFEST = previous
+
+
+def _append_event(
+    journal: Path,
+    manifest: dict[str, Any],
+    event_type: str,
+    data: dict[str, Any],
+    expected_seq: int,
+) -> dict[str, Any]:
+    """Re-validate the journal against the manifest the run was initialized with.
+
+    The wrappers below hand the core a manifest *derived* from the invoked one:
+    per-task model profiles resolved into the core's role slots, and granted
+    leases folded into task lanes. That derivation is correct for building a
+    packet or a task contract, but its digest is deliberately not the pinned
+    digest — and the core re-validates the journal against whatever manifest it
+    happens to be holding when it appends. Without this indirection every
+    command that appends an event after a derivation fails the digest guard,
+    which is every manifest carrying ``model_profiles``.
+
+    The manifest reaches ``_load_events`` for that one identity check and is
+    used for nothing else here, so substituting the pinned manifest restores
+    the guard's intent rather than weakening it.
+    """
+    return _BASE_APPEND_EVENT(
+        journal,
+        manifest if _PINNED_MANIFEST is None else _PINNED_MANIFEST,
+        event_type,
+        data,
+        expected_seq,
+    )
 
 
 def _lease_map(events: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
@@ -145,7 +194,8 @@ def _accept_task(
     github_collector: _core.GitHubCollector,
 ) -> dict[str, Any]:
     task_manifest = _manifest_for_task(_effective_manifest(manifest, events), str(args.task))
-    return _BASE_ACCEPT_TASK(task_manifest, events, journal, args, github_collector)
+    with _pinned_manifest(manifest):
+        return _BASE_ACCEPT_TASK(task_manifest, events, journal, args, github_collector)
 
 
 def _review_packet(
@@ -156,7 +206,8 @@ def _review_packet(
     github_collector: _core.GitHubCollector,
 ) -> dict[str, Any]:
     task_manifest = _manifest_for_task(_effective_manifest(manifest, events), str(args.task))
-    return _BASE_REVIEW_PACKET(task_manifest, events, journal, args, github_collector)
+    with _pinned_manifest(manifest):
+        return _BASE_REVIEW_PACKET(task_manifest, events, journal, args, github_collector)
 
 
 def _record_review(
@@ -165,8 +216,13 @@ def _record_review(
     journal: Path,
     args: argparse.Namespace,
 ) -> dict[str, Any]:
-    task_manifest = _manifest_for_task(manifest, str(args.task))
-    return _BASE_RECORD_REVIEW(task_manifest, events, journal, args)
+    # Derive exactly as ``_review_packet`` does. Validating an issued packet
+    # against a differently-derived manifest rejects every packet the moment a
+    # lease exists, because the packet's ``manifest_digest`` and its
+    # ``task_contract`` are both taken from the lease-folded manifest.
+    task_manifest = _manifest_for_task(_effective_manifest(manifest, events), str(args.task))
+    with _pinned_manifest(manifest):
+        return _BASE_RECORD_REVIEW(task_manifest, events, journal, args)
 
 
 def _checkpoint_changed_paths(
@@ -621,6 +677,7 @@ _core._review_packet = _review_packet
 _core._record_review = _record_review
 _core._checkpoint_task = _checkpoint_task
 _core._hook_pre_tool_use = _hook_pre_tool_use
+_core._append_event = _append_event
 
 
 def main(argv: Sequence[str] | None = None, **kwargs: Any) -> int:
