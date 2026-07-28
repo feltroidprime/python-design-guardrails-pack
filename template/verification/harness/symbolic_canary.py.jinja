@@ -1,0 +1,41 @@
+"""A deliberately false contract that CrossHair must refute on every symbolic run.
+
+This is not production behavior and not a property of the system. It is the
+symbolic layer's own falsifier: it fails only when CrossHair cannot construct or
+reason about the domain value types, which is exactly the state in which the
+real `crosshair_targets` pass by exploring nothing.
+
+It takes the union of the argument types the real symbolic targets accept, so a
+type that becomes symbolically unconstructible makes the canary survive instead
+of silently emptying the proof.
+"""
+
+from datetime import datetime
+
+import icontract
+
+from {{ package }}.domain.entities import Item
+from {{ package }}.domain.value_objects import ItemName
+
+
+def _canary_denies_its_own_output(
+    item: Item,
+    new_name: ItemName,
+    occurred_at: datetime,
+    result: tuple[str, str, datetime],
+) -> bool:
+    """Deliberately false: it denies exactly what the canary body always returns."""
+    return result != (item.item_id.value, new_name.value, occurred_at)
+
+
+@icontract.ensure(
+    _canary_denies_its_own_output,
+    description="SYMBOLIC-CANARY: CrossHair must refute this deliberately false postcondition",
+)
+def refutable_echo(
+    item: Item,
+    new_name: ItemName,
+    occurred_at: datetime,
+) -> tuple[str, str, datetime]:
+    """Echo the explicit inputs whose preservation the false postcondition denies."""
+    return (item.item_id.value, new_name.value, occurred_at)

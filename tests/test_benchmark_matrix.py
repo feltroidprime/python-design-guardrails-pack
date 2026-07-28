@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 import time
+import tomllib
 
 import pytest
 from yaml import safe_load
@@ -23,6 +24,23 @@ from benchmarks.e2e.workspaces import git_environment
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _shipped_judge_exclude() -> list[str]:
+    """The judging scope every shipped campaign selects.
+
+    These tests bundle real generated workspaces, so a near-empty exclusion
+    list would judge the whole repository, a scope no shipped configuration
+    ever selects. Reading the list from the shipped configuration keeps the
+    campaign tests on the production policy and leaves that policy a single
+    source of truth.
+    """
+    shipped = tomllib.loads(
+        (REPO_ROOT / "benchmarks" / "config" / "default.toml").read_text(
+            encoding="utf-8"
+        )
+    )
+    return list(shipped["judge"]["exclude"])
 
 
 def _single_config(root: Path, name: str, marker: str) -> Path:
@@ -62,7 +80,7 @@ allowed_tools = ["Read", "Write"]
 
 [judge]
 timeout_seconds = 10
-exclude = [".copier-answers.yml"]
+exclude = {json.dumps(_shipped_judge_exclude())}
 
 [[judge.panel]]
 provider = "opencode"

@@ -119,6 +119,7 @@ title = "Create-item retries produce at most one committed effect"
 statement = "A new key commits once, an identical retry replays without a new event, and a conflicting retry is rejected without effects."
 scope = "Sequential calls to one CreateItem handler sharing one atomic repository."
 assumptions = [
+  "Every attempt supplies a non-empty idempotency key; unkeyed creates are outside this scope.",
   "ItemRepository.create_once atomically binds one key to one fingerprint and item.",
   "The event publisher succeeds; durable delivery is outside this property boundary.",
 ]

@@ -1,6 +1,9 @@
 """Named proof oracles carrying the property ID into every failure."""
 
-from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def assert_property(*, condition: bool, property_id: str) -> None:

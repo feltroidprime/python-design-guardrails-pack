@@ -1,8 +1,7 @@
 """Discover canonical property proofs and falsifying canaries."""
 
 import ast
-from collections.abc import Iterable
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts.proof_assertions import helper_calls
 from scripts.proof_ast import dotted_name
@@ -14,6 +13,10 @@ from scripts.proof_model import (
     ProofTest,
 )
 from scripts.proof_stateful import state_machine_facts
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from pathlib import Path
 
 
 def _marker_ids(decorators: Iterable[ast.expr], marker: str, path: Path) -> tuple[str, ...]:
@@ -57,10 +60,11 @@ def _proof_test(
         return None
     helpers, helper_ids, dynamic = helper_calls(node)
     if dynamic:
-        raise DiscoveryError(
+        message = (
             f"{path}:{node.lineno}: proof helper calls require one literal property_id: "
             f"{', '.join(dynamic)}"
         )
+        raise DiscoveryError(message)
     call_names = {
         dotted_name(candidate.func).split(".")[-1]
         for candidate in ast.walk(node)
@@ -107,8 +111,4 @@ def _tests_in_file(path: Path) -> tuple[ProofTest, ...]:
 def discover_tests(test_root: Path) -> tuple[ProofTest, ...]:
     if not test_root.is_dir():
         raise DiscoveryError(f"Proof test root does not exist: {test_root}")
-    return tuple(
-        test
-        for path in sorted(test_root.rglob("*.py"))
-        for test in _tests_in_file(path)
-    )
+    return tuple(test for path in sorted(test_root.rglob("*.py")) for test in _tests_in_file(path))

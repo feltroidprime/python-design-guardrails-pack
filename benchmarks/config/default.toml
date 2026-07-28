@@ -66,11 +66,16 @@ max_bundle_chars = 400000
 max_file_chars = 40000
 # Applied identically to both candidates: the judge evaluates the application
 # deliverable (source, tests, packaging, README); repository infrastructure is
-# covered by the quantitative metrics instead.
+# covered by the quantitative metrics instead. Declarative policy files such as
+# architecture.toml and proof.toml belong to that infrastructure: they only have
+# meaning through the scripts/ tooling that is itself not shown, and the rubric
+# tells judges to ignore references to tooling they cannot see. Test trees stay
+# judged, verification/ included, because tests are part of the deliverable.
 exclude = [
   "AGENTS.md",
   "CLAUDE.md",
   "architecture.toml",
+  "proof.toml",
   "justfile",
   "prek.toml",
   ".python-version",

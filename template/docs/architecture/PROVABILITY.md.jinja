@@ -56,21 +56,32 @@ def renamed_item_preserves_identity(
 Use immutable values and a pure transition:
 
 ```python
-@icontract.ensure(
-    lambda item, new_name, result: renamed_item_preserves_identity(
+def _rename_item_holds(item: Item, new_name: ItemName, result: Item) -> bool:
+    return renamed_item_preserves_identity(
         item.item_id.value,
         item.name.value,
         new_name.value,
         result.item_id.value,
         result.name.value,
-    ),
-    description=(
-        "PROPERTY[RENAME-ITEM-PRESERVES-IDENTITY]: rename keeps identity"
-    ),
+    )
+
+
+@icontract.ensure(
+    _rename_item_holds,
+    description="PROPERTY[RENAME-ITEM-PRESERVES-IDENTITY]: rename keeps identity",
 )
 def rename_item(item: Item, new_name: ItemName) -> Item:
     return Item(item_id=item.item_id, name=new_name)
 ```
+
+The condition may be an inline `lambda` or, as above, a named module-level
+function in the same file; the guard follows the named condition to the oracle
+it calls. Prefer the named form: its parameters carry real types, so the type
+checker verifies the condition body instead of inferring `Unknown` from
+`icontract`'s `Callable[..., Any]` parameter. A condition whose annotations name
+a class defined further down the module must quote them or accept `object` and
+narrow, because `icontract` resolves the condition's signature at decoration
+time.
 
 Do not put GitHub, MCP, CLI, subprocess, database, filesystem, time, or random
 access in this function. The application shell obtains those facts through
@@ -100,14 +111,17 @@ declared in `proof.toml`; a constructor call alone never satisfies a targeted
 stateful rules/invariants/initializers, and helpers reachable from those methods
 count as evidence, so unrelated or dead code cannot close the property chain.
 
-### 5. Add the falsifying canary
+### 5. Add one falsifying canary per oracle
 
-Each property owns exactly one `@pytest.mark.falsifies(ID)` test. Pass a
-plausible invalid candidate to the oracle through `assert_falsifies` (or show
-boundary rejection with `assert_rejected`).
+Each declared oracle owns exactly one `@pytest.mark.falsifies(ID)` test whose
+`assert_falsifies` condition depends on that oracle alone. Pass a plausible
+invalid candidate to it. A canary that conjoins two oracles is rejected: the
+conjunction stays false when either operand degenerates, so it pins neither.
+`assert_rejected` remains available for extra boundary-rejection canaries, but
+it does not discharge an oracle's canary requirement.
 
 The canary is not a regression test. It verifies the specification itself has
-teeth. If a future edit turns an oracle into `return True`, the canary fails.
+teeth. If a future edit turns an oracle into `return True`, its canary fails.
 
 ### 6. Keep every executable core contract symbolically searchable
 
@@ -122,6 +136,23 @@ deterministic, side-effect free, and small. Do not target adapters or entire
 packages. CrossHair searches for inputs that violate each production contract;
 bounded search is part of the routine gate, not a claim of universal
 completeness.
+
+`scripts/crosshair_gate.py` analyses each target separately and prints its
+owning property ID with one of `counterexample found`,
+`confirmed over all paths`, or `searched, no counterexample (bounded)`. Because
+the domain's input space is unbounded, the last line is the normal outcome and
+is not evidence that anything was explored: CrossHair also reports it when it
+cannot construct an argument type at all, and exits zero.
+
+`verification/harness/symbolic_canary.py` closes that gap. It states a
+deliberately false postcondition over the same value types the real targets
+accept, and the gate fails unless CrossHair refutes it. This is the symbolic
+counterpart of the falsifying canary: it does not describe the system, it
+proves the tool is still reasoning about the domain. Two things break it in
+practice — a value type that stops being symbolically constructible, and a
+`@icontract.invariant` class whose copy protocol raises on a partly built
+instance, which is why every contracted dataclass defines `__getstate__` and
+`__setstate__`.
 
 ### 7. Run the correct lane
 
@@ -158,7 +189,10 @@ just proof-report                  # review the complete property matrix
 - an oracle that is async, non-boolean, effect-shaped, stored outside a
   specification module, or coupled back to implementation code;
 - a property without an explicit scope, assumptions field, exactly one broad
-  proof, and one canary;
+  proof, and one canary per declared oracle;
+- a canary whose falsified condition spans more than one declared oracle;
+- an oracle whose effects or forbidden statements hide in a private helper of
+  the same specification module;
 - example-only evidence where Hypothesis is required;
 - a state-machine property without exactly one literal local
   `RuleBasedStateMachine` passed to `run_state_machine_as_test`;

@@ -1,8 +1,8 @@
 """AST name binding and direct-call resolution for proof discovery."""
 
 import ast
-from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from scripts.proof_model import (
     FunctionDefinition,
@@ -10,6 +10,9 @@ from scripts.proof_model import (
     ModuleImport,
     Scope,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 _SCOPE_BARRIERS = (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
 
@@ -32,10 +35,10 @@ def _expression_parts(node: ast.AST) -> tuple[str, ...]:
     return ()
 
 
-def _add_unique_binding[_BindingKey](
-    bindings: dict[_BindingKey, str],
-    ambiguous: set[_BindingKey],
-    key: _BindingKey,
+def _add_unique_binding[BindingKey](
+    bindings: dict[BindingKey, str],
+    ambiguous: set[BindingKey],
+    key: BindingKey,
     value: str,
 ) -> None:
     existing = bindings.get(key)
@@ -44,12 +47,12 @@ def _add_unique_binding[_BindingKey](
     if existing is None or existing == value:
         bindings[key] = value
         return
-    bindings.pop(key, None)
+    _ = bindings.pop(key, None)
     ambiguous.add(key)
 
 
 def walk_scope(node: ast.Module | FunctionDefinition) -> Iterable[ast.AST]:
-    stack = list(reversed(node.body))
+    stack: list[ast.AST] = list(reversed(node.body))
     while stack:
         current = stack.pop()
         yield current
@@ -172,8 +175,7 @@ def _resolved_module_imports(
     imports = (
         ModuleImport(module=module, prefix=prefix)
         for prefix, module in accumulator.modules.items()
-        if prefix not in accumulator.ambiguous_modules
-        and (not prefix or prefix[0] not in shadowed)
+        if prefix not in accumulator.ambiguous_modules and (not prefix or prefix[0] not in shadowed)
     )
     return tuple(
         sorted(
@@ -264,7 +266,7 @@ def _node_binding_names(node: ast.AST) -> frozenset[str]:
         if isinstance(candidate, ast.Name) and isinstance(candidate.ctx, ast.Store)
     }
     for candidate in ast.walk(node):
-        if not isinstance(candidate, ast.Lambda):
+        if not isinstance(candidate, (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         arguments = candidate.args
         names.update(

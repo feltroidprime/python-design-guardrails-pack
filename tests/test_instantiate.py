@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "d703fb1499986f3a9e25128b5c5ac2b4d09a2e2fc443edf0b72593499793b1d8"
+EXPECTED_GENERATED_TREE_SHA256 = "411324c7515ad2205b0e4ffcf5a31a2ee13e3671159e2d146aacb8db91eb239d"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -127,7 +127,9 @@ EXPECTED_FILES = (
     "tests/unit/domain/test_value_objects.py",
     "verification/conftest.py",
     "verification/harness/assertions.py",
+    "verification/harness/stateful.py",
     "verification/harness/strategies.py",
+    "verification/harness/symbolic_canary.py",
     "verification/tests/test_create_item_state_machine.py",
     "verification/tests/test_decision_properties.py",
     "verification/tests/test_domain_state_properties.py",
@@ -219,18 +221,23 @@ def test_generated_justfile_has_one_routine_gate_and_one_private_e2e_route(
 ) -> None:
     justfile = (generated / "justfile").read_text(encoding="utf-8")
 
-    assert re.findall(r"(?m)^([a-z][a-z-]*):(?:\s|$)", justfile) == [
+    assert re.findall(r"(?m)^([a-z][a-z0-9-]*):(?:\s|$)", justfile) == [
         "default",
         "bootstrap",
         "check",
         "prove",
-        "prove-one",
         "prove-deep",
         "proof-report",
         "doctor",
+        "session-e2e",
         "scaffold-update",
         "update",
     ]
+    assert re.findall(r"(?m)^([a-z][a-z0-9-]*) [^:\n]+:$", justfile) == [
+        "prove-one",
+        "session-log",
+    ]
+    assert re.search(r"(?m)^prove-one property_id:$", justfile) is not None
     assert "uv run python scripts/quality_gate.py --fix" in justfile
     assert "uv run python -m scripts.proof_guard" in justfile
     assert "uv run python -m scripts.crosshair_gate fast" in justfile
@@ -1336,6 +1343,22 @@ def test_diagram_sync_output_is_byte_stable(tmp_path: Path) -> None:
     assert first == second
 
 
+def declared_runtime_environment(generated: Path) -> list[str]:
+    """The interpreter command the generated repository declares for itself.
+
+    Reading the interpreter and the runtime dependencies out of the generated
+    metadata keeps the smoke test honest twice over: the slice runs against the
+    real runtime contract (contracts are executable, never optional), and the
+    run fails if `pyproject.toml` stops declaring something the slice imports.
+    """
+    metadata = tomllib.loads((generated / "pyproject.toml").read_text(encoding="utf-8"))
+    interpreter = (generated / ".python-version").read_text(encoding="utf-8").strip()
+    command = ["uv", "run", "--no-project", "--python", interpreter]
+    for dependency in metadata["project"]["dependencies"]:
+        command += ["--with", dependency]
+    return command + ["python"]
+
+
 def test_generated_vertical_slice_executes(generated: Path) -> None:
     """The example slice must be importable and behave under the new package name."""
     program = (
@@ -1356,7 +1379,7 @@ def test_generated_vertical_slice_executes(generated: Path) -> None:
         "print('slice ok')\n"
     )
     result = subprocess.run(
-        [sys.executable, "-c", program],
+        [*declared_runtime_environment(generated), "-c", program],
         cwd=generated,
         capture_output=True,
         text=True,

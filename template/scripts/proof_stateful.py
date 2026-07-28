@@ -1,7 +1,7 @@
 """Discover the reachable evidence inside a Hypothesis state machine."""
 
 import ast
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts.proof_assertions import helper_calls
 from scripts.proof_ast import dotted_name, function_receiver
@@ -11,6 +11,9 @@ from scripts.proof_model import (
     InvocationIndex,
     StateMachineFacts,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 STATE_MACHINE_ENTRY_DECORATORS = frozenset({"initialize", "invariant", "rule"})
 
@@ -27,10 +30,11 @@ def _state_machine_runner_calls(test: FunctionDefinition) -> tuple[ast.Call, ...
 def _state_machine_class_name(call: ast.Call, path: Path) -> str:
     if len(call.args) == 1 and not call.keywords and isinstance(call.args[0], ast.Name):
         return call.args[0].id
-    raise DiscoveryError(
+    message = (
         f"{path}:{call.lineno}: run_state_machine_as_test requires one literal "
         "local state-machine class"
     )
+    raise DiscoveryError(message)
 
 
 def _local_state_machine_class(
@@ -46,17 +50,15 @@ def _local_state_machine_class(
     )
     if len(candidates) == 1:
         return candidates[0]
-    raise DiscoveryError(
+    message = (
         f"{path}:{line}: state-machine class '{class_name}' must be defined "
         "exactly once in the proof module"
     )
+    raise DiscoveryError(message)
 
 
 def _inherits_state_machine(node: ast.ClassDef) -> bool:
-    return any(
-        dotted_name(base).split(".")[-1] == "RuleBasedStateMachine"
-        for base in node.bases
-    )
+    return any(dotted_name(base).split(".")[-1] == "RuleBasedStateMachine" for base in node.bases)
 
 
 def _state_machine_class(
@@ -68,19 +70,21 @@ def _state_machine_class(
     if not runner_calls:
         return None
     if len(runner_calls) != 1:
-        raise DiscoveryError(
+        message = (
             f"{path}:{test.lineno}: a stateful proof must call "
             "run_state_machine_as_test exactly once"
         )
+        raise DiscoveryError(message)
     runner = runner_calls[0]
     class_name = _state_machine_class_name(runner, path)
     state_machine = _local_state_machine_class(tree, class_name, path, runner.lineno)
     if _inherits_state_machine(state_machine):
         return state_machine
-    raise DiscoveryError(
+    message = (
         f"{path}:{state_machine.lineno}: state-machine class '{class_name}' must inherit "
         "RuleBasedStateMachine"
     )
+    raise DiscoveryError(message)
 
 
 def _state_machine_methods(
@@ -205,10 +209,11 @@ def _raise_dynamic_state_machine_helpers(
 ) -> None:
     if not defects:
         return
-    raise DiscoveryError(
+    message = (
         f"{path}:{state_machine.lineno}: state-machine proof helper calls require one "
         f"literal property_id: {', '.join(defects)}"
     )
+    raise DiscoveryError(message)
 
 
 def state_machine_facts(

@@ -699,6 +699,49 @@ def test_icontract_must_call_a_declared_oracle(tmp_path: Path) -> None:
     assert "PROOF007" in violation_codes(root)
 
 
+def test_icontract_accepts_a_named_local_condition_calling_the_oracle(
+    tmp_path: Path,
+) -> None:
+    root = proof_project(tmp_path)
+    decision = root / "src/demo/domain/decisions.py"
+    decision.write_text(
+        DECISION.replace(
+            "@icontract.ensure(\n    lambda value, result: identity_matches(value, result),",
+            "def _identity_holds(value: int, result: int) -> bool:\n"
+            "    return identity_matches(value, result)\n"
+            "\n"
+            "\n"
+            "@icontract.ensure(\n    _identity_holds,",
+        ),
+        encoding="utf-8",
+    )
+
+    catalog, violations = check(root)
+
+    assert catalog is not None
+    assert violations == ()
+
+
+def test_icontract_rejects_a_named_local_condition_that_skips_the_oracle(
+    tmp_path: Path,
+) -> None:
+    root = proof_project(tmp_path)
+    decision = root / "src/demo/domain/decisions.py"
+    decision.write_text(
+        DECISION.replace(
+            "@icontract.ensure(\n    lambda value, result: identity_matches(value, result),",
+            "def _identity_holds(value: int, result: int) -> bool:\n"
+            "    return value == result\n"
+            "\n"
+            "\n"
+            "@icontract.ensure(\n    _identity_holds,",
+        ),
+        encoding="utf-8",
+    )
+
+    assert "PROOF007" in violation_codes(root)
+
+
 def test_icontract_rejects_same_named_oracle_from_another_module(
     tmp_path: Path,
 ) -> None:
@@ -790,3 +833,147 @@ def test_canary_must_use_a_falsifying_helper(tmp_path: Path) -> None:
     )
 
     assert "PROOF019" in violation_codes(root)
+
+
+TWO_ORACLE_SPECIFICATION = '''
+def identity_matches(value: int, result: int) -> bool:
+    return value == result
+
+
+def value_is_bounded(value: int) -> bool:
+    return -1000 < value < 1000
+'''
+
+TWO_ORACLE_PROOF = '''
+@pytest.mark.proves("DEMO-PRESERVES-VALUE")
+@given(value=st.integers(min_value=-999, max_value=999))
+def test_identity_property(value: int) -> None:
+    assert_property(
+        condition=identity_matches(value, identity(value)) and value_is_bounded(value),
+        property_id="DEMO-PRESERVES-VALUE",
+    )
+'''
+
+CONJOINED_CANARY = '''
+@pytest.mark.falsifies("DEMO-PRESERVES-VALUE")
+def test_changed_value_is_a_counterexample() -> None:
+    assert_falsifies(
+        condition=identity_matches(1, 2) and value_is_bounded(5000),
+        property_id="DEMO-PRESERVES-VALUE",
+    )
+'''
+
+SPLIT_CANARIES = '''
+@pytest.mark.falsifies("DEMO-PRESERVES-VALUE")
+def test_changed_value_is_a_counterexample() -> None:
+    assert_falsifies(
+        condition=identity_matches(1, 2),
+        property_id="DEMO-PRESERVES-VALUE",
+    )
+
+
+@pytest.mark.falsifies("DEMO-PRESERVES-VALUE")
+def test_out_of_range_value_is_a_counterexample() -> None:
+    assert_falsifies(
+        condition=value_is_bounded(5000),
+        property_id="DEMO-PRESERVES-VALUE",
+    )
+'''
+
+
+def two_oracle_project(tmp_path: Path, canaries: str) -> Path:
+    root = proof_project(tmp_path)
+    (root / "proof.toml").write_text(
+        PROOF_TOML.replace(
+            'oracles = ["demo.domain.specifications:identity_matches"]',
+            'oracles = [\n'
+            '  "demo.domain.specifications:identity_matches",\n'
+            '  "demo.domain.specifications:value_is_bounded",\n'
+            ']',
+        ),
+        encoding="utf-8",
+    )
+    (root / "src/demo/domain/specifications.py").write_text(
+        TWO_ORACLE_SPECIFICATION,
+        encoding="utf-8",
+    )
+    header, _, _ = EVIDENCE.partition('@pytest.mark.proves("DEMO-PRESERVES-VALUE")')
+    (root / "verification/tests/test_properties.py").write_text(
+        header.replace(
+            "from demo.domain.specifications import identity_matches",
+            "from demo.domain.specifications import identity_matches, value_is_bounded",
+        )
+        + TWO_ORACLE_PROOF
+        + canaries,
+        encoding="utf-8",
+    )
+    return root
+
+
+def test_canary_conjoining_two_oracles_cannot_pin_either(tmp_path: Path) -> None:
+    root = two_oracle_project(tmp_path, CONJOINED_CANARY)
+
+    codes = violation_codes(root)
+
+    assert "PROOF028" in codes
+    assert "PROOF021" in codes
+
+
+def test_one_canary_per_declared_oracle_closes_the_chain(tmp_path: Path) -> None:
+    root = two_oracle_project(tmp_path, SPLIT_CANARIES)
+
+    _, violations = check(root)
+
+    assert violations == ()
+
+
+def test_oracle_effect_hidden_behind_a_private_helper_is_rejected(tmp_path: Path) -> None:
+    root = proof_project(tmp_path)
+    (root / "src/demo/domain/specifications.py").write_text(
+        "def _recorded(value: int) -> int:\n"
+        "    print(value)\n"
+        "    return value\n\n\n"
+        "def identity_matches(value: int, result: int) -> bool:\n"
+        "    return _recorded(value) == result\n",
+        encoding="utf-8",
+    )
+
+    assert "PROOF023" in violation_codes(root)
+
+
+EXEMPTED_BEHAVIOR = '\n\ndef unclassified(value: int) -> int:\n    return value\n'
+
+
+def exempting_project(tmp_path: Path, revisit: str) -> Path:
+    root = proof_project(tmp_path)
+    decisions = root / "src/demo/domain/decisions.py"
+    decisions.write_text(
+        decisions.read_text(encoding="utf-8") + EXEMPTED_BEHAVIOR,
+        encoding="utf-8",
+    )
+    (root / "proof.toml").write_text(
+        PROOF_TOML
+        + "\n[[exemptions]]\n"
+        'target = "demo.domain.decisions:unclassified"\n'
+        'reason = "Scheduled for a property once the shape settles."\n'
+        f'revisit = "{revisit}"\n',
+        encoding="utf-8",
+    )
+    return root
+
+
+def test_unexpired_exemption_closes_the_surface(tmp_path: Path) -> None:
+    root = exempting_project(tmp_path, "2099-01-01")
+
+    _, violations = check(root)
+
+    assert violations == ()
+
+
+def test_expired_exemption_reopens_the_surface(tmp_path: Path) -> None:
+    root = exempting_project(tmp_path, "2000-01-01")
+
+    _, violations = check(root)
+
+    assert [violation.code for violation in violations] == ["PROOF000"]
+    assert "expired on 2000-01-01" in violations[0].message

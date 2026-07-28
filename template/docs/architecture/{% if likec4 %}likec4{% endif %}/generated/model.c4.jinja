@@ -17,12 +17,15 @@ model {
       idempotency = module 'idempotency'
       ports = module 'ports'
       query_models = module 'query_models'
+      specifications = module 'specifications'
       use_cases = module 'use_cases'
     }
     domain = layer 'domain' {
+      decisions = module 'decisions'
       entities = module 'entities'
       errors = module 'errors'
       events = module 'events'
+      specifications = module 'specifications'
       value_objects = module 'value_objects'
     }
   }
@@ -41,12 +44,20 @@ model {
   {{ package }}.application.ports -> {{ package }}.application.query_models
   {{ package }}.application.use_cases -> {{ package }}.application.idempotency
   {{ package }}.application.use_cases -> {{ package }}.application.query_models
-  {{ package }}.application.use_cases -> {{ package }}.domain.entities
-  {{ package }}.application.use_cases -> {{ package }}.domain.events
+  {{ package }}.application.use_cases -> {{ package }}.domain.decisions
   {{ package }}.application.use_cases -> {{ package }}.domain.value_objects
   {{ package }}.bootstrap -> {{ package }}.adapters.inbound
   {{ package }}.bootstrap -> {{ package }}.adapters.outbound
   {{ package }}.bootstrap -> {{ package }}.application.use_cases
   {{ package }}.bootstrap -> {{ package }}.domain.events
+  {{ package }}.domain.decisions -> {{ package }}.domain.entities
+  {{ package }}.domain.decisions -> {{ package }}.domain.events
+  {{ package }}.domain.decisions -> {{ package }}.domain.specifications
+  {{ package }}.domain.decisions -> {{ package }}.domain.value_objects
+  {{ package }}.domain.entities -> {{ package }}.domain.specifications
+  {{ package }}.domain.entities -> {{ package }}.domain.value_objects
+  {{ package }}.domain.events -> {{ package }}.domain.specifications
+  {{ package }}.domain.events -> {{ package }}.domain.value_objects
   {{ package }}.domain.value_objects -> {{ package }}.domain.errors
+  {{ package }}.domain.value_objects -> {{ package }}.domain.specifications
 }

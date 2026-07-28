@@ -1,31 +1,72 @@
 """Reusable generators derived from the domain specification, not implementation branches."""
 
-from datetime import UTC, datetime
+from datetime import UTC
+from typing import TYPE_CHECKING
 
 from hypothesis import strategies as st
 
 from {{ package }}.domain.entities import Item
+from {{ package }}.domain.specifications import MAX_ITEM_NAME_LENGTH
 from {{ package }}.domain.value_objects import ItemId, ItemName
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+MAX_GENERATED_ITEM_ID_LENGTH = 40
 
 SINGLE_LINE_CHARACTER = st.characters(
     blacklist_characters="\r\n",
     blacklist_categories=("Cs",),
 )
-VISIBLE_CHARACTER = SINGLE_LINE_CHARACTER.filter(lambda character: bool(character.strip()))
-VISIBLE_TEXT = st.text(VISIBLE_CHARACTER, min_size=1, max_size=40)
 OUTER_WHITESPACE = st.text(alphabet=" \t", max_size=4)
-VALID_ITEM_NAME_INPUTS = st.builds(
-    lambda left, value, right: f"{left}{value}{right}",
+
+
+def _has_visible_text(value: str) -> bool:
+    return bool(value.strip())
+
+
+def _padded(left: str, value: str, right: str) -> str:
+    return f"{left}{value}{right}"
+
+
+# The specification accepts any non-blank single-line identifier, including one
+# carrying inner or outer whitespace, because ItemId deliberately does not
+# normalize. The valid generator must therefore reach those shapes too.
+GENERATED_ITEM_ID_TEXTS = st.text(
+    SINGLE_LINE_CHARACTER,
+    min_size=1,
+    max_size=MAX_GENERATED_ITEM_ID_LENGTH,
+).filter(_has_visible_text)
+BOUNDARY_ITEM_ID_TEXTS = st.sampled_from(("a", "two words", " padded ", "\ttabbed\t"))
+VALID_ITEM_ID_TEXTS = st.one_of(GENERATED_ITEM_ID_TEXTS, BOUNDARY_ITEM_ID_TEXTS)
+
+# Valid name inputs strip to between one character and the ceiling, so the
+# generator reaches exactly MAX_ITEM_NAME_LENGTH rather than stopping short of it.
+GENERATED_ITEM_NAME_INPUTS = st.builds(
+    _padded,
     OUTER_WHITESPACE,
-    VISIBLE_TEXT,
+    st.text(SINGLE_LINE_CHARACTER, min_size=1, max_size=MAX_ITEM_NAME_LENGTH).filter(
+        _has_visible_text
+    ),
     OUTER_WHITESPACE,
 )
+BOUNDARY_ITEM_NAME_INPUTS = st.sampled_from(
+    (
+        "a",
+        "two words",
+        "  padded name  ",
+        "x" * MAX_ITEM_NAME_LENGTH,
+        "  " + "y" * MAX_ITEM_NAME_LENGTH + "  ",
+    )
+)
+VALID_ITEM_NAME_INPUTS = st.one_of(GENERATED_ITEM_NAME_INPUTS, BOUNDARY_ITEM_NAME_INPUTS)
 
 
 def item_id_candidates() -> st.SearchStrategy[str]:
-    """Mix ordinary text with high-value invalid identifier shapes."""
+    """Mix ordinary text with high-value valid and invalid identifier shapes."""
     return st.one_of(
         st.text(max_size=100),
+        VALID_ITEM_ID_TEXTS,
         st.sampled_from(("", " ", "id\nother", "id\rother")),
     )
 
@@ -35,12 +76,20 @@ def item_name_candidates() -> st.SearchStrategy[str]:
     return st.one_of(
         st.text(max_size=120),
         VALID_ITEM_NAME_INPUTS,
-        st.sampled_from(("", " ", "x" * 80, "x" * 81, "name\nother")),
+        st.sampled_from(
+            (
+                "",
+                " ",
+                "x" * MAX_ITEM_NAME_LENGTH,
+                "x" * (MAX_ITEM_NAME_LENGTH + 1),
+                "name\nother",
+            )
+        ),
     )
 
 
 def item_ids() -> st.SearchStrategy[ItemId]:
-    return VISIBLE_TEXT.map(lambda value: ItemId(value=value))
+    return VALID_ITEM_ID_TEXTS.map(lambda value: ItemId(value=value))
 
 
 def item_names() -> st.SearchStrategy[ItemName]:
@@ -52,8 +101,5 @@ def items() -> st.SearchStrategy[Item]:
 
 
 def aware_datetimes() -> st.SearchStrategy[datetime]:
-    return st.datetimes(
-        min_value=datetime(2000, 1, 1),
-        max_value=datetime(2100, 1, 1),
-        timezones=st.just(UTC),
-    )
+    """Generate timezone-aware occurrence times across the whole datetime range."""
+    return st.datetimes(timezones=st.just(UTC))

@@ -14,16 +14,42 @@ from {{ package }}.domain.specifications import (
 from {{ package }}.domain.value_objects import ItemId, ItemName
 
 
-@icontract.ensure(
-    lambda item_id, name, result: created_item_matches_inputs(
+def _create_item_holds(item_id: ItemId, name: ItemName, result: Item) -> bool:
+    """Postcondition, typed against the decision it guards."""
+    return created_item_matches_inputs(
         item_id.value,
         name.value,
         result.item_id.value,
         result.name.value,
-    ),
-    description=(
-        "PROPERTY[CREATE-ITEM-PRESERVES-FACTS]: result exactly preserves explicit inputs"
-    ),
+    )
+
+
+def _rename_item_holds(item: Item, new_name: ItemName, result: Item) -> bool:
+    """Postcondition, typed against the transition it guards."""
+    return renamed_item_preserves_identity(
+        item.item_id.value,
+        item.name.value,
+        new_name.value,
+        result.item_id.value,
+        result.name.value,
+    )
+
+
+def _item_created_event_holds(item: Item, occurred_at: datetime, result: ItemCreatedEvent) -> bool:
+    """Postcondition, typed against the decision it guards."""
+    return created_event_matches_item(
+        item.item_id.value,
+        item.name.value,
+        occurred_at,
+        result.item_id.value,
+        result.name.value,
+        result.occurred_at,
+    )
+
+
+@icontract.ensure(
+    _create_item_holds,
+    description="PROPERTY[CREATE-ITEM-PRESERVES-FACTS]: result exactly preserves explicit inputs",
 )
 def create_item(*, item_id: ItemId, name: ItemName) -> Item:
     """Construct an Item from explicit validated facts."""
@@ -31,13 +57,7 @@ def create_item(*, item_id: ItemId, name: ItemName) -> Item:
 
 
 @icontract.ensure(
-    lambda item, new_name, result: renamed_item_preserves_identity(
-        item.item_id.value,
-        item.name.value,
-        new_name.value,
-        result.item_id.value,
-        result.name.value,
-    ),
+    _rename_item_holds,
     description=(
         "PROPERTY[RENAME-ITEM-PRESERVES-IDENTITY]: rename is immutable and keeps identity"
     ),
@@ -48,17 +68,8 @@ def rename_item(item: Item, new_name: ItemName) -> Item:
 
 
 @icontract.ensure(
-    lambda item, occurred_at, result: created_event_matches_item(
-        item.item_id.value,
-        item.name.value,
-        occurred_at,
-        result.item_id.value,
-        result.name.value,
-        result.occurred_at,
-    ),
-    description=(
-        "PROPERTY[ITEM-CREATED-EVENT-MIRRORS-ITEM]: event mirrors item and supplied time"
-    ),
+    _item_created_event_holds,
+    description="PROPERTY[ITEM-CREATED-EVENT-MIRRORS-ITEM]: event mirrors item and supplied time",
 )
 def item_created_event(*, item: Item, occurred_at: datetime) -> ItemCreatedEvent:
     """Create one immutable fact from an Item and an explicit clock value."""

@@ -2,6 +2,7 @@
 
 import ast
 from dataclasses import dataclass
+from typing import TypeIs
 
 from scripts.proof_ast import (
     import_bindings,
@@ -28,7 +29,7 @@ def _binding_key(node: ast.AST, scope: Scope) -> BindingKey | None:
     return None
 
 
-def _is_receiver_attribute(node: ast.AST, scope: Scope) -> bool:
+def _is_receiver_attribute(node: ast.AST, scope: Scope) -> TypeIs[ast.Attribute]:
     return (
         isinstance(node, ast.Attribute)
         and isinstance(node.value, ast.Name)
@@ -44,11 +45,7 @@ def _target_binding_keys(node: ast.AST, scope: Scope) -> tuple[BindingKey, ...]:
         return (direct,)
     if not isinstance(node, (ast.Tuple, ast.List)):
         return ()
-    return tuple(
-        key
-        for element in node.elts
-        for key in _target_binding_keys(element, scope)
-    )
+    return tuple(key for element in node.elts for key in _target_binding_keys(element, scope))
 
 
 def _origin_expression(
@@ -312,10 +309,7 @@ def _targets_invoked_in_scope(
 def invocation_index(tree: ast.Module) -> InvocationIndex:
     imports = import_bindings(tree)
     scopes = module_scopes(tree)
-    shadows = {
-        scope.key: scope_shadowed_names(scope, imports)
-        for scope in scopes
-    }
+    shadows = {scope.key: scope_shadowed_names(scope, imports) for scope in scopes}
     assignments = _collect_assignments(scopes, imports, shadows)
     origins = _resolved_origins(assignments)
     by_node = {
@@ -329,9 +323,5 @@ def invocation_index(tree: ast.Module) -> InvocationIndex:
     }
     return InvocationIndex(
         by_node=by_node,
-        module_targets=frozenset(
-            target
-            for invoked in by_node.values()
-            for target in invoked
-        ),
+        module_targets=frozenset(target for invoked in by_node.values() for target in invoked),
     )

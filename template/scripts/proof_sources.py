@@ -1,20 +1,26 @@
 """Discover public core behaviors, contracts, and executable oracles."""
 
 import ast
-from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 import re
+from typing import TYPE_CHECKING
 
 from scripts.proof_ast import direct_invoked_targets, dotted_name, import_bindings
-from scripts.proof_catalog import ProofPolicy
 from scripts.proof_model import (
     ContractLink,
     Definition,
     DiscoveryError,
+    FunctionDefinition,
     ImportBindings,
     OracleShape,
     SourceTarget,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
+
+    from scripts.proof_catalog import ProofPolicy
 
 PROPERTY_DESCRIPTION = re.compile(r"^PROPERTY\[([A-Z][A-Z0-9-]+)\](?:: .+)?$")
 CONTRACT_DECORATORS = frozenset({"require", "ensure", "invariant"})
@@ -75,6 +81,26 @@ def behavior_files(policy: ProofPolicy) -> tuple[Path, ...]:
     )
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ModuleFacts:
+    """What a module's decorators need to resolve exact invoked targets."""
+
+    imports: ImportBindings
+    conditions: Mapping[str, FunctionDefinition]
+
+
+def module_facts(tree: ast.Module) -> ModuleFacts:
+    """Index the module imports and the module-level functions usable as conditions."""
+    return ModuleFacts(
+        imports=import_bindings(tree),
+        conditions={
+            node.name: node
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        },
+    )
+
+
 def _literal_description(call: ast.Call) -> str | None:
     descriptions = [keyword.value for keyword in call.keywords if keyword.arg == "description"]
     if len(descriptions) != 1:
@@ -85,10 +111,22 @@ def _literal_description(call: ast.Call) -> str | None:
     return value.value
 
 
+def _condition_invoked_targets(call: ast.Call, facts: ModuleFacts) -> frozenset[str]:
+    """Follow a contract condition named by a module-level function in the same file."""
+    named = (
+        facts.conditions.get(argument.id)
+        for argument in call.args
+        if isinstance(argument, ast.Name)
+    )
+    return frozenset[str]().union(
+        *(direct_invoked_targets(condition, facts.imports) for condition in named if condition)
+    )
+
+
 def _contract_link(
     decorator: ast.expr,
     path: Path,
-    imports: ImportBindings,
+    facts: ModuleFacts,
 ) -> ContractLink | None:
     if not isinstance(decorator, ast.Call):
         return None
@@ -103,19 +141,20 @@ def _contract_link(
         decorator=name,
         property_id=match.group(1) if match is not None else None,
         description=description,
-        invoked_targets=direct_invoked_targets(decorator, imports),
+        invoked_targets=direct_invoked_targets(decorator, facts.imports)
+        | _condition_invoked_targets(decorator, facts),
     )
 
 
 def _contract_links(
     decorators: Iterable[ast.expr],
     path: Path,
-    imports: ImportBindings,
+    facts: ModuleFacts,
 ) -> tuple[ContractLink, ...]:
     return tuple(
         link
         for decorator in decorators
-        if (link := _contract_link(decorator, path, imports)) is not None
+        if (link := _contract_link(decorator, path, facts)) is not None
     )
 
 
@@ -133,14 +172,14 @@ def _source_target(
     qualname: str,
     node: Definition,
     kind: str,
-    imports: ImportBindings,
+    facts: ModuleFacts,
 ) -> SourceTarget:
     return SourceTarget(
         path=path,
         line=node.lineno,
         target=_target(module, qualname),
         kind=kind,
-        contracts=_contract_links(node.decorator_list, path, imports),
+        contracts=_contract_links(node.decorator_list, path, facts),
     )
 
 
@@ -148,9 +187,9 @@ def _class_targets(
     path: Path,
     module: str,
     node: ast.ClassDef,
-    imports: ImportBindings,
+    facts: ModuleFacts,
 ) -> tuple[SourceTarget, ...]:
-    targets = [_source_target(path, module, node.name, node, "class", imports)]
+    targets = [_source_target(path, module, node.name, node, "class", facts)]
     targets.extend(
         _source_target(
             path,
@@ -158,11 +197,10 @@ def _class_targets(
             f"{node.name}.{member.name}",
             member,
             "method",
-            imports,
+            facts,
         )
         for member in node.body
-        if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and _public_name(member.name)
+        if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)) and _public_name(member.name)
     )
     return tuple(targets)
 
@@ -170,15 +208,13 @@ def _class_targets(
 def _targets_in_file(path: Path, source_root: Path) -> tuple[SourceTarget, ...]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     module = _module_name(path, source_root)
-    imports = import_bindings(tree)
+    facts = module_facts(tree)
     targets: list[SourceTarget] = []
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _public_name(node.name):
-            targets.append(
-                _source_target(path, module, node.name, node, "function", imports)
-            )
+            targets.append(_source_target(path, module, node.name, node, "function", facts))
         elif isinstance(node, ast.ClassDef) and _public_name(node.name):
-            targets.extend(_class_targets(path, module, node, imports))
+            targets.extend(_class_targets(path, module, node, facts))
     return tuple(targets)
 
 
@@ -192,9 +228,10 @@ def discover_behavior_targets(policy: ProofPolicy) -> tuple[SourceTarget, ...]:
 
 def _named_definition(nodes: Iterable[ast.stmt], name: str) -> Definition | None:
     for node in nodes:
-        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
-            if node.name == name:
-                return node
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and (
+            node.name == name
+        ):
+            return node
     return None
 
 
@@ -241,7 +278,7 @@ def discover_target(source_root: Path, target: str) -> SourceTarget | None:
     if "." in qualname:
         kind = "method"
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    return _source_target(path, module, qualname, node, kind, import_bindings(tree))
+    return _source_target(path, module, qualname, node, kind, module_facts(tree))
 
 
 def _imported_modules(tree: ast.Module) -> frozenset[str]:
@@ -270,6 +307,26 @@ def _forbidden_node_names(node: ast.AST) -> frozenset[str]:
     )
 
 
+def _oracle_body(tree: ast.Module, node: Definition) -> tuple[ast.AST, ...]:
+    """The oracle plus every same-module function it can reach, which decides it too."""
+    module_functions = {
+        candidate.name: candidate
+        for candidate in tree.body
+        if isinstance(candidate, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    reached: dict[str, ast.AST] = {}
+    pending: list[ast.AST] = [node]
+    while pending:
+        current = pending.pop()
+        for called in _called_names(current):
+            helper = module_functions.get(called)
+            if helper is None or helper is node or helper.name in reached:
+                continue
+            reached[helper.name] = helper
+            pending.append(helper)
+    return (node, *reached.values())
+
+
 def discover_oracle(source_root: Path, target: str) -> OracleShape | None:
     resolved = _resolved_definition(source_root, target, label="oracle target")
     if resolved is None:
@@ -278,6 +335,7 @@ def discover_oracle(source_root: Path, target: str) -> OracleShape | None:
     if isinstance(node, ast.ClassDef):
         return None
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    body = _oracle_body(tree, node)
     return OracleShape(
         path=path,
         line=node.lineno,
@@ -286,7 +344,7 @@ def discover_oracle(source_root: Path, target: str) -> OracleShape | None:
         is_async=isinstance(node, ast.AsyncFunctionDef),
         return_annotation=dotted_name(node.returns) if node.returns is not None else "",
         has_variadic_parameters=node.args.vararg is not None or node.args.kwarg is not None,
-        called_names=_called_names(node),
+        called_names=frozenset[str]().union(*(_called_names(part) for part in body)),
         imported_modules=_imported_modules(tree),
-        forbidden_nodes=_forbidden_node_names(node),
+        forbidden_nodes=frozenset[str]().union(*(_forbidden_node_names(part) for part in body)),
     )

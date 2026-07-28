@@ -30,6 +30,7 @@ settings.register_profile(
 settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "ci"))
 
 
+@pytest.hookimpl
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Allow the inner loop to execute one stable property ID only."""
     proof_group = parser.getgroup("proof")
@@ -52,6 +53,7 @@ def _item_property_ids(item: pytest.Item) -> frozenset[str]:
     return frozenset(property_ids)
 
 
+@pytest.hookimpl
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Deselect proof evidence unrelated to explicitly requested property IDs."""
     requested = frozenset(cast("list[str]", config.getoption("property_ids")))

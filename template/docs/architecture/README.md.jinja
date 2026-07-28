@@ -33,8 +33,8 @@ This template uses the `system` profile. Tiny scripts may collapse layers only t
 
 - Import Linter checks dependency direction and adapter independence.
 - `scripts/architecture_guard.py` checks domain purity, immutability, None (ARCH016–018), Path (ARCH019–020/028), CLI (ARCH021–025), and harvested review rules (ARCH026–031), plus suppressions, names, and size ceilings; ADR-0005 owns heuristic boundaries.
-- `scripts/proof_guard.py` closes the critical public surface and links `proof.toml`, pure oracles, `icontract`, Hypothesis evidence, falsifying canaries, and mandatory CrossHair targets for every contracted public function or method.
-- `scripts/crosshair_gate.py` searches the bounded pure core for contract counterexamples; `just prove-deep` expands the budget deliberately.
+- `scripts/proof_guard.py` closes the critical public surface and links `proof.toml`, pure oracles, `icontract`, Hypothesis evidence, one falsifying canary per declared oracle, and mandatory CrossHair targets for every contracted public function or method.
+- `scripts/crosshair_gate.py` searches the bounded pure core for contract counterexamples, reports each target under its property ID, and fails unless it also refutes the deliberately false `verification/harness/symbolic_canary.py`; `just prove-deep` expands the budget deliberately.
 - BasedPyright checks contracts and exhaustive variants.
 - Ruff checks complexity, error handling, security, performance, and style.
 - pytest contract tests verify adapter substitutability.

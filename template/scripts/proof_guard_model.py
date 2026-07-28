@@ -1,9 +1,12 @@
 """Shared violation and evidence-context models for the proof guard."""
 
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from scripts.proof_catalog import PropertySpec
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from scripts.proof_catalog import PropertySpec
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

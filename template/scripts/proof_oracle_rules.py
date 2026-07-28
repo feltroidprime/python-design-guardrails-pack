@@ -1,8 +1,12 @@
 """Require independent, pure, boolean property oracles."""
 
-from scripts.proof_catalog import ProofCatalog, PropertySpec
+from typing import TYPE_CHECKING
+
 from scripts.proof_discovery import OracleShape, discover_oracle
 from scripts.proof_guard_model import Violation, simple_name, violation
+
+if TYPE_CHECKING:
+    from scripts.proof_catalog import ProofCatalog, PropertySpec
 
 EFFECTFUL_ORACLE_MODULE_ROOTS = frozenset(
     {
@@ -162,8 +166,10 @@ def _oracle_location_violation(
             oracle.path,
             oracle.line,
             "PROOF022",
-            f"Oracle '{oracle_name}' must live in one of the configured specification modules: "
-            f"{', '.join(sorted(allowed))}.",
+            (
+                f"Oracle '{oracle_name}' must live in one of the configured specification modules: "
+                f"{', '.join(sorted(allowed))}."
+            ),
         )
     ]
 
@@ -180,8 +186,10 @@ def _oracle_shape_violation(
             oracle.path,
             oracle.line,
             "PROOF023",
-            f"Oracle '{oracle_name}' must be a total synchronous predicate over explicit inputs; "
-            f"it {'; '.join(defects)}.",
+            (
+                f"Oracle '{oracle_name}' must be a total synchronous predicate over "
+                f"explicit inputs; it {'; '.join(defects)}."
+            ),
         )
     ]
 
@@ -199,8 +207,10 @@ def _oracle_import_violation(
             oracle.path,
             oracle.line,
             "PROOF024",
-            f"Oracle '{oracle_name}' imports implementation modules ({', '.join(imports)}); "
-            "specifications must compare explicit facts without importing production behavior.",
+            (
+                f"Oracle '{oracle_name}' imports implementation modules ({', '.join(imports)}); "
+                "specifications must compare explicit facts without importing production behavior."
+            ),
         )
     ]
 

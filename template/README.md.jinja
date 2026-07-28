@@ -44,13 +44,14 @@ just update     # update dependencies and hook revisions intentionally
 The proof loop is intentionally narrower than the full gate. `proof.toml`
 closes the public domain surface: each critical symbol names a falsifiable
 property, exact scope, external assumptions, independent pure oracle, `icontract`
-link, canonical Hypothesis proof, and minimal canary. The guard resolves exact
+link, canonical Hypothesis proof, and one minimal canary per declared oracle. The guard resolves exact
 production and oracle imports, rejects constructor-only evidence for a targeted
 method, and confines stateful evidence to the literal `RuleBasedStateMachine`
 executed by the canonical test. It also rejects effect-shaped oracles and oracles
 that import or call the behavior they judge. Every contracted public core
 function or method must be an explicit CrossHair target, so agents cannot skip
-symbolic evidence. The daily loop searches meaningful state without
+symbolic evidence, and that symbolic run must refute a deliberately false canary
+contract before its silence counts as a result. The daily loop searches meaningful state without
 traversing CLI, database, GitHub, MCP, or network effects. The full recipe and
 evidence rules are in
 `docs/architecture/PROVABILITY.md` (ADR-0006).

@@ -1,8 +1,14 @@
+import copy
+from datetime import UTC, datetime
+
 from hypothesis import given, strategies as st
 import pytest
 
+from {{ package }}.domain.entities import Item
 from {{ package }}.domain.errors import InvalidItemNameError
-from {{ package }}.domain.value_objects import MAX_ITEM_NAME_LENGTH, ItemId, ItemName
+from {{ package }}.domain.events import ItemCreatedEvent
+from {{ package }}.domain.specifications import MAX_ITEM_NAME_LENGTH
+from {{ package }}.domain.value_objects import ItemId, ItemName
 
 
 def test_item_id_rejects_blank_value() -> None:
@@ -31,3 +37,24 @@ def test_quiet_selectable_values_reject_physical_line_breaks(value: str) -> None
 def test_item_name_rejects_every_blank_string(value: str) -> None:
     with pytest.raises(InvalidItemNameError):
         _ = ItemName(value=value)
+
+
+def contracted_values() -> tuple[object, ...]:
+    item = Item(item_id=ItemId(value="id-1"), name=ItemName(value="Useful name"))
+    return (
+        item.item_id,
+        item.name,
+        item,
+        ItemCreatedEvent(
+            item_id=item.item_id,
+            name=item.name,
+            occurred_at=datetime(2026, 1, 1, tzinfo=UTC),
+        ),
+    )
+
+
+@pytest.mark.parametrize("value", contracted_values())
+def test_invariant_guarded_values_survive_a_copy_round_trip(value: object) -> None:
+    """The copy protocol is what CrossHair uses to snapshot contracted arguments."""
+    assert copy.copy(value) == value
+    assert copy.deepcopy(value) == value

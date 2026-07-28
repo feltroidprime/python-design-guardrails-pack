@@ -27,9 +27,7 @@ def check(root: Path) -> tuple[ProofCatalog | None, tuple[Violation, ...]]:
         target_map = build_target_map(catalog)
         tests = discover_tests(catalog.policy.test_root)
     except (CatalogError, DiscoveryError, OSError, SyntaxError) as error:
-        return None, (
-            violation(root / "proof.toml", 1, "PROOF000", str(error)),
-        )
+        return None, (violation(root / "proof.toml", 1, "PROOF000", str(error)),)
     violations = [
         *closure_violations(catalog, behavior_targets),
         *property_target_violations(catalog, target_map),
@@ -45,12 +43,13 @@ def _report(catalog: ProofCatalog) -> None:
     print("ID | kind | assumptions | evidence | targets")
     print("---|---|---:|---|---")
     for property_spec in catalog.properties:
-        print(
+        row = (
             f"{property_spec.property_id} | {property_spec.kind} | "
             f"{len(property_spec.assumptions)} | "
             f"{', '.join(sorted(property_spec.evidence))} | "
             f"{', '.join(property_spec.targets)}"
         )
+        print(row)
 
 
 def main(argv: list[str]) -> int:
@@ -72,10 +71,11 @@ def main(argv: list[str]) -> int:
         crosshair_count = sum(
             len(property_spec.crosshair_targets) for property_spec in catalog.properties
         )
-        print(
+        summary = (
             f"Proof contract passed: {len(catalog.properties)} properties, "
             f"{crosshair_count} CrossHair target(s)."
         )
+        print(summary)
     return 0
 
 

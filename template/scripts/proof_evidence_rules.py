@@ -1,8 +1,13 @@
-"""Require one broad proof and one falsifying canary per property."""
+"""Require one broad proof per property and one falsifying canary per oracle."""
 
-from scripts.proof_catalog import ProofCatalog, PropertySpec
-from scripts.proof_discovery import ProofTest
+from collections import Counter
+from typing import TYPE_CHECKING
+
 from scripts.proof_guard_model import TestContext, Violation, violation
+
+if TYPE_CHECKING:
+    from scripts.proof_catalog import ProofCatalog, PropertySpec
+    from scripts.proof_discovery import ProofTest
 
 
 def _one_marker_id(test: ProofTest) -> str | None:
@@ -21,8 +26,10 @@ def _test_context(
                 test.path,
                 test.line,
                 "PROOF010",
-                f"Proof test '{test.name}' needs exactly one @pytest.mark.proves(ID) "
-                "or @pytest.mark.falsifies(ID).",
+                (
+                    f"Proof test '{test.name}' needs exactly one @pytest.mark.proves(ID) "
+                    "or @pytest.mark.falsifies(ID)."
+                ),
             )
         ]
     property_spec = catalog.by_id.get(property_id)
@@ -39,9 +46,7 @@ def _test_context(
     return (
         TestContext(
             property_spec=property_spec,
-            helper_names=(
-                test.state_machine_helper_names if stateful_proof else test.helper_names
-            ),
+            helper_names=(test.state_machine_helper_names if stateful_proof else test.helper_names),
             helper_ids=(
                 test.state_machine_helper_property_ids
                 if stateful_proof
@@ -67,8 +72,10 @@ def _helper_link_violations(test: ProofTest, context: TestContext) -> list[Viola
                 test.path,
                 test.line,
                 "PROOF012",
-                f"Test '{test.name}' is marked '{context.property_id}' but calls proof helpers "
-                f"for: {', '.join(mismatched)}.",
+                (
+                    f"Test '{test.name}' is marked '{context.property_id}' but calls proof helpers "
+                    f"for: {', '.join(mismatched)}."
+                ),
             )
         )
     if context.property_id not in context.helper_ids:
@@ -77,8 +84,10 @@ def _helper_link_violations(test: ProofTest, context: TestContext) -> list[Viola
                 test.path,
                 test.line,
                 "PROOF013",
-                f"Test '{test.name}' must pass literal property_id='{context.property_id}' "
-                "to a named proof helper.",
+                (
+                    f"Test '{test.name}' must pass literal property_id='{context.property_id}' "
+                    "to a named proof helper."
+                ),
             )
         )
     return violations
@@ -88,9 +97,7 @@ def _oracle_reference_violations(
     test: ProofTest,
     context: TestContext,
 ) -> list[Violation]:
-    missing = sorted(
-        set(context.property_spec.oracles) - context.invoked_targets
-    )
+    missing = sorted(set(context.property_spec.oracles) - context.invoked_targets)
     if not missing:
         return []
     return [
@@ -98,19 +105,21 @@ def _oracle_reference_violations(
             test.path,
             test.line,
             "PROOF014",
-            f"Test '{test.name}' does not invoke exact declared oracle(s): "
-            f"{', '.join(missing)}.",
+            f"Test '{test.name}' does not invoke exact declared oracle(s): {', '.join(missing)}.",
         )
     ]
+
+
+def pinned_oracles(property_spec: PropertySpec, test: ProofTest) -> frozenset[str]:
+    """The declared oracles whose truth value this canary's assertion depends on."""
+    return frozenset(property_spec.oracles) & test.invoked_targets
 
 
 def _target_reference_violations(
     test: ProofTest,
     context: TestContext,
 ) -> list[Violation]:
-    missing = sorted(
-        set(context.property_spec.targets) - context.invoked_targets
-    )
+    missing = sorted(set(context.property_spec.targets) - context.invoked_targets)
     if not missing:
         return []
     return [
@@ -118,8 +127,7 @@ def _target_reference_violations(
             test.path,
             test.line,
             "PROOF026",
-            f"Canonical proof '{test.name}' does not invoke exact target(s): "
-            f"{', '.join(missing)}.",
+            f"Canonical proof '{test.name}' does not invoke exact target(s): {', '.join(missing)}.",
         )
     ]
 
@@ -136,8 +144,10 @@ def _proof_engine_violations(
                 test.path,
                 test.line,
                 "PROOF015",
-                f"Proof for state-machine property '{context.property_id}' must call "
-                "run_state_machine_as_test.",
+                (
+                    f"Proof for state-machine property '{context.property_id}' must call "
+                    "run_state_machine_as_test."
+                ),
             )
         ]
     if test.uses_hypothesis:
@@ -183,6 +193,7 @@ def _canonical_proof_violations(
     context: TestContext,
 ) -> list[Violation]:
     return [
+        *_oracle_reference_violations(test, context),
         *_target_reference_violations(test, context),
         *_proof_engine_violations(test, context),
         *_proof_assertion_violations(test, context),
@@ -190,14 +201,33 @@ def _canonical_proof_violations(
 
 
 def _canary_violations(test: ProofTest, context: TestContext) -> list[Violation]:
-    if {"assert_falsifies", "assert_rejected"} & test.helper_names:
+    if not {"assert_falsifies", "assert_rejected"} & test.helper_names:
+        return [
+            violation(
+                test.path,
+                test.line,
+                "PROOF019",
+                (
+                    f"Canary for '{context.property_id}' must call assert_falsifies "
+                    "or assert_rejected."
+                ),
+            )
+        ]
+    if "assert_falsifies" not in test.helper_names:
+        return []
+    pinned = pinned_oracles(context.property_spec, test)
+    if len(pinned) == 1:
         return []
     return [
         violation(
             test.path,
             test.line,
-            "PROOF019",
-            f"Canary for '{context.property_id}' must call assert_falsifies or assert_rejected.",
+            "PROOF028",
+            (
+                f"Canary '{test.name}' must falsify exactly one declared oracle of "
+                f"'{context.property_id}'; a conjunction over {len(pinned)} oracle(s) stays false "
+                "when one of them degenerates to a constant."
+            ),
         )
     ]
 
@@ -207,7 +237,6 @@ def _test_shape_violations(test: ProofTest, catalog: ProofCatalog) -> list[Viola
     if context is None:
         return violations
     violations.extend(_helper_link_violations(test, context))
-    violations.extend(_oracle_reference_violations(test, context))
     if test.proves_ids:
         violations.extend(_canonical_proof_violations(test, context))
     else:
@@ -222,7 +251,6 @@ def _property_evidence_count_violations(
 ) -> list[Violation]:
     property_id = property_spec.property_id
     proves = sum(property_id in test.proves_ids for test in tests)
-    falsifies = sum(property_id in test.falsifies_ids for test in tests)
     violations: list[Violation] = []
     if proves != 1:
         violations.append(
@@ -230,21 +258,44 @@ def _property_evidence_count_violations(
                 catalog.path,
                 1,
                 "PROOF020",
-                f"Property '{property_id}' needs exactly one canonical broad proof; "
-                f"found {proves}.",
+                (
+                    f"Property '{property_id}' needs exactly one canonical broad proof; "
+                    f"found {proves}."
+                ),
             )
         )
-    if falsifies != 1:
-        violations.append(
-            violation(
-                catalog.path,
-                1,
-                "PROOF021",
-                f"Property '{property_id}' needs exactly one falsifying canary; "
-                f"found {falsifies}.",
-            )
-        )
+    violations.extend(_canary_coverage_violations(catalog, property_spec, tests))
     return violations
+
+
+def _canary_coverage_violations(
+    catalog: ProofCatalog,
+    property_spec: PropertySpec,
+    tests: tuple[ProofTest, ...],
+) -> list[Violation]:
+    """Every declared oracle owns a canary, so no single oracle can degenerate unnoticed."""
+    pinned: Counter[str] = Counter()
+    for test in tests:
+        if property_spec.property_id not in test.falsifies_ids:
+            continue
+        if "assert_falsifies" not in test.helper_names:
+            continue
+        oracles = pinned_oracles(property_spec, test)
+        if len(oracles) == 1:
+            pinned.update(oracles)
+    return [
+        violation(
+            catalog.path,
+            1,
+            "PROOF021",
+            (
+                f"Oracle '{oracle}' of property '{property_spec.property_id}' needs exactly one "
+                f"falsifying canary; found {pinned[oracle]}."
+            ),
+        )
+        for oracle in property_spec.oracles
+        if pinned[oracle] != 1
+    ]
 
 
 def evidence_coverage_violations(

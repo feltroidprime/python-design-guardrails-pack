@@ -32,6 +32,12 @@ dev = [
 
 {% endif %}[tool.uv]
 required-version = ">=0.11.28,<0.12"
+{% if not workspace_member %}# z3-solver 5.0.0.0 (a crosshair-tool dependency) ships a macOS arm64 wheel whose
+# internal WHEEL tag (macosx_13_3_arm64) disagrees with its filename tag, so uv
+# reinstalls it on every sync and `uv sync --check` never converges, which keeps
+# `just doctor` red. Drop this constraint once a later release is tagged correctly.
+constraint-dependencies = ["z3-solver!=5.0.0.0"]
+{% endif %}
 
 {% if likec4 %}# The only place the LikeC4 CLI version is pinned. Every invocation goes
 # through `bunx likec4@<version>` (quality gate and `just diagrams`), which
@@ -124,6 +130,19 @@ unfixable = ["ERA001"]
 allow-star-arg-any = false
 mypy-init-return = false
 suppress-dummy-args = true
+
+[tool.ruff.lint.flake8-type-checking]
+# These decorators mark code whose annotations are read at run time:
+# `inspect.signature` (Hypothesis, pluggy) and CrossHair's icontract analysis
+# resolve them, so their imports must stay outside type-checking blocks.
+runtime-evaluated-decorators = [
+  "hypothesis.given",
+  "icontract.ensure",
+  "icontract.invariant",
+  "icontract.require",
+  "icontract.snapshot",
+  "pytest.hookimpl",
+]
 
 [tool.ruff.lint.isort]
 # "tests" is declared explicitly because namespace packages (no __init__.py)

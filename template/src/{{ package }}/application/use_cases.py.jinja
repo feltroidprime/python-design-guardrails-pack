@@ -11,7 +11,6 @@ from {{ package }}.application.query_models import (
     NoMoreItems,
 )
 from {{ package }}.domain.decisions import create_item, item_created_event
-from {{ package }}.domain.entities import Item
 from {{ package }}.domain.value_objects import ItemName
 
 if TYPE_CHECKING:
@@ -21,6 +20,7 @@ if TYPE_CHECKING:
         ItemIdFactory,
         ItemRepository,
     )
+    from {{ package }}.domain.entities import Item
     from {{ package }}.domain.value_objects import ItemId
 
 

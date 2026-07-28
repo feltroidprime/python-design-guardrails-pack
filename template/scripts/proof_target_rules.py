@@ -1,8 +1,7 @@
 """Close the catalog over public behaviors, contracts, and CrossHair targets."""
 
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
-from scripts.proof_catalog import ProofCatalog, PropertySpec
 from scripts.proof_discovery import (
     ContractLink,
     SourceTarget,
@@ -10,6 +9,11 @@ from scripts.proof_discovery import (
     discover_target,
 )
 from scripts.proof_guard_model import Violation, violation
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from scripts.proof_catalog import ProofCatalog, PropertySpec
 
 
 def build_target_map(catalog: ProofCatalog) -> dict[str, SourceTarget]:
@@ -37,8 +41,10 @@ def _contract_link_violations(
                 contract.path,
                 contract.line,
                 "PROOF002",
-                f"icontract.{contract.decorator} on '{target.target}' needs a literal "
-                "description='PROPERTY[ID]: ...'.",
+                (
+                    f"icontract.{contract.decorator} on '{target.target}' needs a literal "
+                    "description='PROPERTY[ID]: ...'."
+                ),
             )
         ]
     property_spec = catalog.by_id.get(contract.property_id)
@@ -48,8 +54,10 @@ def _contract_link_violations(
                 contract.path,
                 contract.line,
                 "PROOF003",
-                f"Contract on '{target.target}' references unknown property "
-                f"'{contract.property_id}'.",
+                (
+                    f"Contract on '{target.target}' references unknown property "
+                    f"'{contract.property_id}'."
+                ),
             )
         ]
     if target.target not in property_spec.targets:
@@ -58,8 +66,10 @@ def _contract_link_violations(
                 contract.path,
                 contract.line,
                 "PROOF004",
-                f"Contract '{contract.property_id}' is attached to '{target.target}', "
-                "but proof.toml does not target that behavior.",
+                (
+                    f"Contract '{contract.property_id}' is attached to '{target.target}', "
+                    "but proof.toml does not target that behavior."
+                ),
             )
         ]
     return []
@@ -79,8 +89,10 @@ def closure_violations(
                     target.path,
                     target.line,
                     "PROOF001",
-                    f"Public core behavior '{target.target}' is neither owned by a property "
-                    "nor explicitly exempted in proof.toml.",
+                    (
+                        f"Public core behavior '{target.target}' is neither owned by a property "
+                        "nor explicitly exempted in proof.toml."
+                    ),
                 )
             )
         for contract in target.contracts:
@@ -113,8 +125,10 @@ def _icontract_target_violations(
                 target.path,
                 target.line,
                 "PROOF006",
-                f"Target '{target_name}' needs an icontract contract linked with "
-                f"PROPERTY[{property_spec.property_id}].",
+                (
+                    f"Target '{target_name}' needs an icontract contract linked with "
+                    f"PROPERTY[{property_spec.property_id}]."
+                ),
             )
         ]
     declared_oracles = set(property_spec.oracles)
@@ -125,8 +139,10 @@ def _icontract_target_violations(
             target.path,
             target.line,
             "PROOF007",
-            f"Contract '{property_spec.property_id}' must invoke an exact declared oracle: "
-            f"{', '.join(sorted(declared_oracles))}.",
+            (
+                f"Contract '{property_spec.property_id}' must invoke an exact declared oracle: "
+                f"{', '.join(sorted(declared_oracles))}."
+            ),
         )
     ]
 
@@ -146,8 +162,10 @@ def _symbolic_target_violations(
             target.path,
             target.line,
             "PROOF027",
-            f"Pure contracted target '{target_name}' must be listed as CrossHair evidence for "
-            f"'{property_spec.property_id}'.",
+            (
+                f"Pure contracted target '{target_name}' must be listed as CrossHair evidence for "
+                f"'{property_spec.property_id}'."
+            ),
         )
     ]
 
@@ -206,8 +224,10 @@ def _crosshair_target_violations(
                 target.path,
                 target.line,
                 "PROOF009",
-                f"CrossHair target '{target_name}' must carry the icontract for "
-                f"'{property_spec.property_id}'.",
+                (
+                    f"CrossHair target '{target_name}' must carry the icontract for "
+                    f"'{property_spec.property_id}'."
+                ),
             )
         )
     return violations

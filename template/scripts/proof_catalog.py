@@ -1,11 +1,13 @@
 """Schema and loader for the repository's closed property catalog."""
 
 from dataclasses import dataclass
-from datetime import date
-from pathlib import Path
+from datetime import UTC, date, datetime
 import re
 import tomllib
-from typing import cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 PROPERTY_ID_PATTERN = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$")
 TARGET_PATTERN = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_.]*$")
@@ -242,10 +244,11 @@ def _validate_state_machine_evidence(
             f"State-machine property '{property_id}' must use hypothesis-stateful, not hypothesis"
         )
     if "crosshair" in evidence:
-        raise CatalogError(
+        message = (
             f"State-machine property '{property_id}' cannot target effectful "
             "workflow code with CrossHair"
         )
+        raise CatalogError(message)
 
 
 def _validate_crosshair_evidence(
@@ -254,16 +257,18 @@ def _validate_crosshair_evidence(
     links: _PropertyLinks,
 ) -> None:
     if bool(links.crosshair_targets) != ("crosshair" in evidence):
-        raise CatalogError(
+        message = (
             f"Property '{property_id}' must declare crosshair evidence and "
             "crosshair_targets together"
         )
+        raise CatalogError(message)
     undeclared = sorted(set(links.crosshair_targets) - set(links.targets))
     if undeclared:
-        raise CatalogError(
+        message = (
             f"Property '{property_id}' crosshair target(s) are not property targets: "
             f"{', '.join(undeclared)}"
         )
+        raise CatalogError(message)
 
 
 def _load_property(value: object, index: int) -> PropertySpec:
@@ -307,7 +312,7 @@ def _load_exemption(value: object, index: int) -> ProofExemption:
         raise CatalogError(
             f"Exemption '{target}' revisit must be an ISO date (YYYY-MM-DD)"
         ) from error
-    if revisit <= date.today():
+    if revisit <= datetime.now(UTC).date():
         raise CatalogError(
             f"Exemption '{target}' expired on {revisit.isoformat()}; prove or remove the behavior"
         )

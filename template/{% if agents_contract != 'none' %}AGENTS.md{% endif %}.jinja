@@ -80,16 +80,22 @@ The repository rejects an incomplete chain before review:
   property states its scope and assumptions explicitly.
 - Every core `icontract.require`, `icontract.ensure`, or
   `icontract.invariant` has a literal
-  `description="PROPERTY[UPPER-KEBAB-ID]: ..."` and calls a declared oracle.
+  `description="PROPERTY[UPPER-KEBAB-ID]: ..."` and calls a declared oracle,
+  either inline as a `lambda` or through a named module-level condition function
+  in the same file. Prefer the named form: `icontract` types conditions as
+  `Callable[..., Any]`, so only a named function gives the checker real parameter
+  types.
 - Pure oracles live in a configured specification module, accept explicit
   facts, return `bool`, and never perform I/O, read clocks/randomness, import, or
   call the implementation they judge. The proof guard rejects known effectful
   modules and operations and checks implementation independence statically.
-- Every property has exactly one `@pytest.mark.proves("ID")` Hypothesis test and
-  exactly one `@pytest.mark.falsifies("ID")` canary. The canonical proof must
-  invoke the exact declared target and oracle; constructing a callable class is
-  not evidence that its targeted `__call__` method ran. Additional examples and
-  regressions stay ordinary tests.
+- Every property has exactly one `@pytest.mark.proves("ID")` Hypothesis test,
+  and every declared oracle owns one `@pytest.mark.falsifies("ID")` canary whose
+  assertion depends on that single oracle. A canary that conjoins two oracles
+  stays false when either one degenerates to a constant, so the guard rejects it.
+  The canonical proof must invoke the exact declared target and every declared
+  oracle; constructing a callable class is not evidence that its targeted
+  `__call__` method ran. Additional examples and regressions stay ordinary tests.
 - History-dependent behavior uses one literal local Hypothesis
   `RuleBasedStateMachine`. Only its initialization, stateful rules/invariants,
   and reachable helper methods count as canonical evidence; unrelated module
@@ -97,6 +103,12 @@ The repository rejects an incomplete chain before review:
   the proof surface is a mandatory CrossHair
   target; the guard rejects omissions. Class invariants remain
   Hypothesis-plus-canary evidence.
+- The symbolic layer carries its own canary. `verification/harness/symbolic_canary.py`
+  states a deliberately false contract over the domain value types, and
+  `scripts/crosshair_gate.py` fails unless CrossHair refutes it. A symbolic run
+  that cannot construct those types reports nothing and exits zero, so without
+  the canary an empty search is indistinguishable from a successful one. Never
+  delete or weaken it to make a run pass.
 - A canary is mandatory because generated tests around a tautology still prove
   nothing. It must demonstrate a plausible bad candidate that the oracle
   rejects.
@@ -321,7 +333,7 @@ A filesystem location is a `pathlib.Path` from the moment it exists. A `str` pat
 - Test externally observable behavior and invariants, not private implementation details.
 - A critical law starts in `proof.toml`, not in a test name. The broad proof calls an independent oracle over generated data.
 - Use ordinary Hypothesis for input partitions, algebraic laws, models, and metamorphic relations; use `RuleBasedStateMachine` when history matters.
-- Every normative property has a falsifying canary. A property that cannot reject a plausible mutant is not ready.
+- Every declared oracle has a falsifying canary that depends on it alone. An oracle that cannot reject a plausible mutant is not ready.
 - Every contracted public function or method in the proof surface is a CrossHair target. Keep such symbols pure and deterministic; adapters remain under shared contracts, examples, integration tests, and fault scenarios.
 - Every port implementation must pass the shared contract test for that port.
 - Unit and proof tests perform no network access; the test runner disables sockets by default.
