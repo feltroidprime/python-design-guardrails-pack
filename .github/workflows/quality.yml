@@ -24,7 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      # Full history and tags: the update-roundtrip tests clone this checkout
+      # and resolve the previous release tag, and the benchmark campaign tests
+      # resolve a recorded template commit. A shallow clone fails both.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       # The root is intentionally venv-less and lock-free; uv provisions the
       # exact pins each recipe names, including the 3.14 interpreter.
