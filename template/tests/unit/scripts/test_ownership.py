@@ -27,7 +27,9 @@ IGNORED_DIRECTORY_NAMES = frozenset(
         "htmlcov",
     }
 )
-IGNORED_FILE_NAMES = frozenset({".coverage", "coverage.xml"})
+# validate_pack stages this linked-worktree hook sentinel after the rendered
+# repository has been created. It is a validator artifact, not repository content.
+IGNORED_FILE_NAMES = frozenset({".coverage", "coverage.xml", "worktree-hook-probe.txt"})
 
 
 def repository_root() -> Path:
