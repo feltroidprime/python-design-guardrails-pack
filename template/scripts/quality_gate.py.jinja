@@ -84,6 +84,14 @@ def checks() -> tuple[Check, ...]:
             command=(sys.executable, "-m", "scripts.architecture_guard"),
         ),
         Check(name="docs guard", command=(sys.executable, "-m", "scripts.docs_guard")),
+        Check(
+            name="proof contract",
+            command=(sys.executable, "-m", "scripts.proof_guard"),
+        ),
+        Check(
+            name="symbolic core",
+            command=(sys.executable, "-m", "scripts.crosshair_gate", "ci"),
+        ),
         Check(name="import contracts", command=("lint-imports",)),
 {% if likec4 %}        Check(
             name="diagram sync",

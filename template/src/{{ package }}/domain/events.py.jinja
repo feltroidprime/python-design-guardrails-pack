@@ -1,14 +1,24 @@
 """Immutable facts emitted by the domain/application boundary."""
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from datetime import datetime
 
-if TYPE_CHECKING:
-    from datetime import datetime
+import icontract
 
-    from {{ package }}.domain.value_objects import ItemId, ItemName
+from {{ package }}.domain.specifications import item_created_event_state_is_valid
+from {{ package }}.domain.value_objects import ItemId, ItemName
 
 
+@icontract.invariant(
+    lambda self: item_created_event_state_is_valid(
+        self.item_id.value,
+        self.name.value,
+        self.occurred_at,
+    ),
+    description=(
+        "PROPERTY[ITEM-CREATED-EVENT-STATE-VALID]: every event contains valid facts"
+    ),
+)
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ItemCreatedEvent:
     """Fact that an item was successfully created."""

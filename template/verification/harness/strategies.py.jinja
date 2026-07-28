@@ -1,0 +1,59 @@
+"""Reusable generators derived from the domain specification, not implementation branches."""
+
+from datetime import UTC, datetime
+
+from hypothesis import strategies as st
+
+from {{ package }}.domain.entities import Item
+from {{ package }}.domain.value_objects import ItemId, ItemName
+
+SINGLE_LINE_CHARACTER = st.characters(
+    blacklist_characters="\r\n",
+    blacklist_categories=("Cs",),
+)
+VISIBLE_CHARACTER = SINGLE_LINE_CHARACTER.filter(lambda character: bool(character.strip()))
+VISIBLE_TEXT = st.text(VISIBLE_CHARACTER, min_size=1, max_size=40)
+OUTER_WHITESPACE = st.text(alphabet=" \t", max_size=4)
+VALID_ITEM_NAME_INPUTS = st.builds(
+    lambda left, value, right: f"{left}{value}{right}",
+    OUTER_WHITESPACE,
+    VISIBLE_TEXT,
+    OUTER_WHITESPACE,
+)
+
+
+def item_id_candidates() -> st.SearchStrategy[str]:
+    """Mix ordinary text with high-value invalid identifier shapes."""
+    return st.one_of(
+        st.text(max_size=100),
+        st.sampled_from(("", " ", "id\nother", "id\rother")),
+    )
+
+
+def item_name_candidates() -> st.SearchStrategy[str]:
+    """Mix arbitrary text with boundary-sized and multiline name shapes."""
+    return st.one_of(
+        st.text(max_size=120),
+        VALID_ITEM_NAME_INPUTS,
+        st.sampled_from(("", " ", "x" * 80, "x" * 81, "name\nother")),
+    )
+
+
+def item_ids() -> st.SearchStrategy[ItemId]:
+    return VISIBLE_TEXT.map(lambda value: ItemId(value=value))
+
+
+def item_names() -> st.SearchStrategy[ItemName]:
+    return VALID_ITEM_NAME_INPUTS.map(lambda value: ItemName(value=value))
+
+
+def items() -> st.SearchStrategy[Item]:
+    return st.builds(Item, item_id=item_ids(), name=item_names())
+
+
+def aware_datetimes() -> st.SearchStrategy[datetime]:
+    return st.datetimes(
+        min_value=datetime(2000, 1, 1),
+        max_value=datetime(2100, 1, 1),
+        timezones=st.just(UTC),
+    )

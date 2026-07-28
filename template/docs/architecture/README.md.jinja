@@ -16,7 +16,8 @@ A higher layer may depend on a lower layer. A lower layer never depends on a hig
 
 ## Stable seams
 
-- Domain objects protect invariants.
+- Domain objects protect invariants through immutable state and `icontract`.
+- Pure specification predicates and decisions form the symbolic proof boundary.
 - Application use cases own workflow decisions.
 - Application ports name capabilities required from the outside world.
 - Adapters translate concrete technologies into those capabilities.
@@ -32,6 +33,8 @@ This template uses the `system` profile. Tiny scripts may collapse layers only t
 
 - Import Linter checks dependency direction and adapter independence.
 - `scripts/architecture_guard.py` checks domain purity, immutability, None (ARCH016–018), Path (ARCH019–020/028), CLI (ARCH021–025), and harvested review rules (ARCH026–031), plus suppressions, names, and size ceilings; ADR-0005 owns heuristic boundaries.
+- `scripts/proof_guard.py` closes the critical public surface and links `proof.toml`, pure oracles, `icontract`, Hypothesis evidence, falsifying canaries, and mandatory CrossHair targets for every contracted public function or method.
+- `scripts/crosshair_gate.py` searches the bounded pure core for contract counterexamples; `just prove-deep` expands the budget deliberately.
 - BasedPyright checks contracts and exhaustive variants.
 - Ruff checks complexity, error handling, security, performance, and style.
 - pytest contract tests verify adapter substitutability.

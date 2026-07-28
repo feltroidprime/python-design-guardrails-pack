@@ -1,0 +1,131 @@
+schema_version = 1
+
+# This is the repository's executable specification index. A public behavior in
+# the proof surface cannot exist without a named property or a dated exemption.
+[policy]
+source_root = "src"
+test_root = "verification/tests"
+behavior_roots = ["{{ package }}.domain"]
+excluded_module_stems = ["__init__", "errors", "specifications"]
+oracle_module_stems = ["specifications"]
+
+[[properties]]
+id = "ITEM-ID-VALID"
+title = "Item identifiers are valid at every observable boundary"
+statement = "ItemId accepts exactly non-blank single-line text and every constructed value remains valid."
+scope = "Construction and every observable ItemId instance."
+assumptions = []
+kind = "invariant"
+strength = "normative"
+targets = ["{{ package }}.domain.value_objects:ItemId"]
+oracles = ["{{ package }}.domain.specifications:item_id_text_is_valid"]
+evidence = ["icontract", "hypothesis", "falsifier"]
+counterexample = "A blank or multiline identifier is accepted."
+failure_modes = ["blank identifier", "multiline identifier", "invalid constructed state"]
+
+[[properties]]
+id = "ITEM-NAME-CANONICAL"
+title = "Item names are valid and canonical"
+statement = "ItemName accepts exactly normalizable valid text and stores the stripped single-line value."
+scope = "Construction and every observable ItemName instance."
+assumptions = []
+kind = "invariant"
+strength = "normative"
+targets = ["{{ package }}.domain.value_objects:ItemName"]
+oracles = [
+  "{{ package }}.domain.specifications:item_name_input_is_valid",
+  "{{ package }}.domain.specifications:item_name_text_is_canonical",
+]
+evidence = ["icontract", "hypothesis", "falsifier"]
+counterexample = "A blank, multiline, oversized, or unstripped name survives construction."
+failure_modes = ["blank name", "multiline name", "oversized name", "non-canonical state"]
+
+[[properties]]
+id = "ITEM-STATE-VALID"
+title = "Items contain only validated domain values"
+statement = "Every Item contains a valid identifier and a canonical name."
+scope = "Construction of Item from validated domain values."
+assumptions = ["ItemId and ItemName construction is not bypassed by unsafe deserialization."]
+kind = "invariant"
+strength = "normative"
+targets = ["{{ package }}.domain.entities:Item"]
+oracles = ["{{ package }}.domain.specifications:item_state_is_valid"]
+evidence = ["icontract", "hypothesis", "falsifier"]
+counterexample = "An Item contains an invalid identifier or non-canonical name."
+failure_modes = ["invalid identifier embedded", "invalid name embedded"]
+
+[[properties]]
+id = "ITEM-CREATED-EVENT-STATE-VALID"
+title = "Created-item facts contain valid immutable data"
+statement = "Every ItemCreatedEvent contains valid item fields and the supplied occurrence time."
+scope = "Construction of ItemCreatedEvent from validated domain values and an explicit clock value."
+assumptions = ["ItemId and ItemName construction is not bypassed by unsafe deserialization."]
+kind = "invariant"
+strength = "normative"
+targets = ["{{ package }}.domain.events:ItemCreatedEvent"]
+oracles = ["{{ package }}.domain.specifications:item_created_event_state_is_valid"]
+evidence = ["icontract", "hypothesis", "falsifier"]
+counterexample = "An event contains invalid item fields or a non-datetime occurrence value."
+failure_modes = ["invalid item data", "invalid occurrence time"]
+
+[[properties]]
+id = "CREATE-ITEM-PRESERVES-FACTS"
+title = "Creating an item preserves explicit inputs"
+statement = "The pure create decision returns exactly the supplied validated identifier and name."
+scope = "The synchronous create_item domain decision."
+assumptions = ["Inputs are validated ItemId and ItemName values."]
+kind = "model"
+strength = "normative"
+targets = ["{{ package }}.domain.decisions:create_item"]
+oracles = ["{{ package }}.domain.specifications:created_item_matches_inputs"]
+evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]
+crosshair_targets = ["{{ package }}.domain.decisions:create_item"]
+counterexample = "The decision substitutes an identifier or name, or reads hidden state."
+failure_modes = ["identifier substitution", "name substitution", "hidden nondeterminism"]
+
+[[properties]]
+id = "RENAME-ITEM-PRESERVES-IDENTITY"
+title = "Renaming is an immutable identity-preserving transition"
+statement = "Renaming returns a new valid Item with the same identifier and the requested name."
+scope = "The synchronous rename_item domain transition."
+assumptions = ["The source Item and requested ItemName are valid constructed values."]
+kind = "preservation"
+strength = "normative"
+targets = ["{{ package }}.domain.decisions:rename_item"]
+oracles = ["{{ package }}.domain.specifications:renamed_item_preserves_identity"]
+evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]
+crosshair_targets = ["{{ package }}.domain.decisions:rename_item"]
+counterexample = "Renaming changes identity, ignores the requested name, or mutates the source."
+failure_modes = ["identity change", "wrong target name", "source mutation"]
+
+[[properties]]
+id = "ITEM-CREATED-EVENT-MIRRORS-ITEM"
+title = "Created-item events exactly mirror their source facts"
+statement = "The event decision copies the item's identity and name and the supplied occurrence time."
+scope = "The synchronous item_created_event domain decision."
+assumptions = ["The source Item is valid and occurred_at is an explicit datetime supplied by the caller."]
+kind = "model"
+strength = "normative"
+targets = ["{{ package }}.domain.decisions:item_created_event"]
+oracles = ["{{ package }}.domain.specifications:created_event_matches_item"]
+evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]
+crosshair_targets = ["{{ package }}.domain.decisions:item_created_event"]
+counterexample = "The event substitutes an item field or occurrence time."
+failure_modes = ["identifier mismatch", "name mismatch", "time mismatch"]
+
+[[properties]]
+id = "CREATE-ITEM-REPLAY-SAFE"
+title = "Create-item retries produce at most one committed effect"
+statement = "A new key commits once, an identical retry replays without a new event, and a conflicting retry is rejected without effects."
+scope = "Sequential calls to one CreateItem handler sharing one atomic repository."
+assumptions = [
+  "ItemRepository.create_once atomically binds one key to one fingerprint and item.",
+  "The event publisher succeeds; durable delivery is outside this property boundary.",
+]
+kind = "state_machine"
+strength = "normative"
+targets = ["{{ package }}.application.use_cases:CreateItem.__call__"]
+oracles = ["{{ package }}.application.specifications:create_item_replay_is_safe"]
+evidence = ["hypothesis-stateful", "falsifier"]
+counterexample = "An identical retry creates a second item/event or a conflicting retry changes state."
+failure_modes = ["duplicate effect", "conflicting replay accepted", "original result not replayed"]

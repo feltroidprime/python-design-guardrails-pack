@@ -15,26 +15,31 @@ When goals conflict, the higher rule wins:
 
 Before editing:
 
-1. Read the nearest `AGENTS.md`, `architecture.toml`, and relevant ADRs.
+1. Read the nearest `AGENTS.md`, `architecture.toml`, `proof.toml`, and relevant ADRs.
 2. Identify the domain concept, use case, boundary, and reason to change.
-3. Trace existing call paths and imports; extend an existing abstraction before creating a parallel one.
-4. State which layer owns the change and why.
+3. Name the property, its exact scope, external assumptions, and one plausible counterexample before choosing an implementation.
+4. Trace existing call paths and imports; extend an existing abstraction before creating a parallel one.
+5. State which layer owns the change and which external assumptions remain outside the proof boundary.
 
 While editing:
 
 1. Make the smallest vertical slice that proves the behavior.
-2. Write or update tests with the production code.
-3. Keep domain logic synchronous, deterministic, and framework-free.
-4. Inject time, randomness, identifiers, persistence, network clients, and side effects through application-owned ports.
-5. Finish a coherent edit before entering the check loop.
+2. Write or update the pure specification predicate before coupling evidence to implementation branches.
+3. Keep core state immutable and transformations synchronous, deterministic, side-effect free, and explicit-input driven.
+4. Attach the property to production with `icontract`, then add its canonical Hypothesis proof and falsifying canary.
+5. Use a `RuleBasedStateMachine` when retries, ordering, cancellation, ownership, or previous actions affect correctness.
+6. Inject time, randomness, identifiers, persistence, network clients, subprocesses, GitHub, MCP, and side effects through application-owned ports.
+7. Finish a coherent edit before entering the check loop.
 
 ### Check loop
 
-1. Run `just check`, the single repair and verification command. It applies deterministic repairs, then executes the full acceptance gate.
-2. On red, resolve the first remaining failure and rerun `just check`.
-3. Before deployment or publication, run `just doctor`. Every `fail` blocks the operation; `warn` is reserved for an explicitly unavailable check such as no remote or offline GitHub access.
-4. Green means the unmodified gate exits zero. Then report the behavior changed, tests added, architecture impact, and remaining risks.
-{% if agents_contract == 'hooks-first' %}5. Commit and push. Publication is complete when the commit and pre-push hooks succeed and `just doctor` reports no failures.
+1. Run `just prove-one PROPERTY-ID` for the shortest loop while changing one law, or `just prove` for a coherent multi-property edit. Both check global property closure, execute canonical evidence with the fast Hypothesis profile, and run bounded CrossHair analysis only on relevant explicit pure targets.
+2. Run `just check`, the single repair and full verification command, before handoff. It applies deterministic repairs, then executes the complete acceptance gate.
+3. On red, resolve the first remaining failure and rerun the same command. Never weaken a normative property merely to make an implementation pass.
+4. For concurrency, replay, state-machine, parser, or incident-prone changes, also run `just prove-deep`.
+5. Before deployment or publication, run `just doctor`. Every `fail` blocks the operation; `warn` is reserved for an explicitly unavailable check such as no remote or offline GitHub access.
+6. Green means the unmodified gate exits zero. Then report the property IDs changed, counterexamples considered, architecture impact, external assumptions, and remaining risks.
+{% if agents_contract == 'hooks-first' %}7. Commit and push. Publication is complete when the commit and pre-push hooks succeed and `just doctor` reports no failures.
 {% endif %}
 ### Scaffold updates
 
@@ -64,6 +69,45 @@ The private package is injected only for these opt-in commands. Before either
 one, authenticate `gh` for the package repository and run `gh auth setup-git`;
 baseline bootstrap and CI do not resolve it.
 
+## Proof-carrying core contract
+
+`proof.toml` is normative. It connects a business property to production code,
+a pure oracle, executable evidence, and—where appropriate—symbolic analysis.
+The repository rejects an incomplete chain before review:
+
+- Every public class, function, or method under the configured domain proof
+  roots is owned by a normative property or a future-dated exemption. Every
+  property states its scope and assumptions explicitly.
+- Every core `icontract.require`, `icontract.ensure`, or
+  `icontract.invariant` has a literal
+  `description="PROPERTY[UPPER-KEBAB-ID]: ..."` and calls a declared oracle.
+- Pure oracles live in a configured specification module, accept explicit
+  facts, return `bool`, and never perform I/O, read clocks/randomness, import, or
+  call the implementation they judge. The proof guard rejects known effectful
+  modules and operations and checks implementation independence statically.
+- Every property has exactly one `@pytest.mark.proves("ID")` Hypothesis test and
+  exactly one `@pytest.mark.falsifies("ID")` canary. The canonical proof must
+  invoke the exact declared target and oracle; constructing a callable class is
+  not evidence that its targeted `__call__` method ran. Additional examples and
+  regressions stay ordinary tests.
+- History-dependent behavior uses one literal local Hypothesis
+  `RuleBasedStateMachine`. Only its initialization, stateful rules/invariants,
+  and reachable helper methods count as canonical evidence; unrelated module
+  code and dead methods do not. Every contracted public function or method in
+  the proof surface is a mandatory CrossHair
+  target; the guard rejects omissions. Class invariants remain
+  Hypothesis-plus-canary evidence.
+- A canary is mandatory because generated tests around a tautology still prove
+  nothing. It must demonstrate a plausible bad candidate that the oracle
+  rejects.
+- Coverage remains a floor. It cannot substitute for a missing property,
+  counterexample, model, or state-machine invariant.
+
+Do not copy a condition from implementation into a test. Both production
+contracts and evidence call the independent predicate in
+`domain/specifications.py` (or a pure application specification for a workflow
+protocol). See `docs/architecture/PROVABILITY.md`; ADR-0006 owns the decision.
+
 ## Layer ownership
 
 ### `domain`
@@ -73,7 +117,7 @@ Owns business vocabulary, invariants, entities, aggregates, value objects, domai
 - Depends only on the standard-library portions allowed by `architecture.toml`.
 - Performs no I/O, environment reads, wall-clock reads, randomness/UUID generation, concurrency, logging, or framework imports.
 - Rejects invalid states during construction or aggregate operations.
-- Value objects and events are immutable, slotted, and keyword-only.
+- Entities, value objects, and events are immutable, slotted, and keyword-only; state changes return new values through pure decisions.
 
 ### `application`
 
@@ -112,6 +156,8 @@ The example application separates two kinds of code (see ADR-0001):
 | Talk to an external system | `adapters/outbound/sqlite_repository.py`: injected resource, errors translated to the application-owned error with causes preserved |
 | Resource lifecycle | `bootstrap.sqlite_application` context manager; acquire at the edge, release deterministically |
 | Certify a port implementation | subclass the port's contract in `tests/contract/` (see `item_repository_contract.py`) and provide a `repository` fixture |
+| Add/change a domain invariant or pure transition | declare it in `proof.toml`, write the oracle in `domain/specifications.py`, attach `icontract`, then add the canonical property and canary under `verification/tests/` |
+| Prove retries, ordering, leases, or legal transitions | write a small reference predicate and a Hypothesis `RuleBasedStateMachine`; keep external effects behind fakes/ports |
 | New port | single operation → callable `type` alias; multiple operations → `Protocol` (both in `application/ports.py`) |
 | Expose a CLI command | add one `CommandSpec` in `adapters/inbound/cli_catalog.py` and matching independent command/outcome process cases; preserve ADR-0002 and ADR-0004 |
 
@@ -175,7 +221,7 @@ outcome, and composition extension.
 
 {% if likec4 %}## Architecture diagrams (derived, never drawn)
 
-The LikeC4 model under `docs/architecture/likec4/generated/` is derived from the import-linter contracts and the real import graph (grimp). See `docs/adr/0006-derived-architecture-diagrams.md`.
+The LikeC4 model under `docs/architecture/likec4/generated/` is derived from the import-linter contracts and the real import graph (grimp). See `docs/adr/0007-derived-architecture-diagrams.md`.
 
 - Never edit files under `docs/architecture/likec4/generated/`; the check loop regenerates them before validating them.
 - Declare layers in exactly one place: the import-linter `layers` contract in `pyproject.toml`. Adding a layer there updates the linter and the diagrams simultaneously.
@@ -273,12 +319,15 @@ A filesystem location is a `pathlib.Path` from the moment it exists. A `str` pat
 ## Testing policy
 
 - Test externally observable behavior and invariants, not private implementation details.
-- Domain invariants receive example tests, plus property-based tests where the input space matters.
+- A critical law starts in `proof.toml`, not in a test name. The broad proof calls an independent oracle over generated data.
+- Use ordinary Hypothesis for input partitions, algebraic laws, models, and metamorphic relations; use `RuleBasedStateMachine` when history matters.
+- Every normative property has a falsifying canary. A property that cannot reject a plausible mutant is not ready.
+- Every contracted public function or method in the proof surface is a CrossHair target. Keep such symbols pure and deterministic; adapters remain under shared contracts, examples, integration tests, and fault scenarios.
 - Every port implementation must pass the shared contract test for that port.
-- Unit tests perform no network access; the test runner disables sockets by default.
+- Unit and proof tests perform no network access; the test runner disables sockets by default.
 - Integration tests are marked explicitly and still prefer local deterministic substitutes.
-- A bug fix starts with a failing regression test.
-- Coverage is a floor, not evidence of good assertions.
+- A bug fix starts with a failing regression test and, when the defect generalizes, a strengthened property or counterexample.
+- Coverage is a floor, not evidence that the right property was expressed.
 
 ## Anti-slop rules
 

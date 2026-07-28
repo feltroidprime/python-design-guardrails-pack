@@ -1,4 +1,4 @@
-# ADR-0006: Architecture diagrams are derived from the import graph
+# ADR-0007: Architecture diagrams are derived from the import graph
 
 - Status: accepted
 - Date: 2026-07-11

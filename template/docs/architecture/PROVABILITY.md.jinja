@@ -1,0 +1,173 @@
+# Provability workflow
+
+This is the default recipe for domain invariants, pure decisions, retries,
+state machines, ordering, deduplication, resource ownership, and any behavior
+whose correctness is a law rather than a finite list of examples.
+
+## The construction order
+
+### 1. State the property before the implementation
+
+Add one entry to `proof.toml` containing:
+
+- a stable `UPPER-KEBAB-CASE` ID;
+- one falsifiable statement;
+- the exact scope where it claims to hold;
+- every external assumption required for the claim;
+- the production symbols it owns;
+- the pure oracle functions that decide the statement;
+- likely failure modes;
+- one concrete counterexample;
+- the required evidence.
+
+A useful property says what must remain true across many inputs or action
+sequences. “Returns an `Item`” is usually weak. “Renaming returns new state,
+preserves identity, and installs exactly the requested validated name” is a
+real preservation law.
+
+### 2. Write the oracle in primitives
+
+Put pure predicates in `src/{{ package }}/domain/specifications.py` (or an
+application specification module for a workflow protocol). The predicate must:
+
+- depend only on explicit arguments;
+- return `bool`;
+- perform no I/O, clock read, randomness, mutation, or implementation call;
+- compare primitive facts where possible, so it cannot accidentally reproduce
+  the implementation under test;
+- live in a configured `specifications.py` module and never import or call the
+  production behavior it judges. The proof guard checks exact imports, rejects
+  known effectful modules and operations, and checks implementation independence
+  statically.
+
+```python
+def renamed_item_preserves_identity(
+    source_id: str,
+    source_name: str,
+    requested_name: str,
+    result_id: str,
+    result_name: str,
+) -> bool:
+    return result_id == source_id and result_name == requested_name
+```
+
+### 3. Shape the code so the property is tractable
+
+Use immutable values and a pure transition:
+
+```python
+@icontract.ensure(
+    lambda item, new_name, result: renamed_item_preserves_identity(
+        item.item_id.value,
+        item.name.value,
+        new_name.value,
+        result.item_id.value,
+        result.name.value,
+    ),
+    description=(
+        "PROPERTY[RENAME-ITEM-PRESERVES-IDENTITY]: rename keeps identity"
+    ),
+)
+def rename_item(item: Item, new_name: ItemName) -> Item:
+    return Item(item_id=item.item_id, name=new_name)
+```
+
+Do not put GitHub, MCP, CLI, subprocess, database, filesystem, time, or random
+access in this function. The application shell obtains those facts through
+ports and passes them in explicitly.
+
+### 4. Add the broad Hypothesis proof
+
+Each property owns exactly one canonical `@pytest.mark.proves(ID)` test. It
+calls the same oracle over generated data and routes failures through
+`assert_property`, preserving the stable ID.
+
+Use ordinary `@given` tests for input spaces and algebraic laws. Use
+`RuleBasedStateMachine` when correctness depends on action history, including:
+
+- retry and idempotency behavior;
+- leases and resource ownership;
+- legal status transitions;
+- duplicate, late, or reordered results;
+- bounded workflow expansion;
+- crash/reload protocols represented by explicit actions.
+
+Hypothesis then searches action sequences and shrinks a failure to a small
+counterexample. The canonical test must invoke the exact target and oracle
+declared in `proof.toml`; a constructor call alone never satisfies a targeted
+`__call__` method. A stateful proof passes one literal local
+`RuleBasedStateMachine` to `run_state_machine_as_test`. Only its `__init__`,
+stateful rules/invariants/initializers, and helpers reachable from those methods
+count as evidence, so unrelated or dead code cannot close the property chain.
+
+### 5. Add the falsifying canary
+
+Each property owns exactly one `@pytest.mark.falsifies(ID)` test. Pass a
+plausible invalid candidate to the oracle through `assert_falsifies` (or show
+boundary rejection with `assert_rejected`).
+
+The canary is not a regression test. It verifies the specification itself has
+teeth. If a future edit turns an oracle into `return True`, the canary fails.
+
+### 6. Keep every executable core contract symbolically searchable
+
+Every contracted public function or method in the proof surface must be listed
+in `crosshair_targets`. This is enforced automatically: an agent cannot attach
+an `icontract` postcondition to executable core behavior and silently omit the
+symbolic check. Class invariants remain covered by runtime construction,
+Hypothesis, and their canaries.
+
+Keep this rule tractable by making contracted functions synchronous,
+deterministic, side-effect free, and small. Do not target adapters or entire
+packages. CrossHair searches for inputs that violate each production contract;
+bounded search is part of the routine gate, not a claim of universal
+completeness.
+
+### 7. Run the correct lane
+
+```bash
+just prove                         # every coherent core edit
+just prove-one ITEM-ID-VALID       # fastest loop for one changed law
+just check                         # before handoff, commit, or merge
+just prove-deep                    # risky protocols, incidents, nightly CI
+just proof-report                  # review the complete property matrix
+```
+
+## Selecting the right property
+
+| Risk | Preferred property shape |
+|---|---|
+| Valid input/state | invariant plus accepted/rejected input partition |
+| Normalization | canonical output plus normalization idempotence |
+| Transformation | preservation relation over source, request, and result |
+| Encoding/persistence | round-trip relation against a reference value |
+| Scheduler/algorithm | equivalence with a small reference model |
+| Retry/deduplication | state machine with duplicate and conflicting actions |
+| Concurrency/resource lease | state invariant: at most one owner/effect |
+| Loop or dynamic expansion | monotone/decreasing budget and terminal-state property |
+| Adapter implementation | shared port contract plus deterministic fault scenarios |
+
+## What the gate enforces
+
+`scripts/proof_guard.py` rejects:
+
+- a new public domain class, function, or method with no property;
+- a catalog target or oracle that does not exist;
+- an `icontract` contract without a literal `PROPERTY[ID]` description;
+- a contract whose ID or oracle disagrees with `proof.toml`;
+- an oracle that is async, non-boolean, effect-shaped, stored outside a
+  specification module, or coupled back to implementation code;
+- a property without an explicit scope, assumptions field, exactly one broad
+  proof, and one canary;
+- example-only evidence where Hypothesis is required;
+- a state-machine property without exactly one literal local
+  `RuleBasedStateMachine` passed to `run_state_machine_as_test`;
+- constructor-only, same-named, dead-method, or unrelated-module evidence in
+  place of the exact declared target and oracle;
+- proof helpers carrying an ID different from the pytest marker;
+- a CrossHair target not owned by the corresponding contract;
+- a contracted public function or method omitted from CrossHair evidence.
+
+The gate deliberately does not infer the business property from code. Agents
+may propose candidates, but a maintainer accepts the normative statement and
+counterexample. Mechanical tools then try to falsify that accepted statement.

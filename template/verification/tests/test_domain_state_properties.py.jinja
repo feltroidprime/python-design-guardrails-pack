@@ -1,0 +1,67 @@
+"""Broad invariants for immutable aggregate and event state."""
+
+from datetime import datetime
+
+from hypothesis import given
+import pytest
+
+from {{ package }}.domain.entities import Item
+from {{ package }}.domain.events import ItemCreatedEvent
+from {{ package }}.domain.specifications import (
+    item_created_event_state_is_valid,
+    item_state_is_valid,
+)
+from {{ package }}.domain.value_objects import ItemId, ItemName
+from verification.harness.assertions import assert_falsifies, assert_property
+from verification.harness.strategies import aware_datetimes, item_ids, item_names
+
+
+@pytest.mark.proof
+@pytest.mark.proves("ITEM-STATE-VALID")
+@given(item_id=item_ids(), name=item_names())
+def test_every_constructed_item_satisfies_its_state_specification(
+    item_id: ItemId,
+    name: ItemName,
+) -> None:
+    item = Item(item_id=item_id, name=name)
+    assert_property(
+        condition=item_state_is_valid(item.item_id.value, item.name.value),
+        property_id="ITEM-STATE-VALID",
+    )
+
+
+@pytest.mark.proof
+@pytest.mark.falsifies("ITEM-STATE-VALID")
+def test_invalid_identifier_field_is_a_real_item_counterexample() -> None:
+    assert_falsifies(
+        condition=item_state_is_valid("", "Valid"),
+        property_id="ITEM-STATE-VALID",
+    )
+
+
+@pytest.mark.proof
+@pytest.mark.proves("ITEM-CREATED-EVENT-STATE-VALID")
+@given(item_id=item_ids(), name=item_names(), occurred_at=aware_datetimes())
+def test_every_constructed_event_satisfies_its_state_specification(
+    item_id: ItemId,
+    name: ItemName,
+    occurred_at: datetime,
+) -> None:
+    event = ItemCreatedEvent(item_id=item_id, name=name, occurred_at=occurred_at)
+    assert_property(
+        condition=item_created_event_state_is_valid(
+            event.item_id.value,
+            event.name.value,
+            event.occurred_at,
+        ),
+        property_id="ITEM-CREATED-EVENT-STATE-VALID",
+    )
+
+
+@pytest.mark.proof
+@pytest.mark.falsifies("ITEM-CREATED-EVENT-STATE-VALID")
+def test_invalid_event_fields_are_a_real_counterexample() -> None:
+    assert_falsifies(
+        condition=item_created_event_state_is_valid("", "Valid", object()),
+        property_id="ITEM-CREATED-EVENT-STATE-VALID",
+    )

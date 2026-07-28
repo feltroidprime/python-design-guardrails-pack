@@ -28,7 +28,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_GENERATED_TREE_SHA256 = "f5932d4aabd9a183f973529a87c6b9037106c28ba1d6a9df5fac3e3ecdf11ee5"
+EXPECTED_GENERATED_TREE_SHA256 = "d703fb1499986f3a9e25128b5c5ac2b4d09a2e2fc443edf0b72593499793b1d8"
 EXPECTED_TEMPLATE_SOURCE = (
     "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 )
@@ -41,6 +41,7 @@ INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", ""
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
 
 EXPECTED_FILES = (
+    ".github/PULL_REQUEST_TEMPLATE.md",
     ".github/workflows/quality.yml",
     ".gitignore",
     "prek.toml",
@@ -57,18 +58,36 @@ EXPECTED_FILES = (
     "docs/adr/0003-agent-session-evidence.md",
     "docs/adr/0004-agent-input-retry-and-composition-contract.md",
     "docs/adr/0005-review-finding-checks.md",
+    "docs/adr/0006-proof-carrying-core.md",
     "docs/architecture/EXCEPTIONS.md",
+    "docs/architecture/PROVABILITY.md",
     "justfile",
+    "proof.toml",
     "pyproject.toml",
     "scripts/architecture_guard.py",
     "scripts/architecture_rules.py",
     "scripts/__init__.py",
     "scripts/agent_sessions.py",
     "scripts/cli_discipline.py",
+    "scripts/crosshair_gate.py",
     "scripts/docs_guard.py",
     "scripts/doctor.py",
     "scripts/none_discipline.py",
     "scripts/override_discipline.py",
+    "scripts/proof_assertions.py",
+    "scripts/proof_ast.py",
+    "scripts/proof_catalog.py",
+    "scripts/proof_discovery.py",
+    "scripts/proof_evidence_rules.py",
+    "scripts/proof_guard.py",
+    "scripts/proof_guard_model.py",
+    "scripts/proof_invocations.py",
+    "scripts/proof_model.py",
+    "scripts/proof_oracle_rules.py",
+    "scripts/proof_sources.py",
+    "scripts/proof_stateful.py",
+    "scripts/proof_target_rules.py",
+    "scripts/proof_tests.py",
     "scripts/quality_gate.py",
     "scripts/review_discipline.py",
     "tests/e2e/session_contract.py",
@@ -83,7 +102,12 @@ EXPECTED_FILES = (
     f"src/{PACKAGE_NAME}/application/errors.py",
     f"src/{PACKAGE_NAME}/application/idempotency.py",
     f"src/{PACKAGE_NAME}/application/query_models.py",
+    f"src/{PACKAGE_NAME}/application/specifications.py",
     f"src/{PACKAGE_NAME}/bootstrap.py",
+    f"src/{PACKAGE_NAME}/domain/decisions.py",
+    f"src/{PACKAGE_NAME}/domain/entities.py",
+    f"src/{PACKAGE_NAME}/domain/events.py",
+    f"src/{PACKAGE_NAME}/domain/specifications.py",
     f"src/{PACKAGE_NAME}/domain/value_objects.py",
     f"src/{PACKAGE_NAME}/py.typed",
     "tests/contract/item_repository_contract.py",
@@ -101,6 +125,13 @@ EXPECTED_FILES = (
     "tests/integration/test_cli_safety_contract.py",
     "tests/unit/adapters/test_cli_protocol.py",
     "tests/unit/domain/test_value_objects.py",
+    "verification/conftest.py",
+    "verification/harness/assertions.py",
+    "verification/harness/strategies.py",
+    "verification/tests/test_create_item_state_machine.py",
+    "verification/tests/test_decision_properties.py",
+    "verification/tests/test_domain_state_properties.py",
+    "verification/tests/test_value_object_properties.py",
 )
 
 
@@ -165,6 +196,7 @@ def test_generated_repository_uses_prek_for_git_hooks(generated: Path) -> None:
     assert config["default_install_hook_types"] == ["pre-commit", "pre-push"]
     assert set(hooks) >= {
         "architecture-guard",
+        "proof-contract",
         "full-quality-gate",
         "ruff-check",
         "ruff-format",
@@ -191,11 +223,19 @@ def test_generated_justfile_has_one_routine_gate_and_one_private_e2e_route(
         "default",
         "bootstrap",
         "check",
+        "prove",
+        "prove-one",
+        "prove-deep",
+        "proof-report",
         "doctor",
         "scaffold-update",
         "update",
     ]
     assert "uv run python scripts/quality_gate.py --fix" in justfile
+    assert "uv run python -m scripts.proof_guard" in justfile
+    assert "uv run python -m scripts.crosshair_gate fast" in justfile
+    assert '--property-id "$1"' in justfile
+    assert "HYPOTHESIS_PROFILE=fast" in justfile
     assert (
         "env -u PYTHONPYCACHEPREFIX uvx --from copier==9.17.0 copier update "
         "--defaults --conflict inline" in justfile
@@ -592,7 +632,7 @@ def test_likec4_has_exact_file_delta(tmp_path: Path) -> None:
 
     assert set(baseline) - set(variant) == set()
     assert set(variant) - set(baseline) == {
-        "docs/adr/0006-derived-architecture-diagrams.md",
+        "docs/adr/0007-derived-architecture-diagrams.md",
         "docs/architecture/likec4/generated/baseline-views.c4",
         "docs/architecture/likec4/generated/model.c4",
         "docs/architecture/likec4/likec4.config.json",
@@ -663,11 +703,13 @@ def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> Non
     } == {".copier-answers.yml", "AGENTS.md"}
 
     expected_agents = baseline["AGENTS.md"].replace(
-        b"4. Green means the unmodified gate exits zero. Then report the behavior changed, tests "
-        b"added, architecture impact, and remaining risks.\n\n",
-        b"4. Green means the unmodified gate exits zero. Then report the behavior changed, tests "
-        b"added, architecture impact, and remaining risks.\n"
-        b"5. Commit and push. Publication is complete when the commit and pre-push hooks succeed "
+        b"6. Green means the unmodified gate exits zero. Then report the property IDs changed, "
+        b"counterexamples considered, architecture impact, external assumptions, and remaining "
+        b"risks.\n\n",
+        b"6. Green means the unmodified gate exits zero. Then report the property IDs changed, "
+        b"counterexamples considered, architecture impact, external assumptions, and remaining "
+        b"risks.\n"
+        b"7. Commit and push. Publication is complete when the commit and pre-push hooks succeed "
         b"and `just doctor` reports no failures.\n\n",
     )
     assert variant["AGENTS.md"] == expected_agents

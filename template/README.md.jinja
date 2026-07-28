@@ -29,13 +29,31 @@ without another install step.
 ## Daily commands
 
 ```bash
+just prove      # fast property closure + Hypothesis + bounded CrossHair
+just prove-one ITEM-ID-VALID  # shortest loop for one changed property
 just check      # deterministic repairs followed by the full acceptance gate
+just prove-deep # larger generated/stateful/symbolic search for risky changes
+just proof-report  # print the property/evidence matrix
 just doctor     # fast deployment and publication readiness verdict
 {% if likec4 %}just diagrams   # browse live architecture diagrams (LikeC4 viewer)
 {% endif %}just session-log <transcript> [output] [agent]  # preserve Claude/Codex evidence
 just scaffold-update  # merge the newest tagged scaffold release
 just update     # update dependencies and hook revisions intentionally
 ```
+
+The proof loop is intentionally narrower than the full gate. `proof.toml`
+closes the public domain surface: each critical symbol names a falsifiable
+property, exact scope, external assumptions, independent pure oracle, `icontract`
+link, canonical Hypothesis proof, and minimal canary. The guard resolves exact
+production and oracle imports, rejects constructor-only evidence for a targeted
+method, and confines stateful evidence to the literal `RuleBasedStateMachine`
+executed by the canonical test. It also rejects effect-shaped oracles and oracles
+that import or call the behavior they judge. Every contracted public core
+function or method must be an explicit CrossHair target, so agents cannot skip
+symbolic evidence. The daily loop searches meaningful state without
+traversing CLI, database, GitHub, MCP, or network effects. The full recipe and
+evidence rules are in
+`docs/architecture/PROVABILITY.md` (ADR-0006).
 
 Run `just doctor` immediately before deployment or publication. It emits one
 stable `ok`, `warn`, or `fail` line for hooks, the working tree, default-branch
@@ -143,7 +161,7 @@ bricks you keep and imitate. {% if agents_contract != 'none' %}The single owner 
 {% if likec4 %}## Architecture diagrams
 
 Diagrams are **derived from the code**, never hand-maintained
-(see `docs/adr/0006-derived-architecture-diagrams.md`):
+(see `docs/adr/0007-derived-architecture-diagrams.md`):
 
 - `docs/architecture/likec4/generated/` — model and baseline views,
   regenerated from the import graph. **Never edit these by hand**; the

@@ -84,7 +84,7 @@ def test_arch017_fires_on_optional_domain_field(policy: Policy) -> None:
         policy,
         "src/pkg/domain/entities.py",
         "from dataclasses import dataclass\n"
-        "@dataclass\n"
+        "@dataclass(frozen=True, slots=True, kw_only=True)\n"
         "class Drone:\n"
         "    location: str | None\n",
     )
@@ -97,7 +97,7 @@ def test_arch017_fires_on_typing_optional_spelling(policy: Policy) -> None:
         "src/pkg/domain/entities.py",
         "from dataclasses import dataclass\n"
         "from typing import Optional\n"
-        "@dataclass\n"
+        "@dataclass(frozen=True, slots=True, kw_only=True)\n"
         "class Drone:\n"
         "    location: Optional[str]\n",
     )
@@ -111,7 +111,7 @@ def test_arch016_and_arch017_both_fire_on_optional_domain_collection(policy: Pol
         policy,
         "src/pkg/domain/entities.py",
         "from dataclasses import dataclass\n"
-        "@dataclass\n"
+        "@dataclass(frozen=True, slots=True, kw_only=True)\n"
         "class Delivery:\n"
         "    avoid_zones: list[str] | None = None\n",
     )
@@ -144,7 +144,7 @@ def test_inline_exception_marker_suppresses_a_finding(policy: Policy) -> None:
         policy,
         "src/pkg/domain/entities.py",
         "from dataclasses import dataclass\n"
-        "@dataclass\n"
+        "@dataclass(frozen=True, slots=True, kw_only=True)\n"
         "class Drone:\n"
         "    location: str | None  # ARCH-EXCEPTION: ADR-0099\n",
     )
