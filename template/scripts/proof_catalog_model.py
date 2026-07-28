@@ -118,10 +118,7 @@ class ProofCatalog:
 
     @property
     def by_id(self) -> dict[str, PropertySpec]:
-        return {
-            property_spec.property_id: property_spec
-            for property_spec in self.properties
-        }
+        return {property_spec.property_id: property_spec for property_spec in self.properties}
 
     @property
     def target_ids(self) -> dict[str, frozenset[str]]:
@@ -143,9 +140,7 @@ class ProofCatalog:
                     property_ids=tuple(
                         property_spec.property_id for property_spec in entry.properties
                     ),
-                    exemption_targets=tuple(
-                        exemption.target for exemption in entry.exemptions
-                    ),
+                    exemption_targets=tuple(exemption.target for exemption in entry.exemptions),
                 )
                 for entry in self.catalogs
             ),

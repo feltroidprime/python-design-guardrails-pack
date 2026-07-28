@@ -51,9 +51,7 @@ def _validate_catalog_ownership(catalogs: tuple[CatalogEntry, ...]) -> None:
     locations_by_property: dict[str, list[Path]] = {}
     for catalog in catalogs:
         for property_spec in catalog.properties:
-            locations_by_property.setdefault(property_spec.property_id, []).append(
-                catalog.path
-            )
+            locations_by_property.setdefault(property_spec.property_id, []).append(catalog.path)
     duplicated = {
         property_id: locations
         for property_id, locations in locations_by_property.items()
@@ -64,12 +62,8 @@ def _validate_catalog_ownership(catalogs: tuple[CatalogEntry, ...]) -> None:
             f"{property_id} ({', '.join(location.as_posix() for location in locations)})"
             for property_id, locations in sorted(duplicated.items())
         )
-        raise DuplicatePropertyIdError(
-            f"Duplicate property IDs across catalogs: {descriptions}"
-        )
-    exemptions = tuple(
-        exemption for catalog in catalogs for exemption in catalog.exemptions
-    )
+        raise DuplicatePropertyIdError(f"Duplicate property IDs across catalogs: {descriptions}")
+    exemptions = tuple(exemption for catalog in catalogs for exemption in catalog.exemptions)
     exemption_targets = tuple(item.target for item in exemptions)
     if duplicates(exemption_targets):
         raise CatalogError("Proof catalogs repeat an exempted target")
@@ -81,14 +75,10 @@ def _validate_catalog_ownership(catalogs: tuple[CatalogEntry, ...]) -> None:
     }
     overlap = sorted(set(exemption_targets) & proven_targets)
     if overlap:
-        raise CatalogError(
-            f"Targets cannot be both proven and exempted: {', '.join(overlap)}"
-        )
+        raise CatalogError(f"Targets cannot be both proven and exempted: {', '.join(overlap)}")
 
 
-def _discover_catalogs(
-    proof_root: Path, policy: ProofPolicy
-) -> tuple[tuple[Path, str], ...]:
+def _discover_catalogs(proof_root: Path, policy: ProofPolicy) -> tuple[tuple[Path, str], ...]:
     discovered: list[tuple[Path, str]] = []
     for location in policy.catalog_locations:
         entry = proof_root / location.relative_path
@@ -162,9 +152,7 @@ def load_catalog(root: Path) -> ProofCatalog:
             f"proof/policy.toml schema_version must be exactly {POLICY_SCHEMA_VERSION}"
         )
     if "properties" in raw or "exemptions" in raw:
-        raise CatalogError(
-            "proof/policy.toml must not declare properties or exemptions"
-        )
+        raise CatalogError("proof/policy.toml must not declare properties or exemptions")
     policy = load_policy(root, raw)
     catalogs = tuple(
         _load_catalog_entry(entry, ownership_zone)
@@ -176,11 +164,7 @@ def load_catalog(root: Path) -> ProofCatalog:
         policy=policy,
         catalogs=catalogs,
         properties=tuple(
-            property_spec
-            for catalog in catalogs
-            for property_spec in catalog.properties
+            property_spec for catalog in catalogs for property_spec in catalog.properties
         ),
-        exemptions=tuple(
-            exemption for catalog in catalogs for exemption in catalog.exemptions
-        ),
+        exemptions=tuple(exemption for catalog in catalogs for exemption in catalog.exemptions),
     )

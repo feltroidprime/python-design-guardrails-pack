@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Enforce a closed property-to-contract-to-evidence chain."""
 
-import sys
 from pathlib import Path
+import sys
 
 from scripts.proof_catalog import CatalogError, ProofCatalog, load_catalog
 from scripts.proof_discovery import (
@@ -31,9 +31,7 @@ def check(root: Path) -> tuple[ProofCatalog | None, tuple[Violation, ...]]:
             for proof_test in discover_tests(test_root)
         )
     except (CatalogError, DiscoveryError, OSError, SyntaxError) as error:
-        return None, (
-            violation(root / "proof" / "policy.toml", 1, "PROOF000", str(error)),
-        )
+        return None, (violation(root / "proof" / "policy.toml", 1, "PROOF000", str(error)),)
     violations = [
         *closure_violations(catalog, behavior_targets),
         *property_target_violations(catalog, target_map),

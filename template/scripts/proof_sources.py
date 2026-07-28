@@ -1,9 +1,9 @@
 """Discover public core behaviors, contracts, and executable oracles."""
 
 import ast
-import re
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import TYPE_CHECKING
 
 from scripts.proof_ast import direct_invoked_targets, dotted_name, import_bindings
@@ -48,9 +48,7 @@ def _module_name(path: Path, source_roots: SourceRoots) -> str:
         if path.is_relative_to(source_root)
     )
     if not containing_roots:
-        raise DiscoveryError(
-            f"Path '{path}' does not belong to a configured source root"
-        )
+        raise DiscoveryError(f"Path '{path}' does not belong to a configured source root")
     source_root = max(containing_roots, key=lambda candidate: len(candidate.parts))
     relative = path.relative_to(source_root).with_suffix("")
     parts = relative.parts[:-1] if relative.name == "__init__" else relative.parts
@@ -76,14 +74,10 @@ def _module_path(module: str, source_roots: SourceRoots) -> Path:
             candidates.append(package_path)
     if not candidates:
         roots = ", ".join(path.as_posix() for path in _source_roots(source_roots))
-        raise DiscoveryError(
-            f"Module '{module}' does not exist under source roots: {roots}"
-        )
+        raise DiscoveryError(f"Module '{module}' does not exist under source roots: {roots}")
     if len(candidates) > 1:
         paths = ", ".join(path.as_posix() for path in candidates)
-        raise DiscoveryError(
-            f"Module '{module}' is ambiguous across source roots: {paths}"
-        )
+        raise DiscoveryError(f"Module '{module}' is ambiguous across source roots: {paths}")
     return candidates[0]
 
 
@@ -133,9 +127,7 @@ def module_facts(tree: ast.Module) -> ModuleFacts:
 
 
 def _literal_description(call: ast.Call) -> str | None:
-    descriptions = [
-        keyword.value for keyword in call.keywords if keyword.arg == "description"
-    ]
+    descriptions = [keyword.value for keyword in call.keywords if keyword.arg == "description"]
     if len(descriptions) != 1:
         return None
     value = descriptions[0]
@@ -152,11 +144,7 @@ def _condition_invoked_targets(call: ast.Call, facts: ModuleFacts) -> frozenset[
         if isinstance(argument, ast.Name)
     )
     return frozenset[str]().union(
-        *(
-            direct_invoked_targets(condition, facts.imports)
-            for condition in named
-            if condition
-        )
+        *(direct_invoked_targets(condition, facts.imports) for condition in named if condition)
     )
 
 
@@ -171,9 +159,7 @@ def _contract_link(
     if name not in CONTRACT_DECORATORS:
         return None
     description = _literal_description(decorator)
-    match = (
-        PROPERTY_DESCRIPTION.fullmatch(description) if description is not None else None
-    )
+    match = PROPERTY_DESCRIPTION.fullmatch(description) if description is not None else None
     return ContractLink(
         path=path,
         line=decorator.lineno,
@@ -239,8 +225,7 @@ def _class_targets(
             facts,
         )
         for member in node.body
-        if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and _public_name(member.name)
+        if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)) and _public_name(member.name)
     )
     return tuple(targets)
 
@@ -251,12 +236,8 @@ def _targets_in_file(path: Path, source_roots: SourceRoots) -> tuple[SourceTarge
     facts = module_facts(tree)
     targets: list[SourceTarget] = []
     for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _public_name(
-            node.name
-        ):
-            targets.append(
-                _source_target(path, module, node.name, node, "function", facts)
-            )
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _public_name(node.name):
+            targets.append(_source_target(path, module, node.name, node, "function", facts))
         elif isinstance(node, ast.ClassDef) and _public_name(node.name):
             targets.extend(_class_targets(path, module, node, facts))
     return tuple(targets)
@@ -387,11 +368,8 @@ def discover_oracle(source_roots: SourceRoots, target: str) -> OracleShape | Non
         module_stem=module.rpartition(".")[2],
         is_async=isinstance(node, ast.AsyncFunctionDef),
         return_annotation=dotted_name(node.returns) if node.returns is not None else "",
-        has_variadic_parameters=node.args.vararg is not None
-        or node.args.kwarg is not None,
+        has_variadic_parameters=node.args.vararg is not None or node.args.kwarg is not None,
         called_names=frozenset[str]().union(*(_called_names(part) for part in body)),
         imported_modules=_imported_modules(tree),
-        forbidden_nodes=frozenset[str]().union(
-            *(_forbidden_node_names(part) for part in body)
-        ),
+        forbidden_nodes=frozenset[str]().union(*(_forbidden_node_names(part) for part in body)),
     )

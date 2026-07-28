@@ -69,9 +69,7 @@ def text(value: object, name: str) -> str:
     return value.strip()
 
 
-def text_tuple(
-    value: object, name: str, *, allow_empty: bool = False
-) -> tuple[str, ...]:
+def text_tuple(value: object, name: str, *, allow_empty: bool = False) -> tuple[str, ...]:
     values = _array(value, name)
     if not values and not allow_empty:
         raise CatalogError(f"{name} must be a non-empty array of non-blank strings")
@@ -83,9 +81,7 @@ def _optional_text_tuple(value: object | None, name: str) -> tuple[str, ...]:
 
 
 def _validate_targets(values: tuple[str, ...], name: str) -> None:
-    invalid = tuple(
-        value for value in values if TARGET_PATTERN.fullmatch(value) is None
-    )
+    invalid = tuple(value for value in values if TARGET_PATTERN.fullmatch(value) is None)
     if invalid:
         raise CatalogError(f"{name} contains invalid target(s): {', '.join(invalid)}")
     if len(set(values)) != len(values):
@@ -93,9 +89,7 @@ def _validate_targets(values: tuple[str, ...], name: str) -> None:
 
 
 def _validate_modules(values: tuple[str, ...], name: str) -> None:
-    invalid = tuple(
-        value for value in values if MODULE_PATTERN.fullmatch(value) is None
-    )
+    invalid = tuple(value for value in values if MODULE_PATTERN.fullmatch(value) is None)
     if invalid:
         raise CatalogError(f"{name} contains invalid module(s): {', '.join(invalid)}")
 
@@ -107,9 +101,7 @@ def _relative_path(path: Path, name: str) -> Path:
 
 
 def _policy_paths(root: Path, value: object, name: str) -> tuple[Path, ...]:
-    relative_paths = tuple(
-        _relative_path(Path(item), name) for item in text_tuple(value, name)
-    )
+    relative_paths = tuple(_relative_path(Path(item), name) for item in text_tuple(value, name))
     if len(set(relative_paths)) != len(relative_paths):
         raise CatalogError(f"{name} repeats a path")
     return tuple(root / path for path in relative_paths)
@@ -124,14 +116,10 @@ def _validate_catalog_zones(catalogs: dict[str, object]) -> None:
         )
     missing_zones = sorted(ALLOWED_OWNERSHIP_ZONES - declared_zones)
     if missing_zones:
-        raise CatalogError(
-            f"catalogs is missing ownership zone(s): {', '.join(missing_zones)}"
-        )
+        raise CatalogError(f"catalogs is missing ownership zone(s): {', '.join(missing_zones)}")
 
 
-def _catalog_location(
-    relative_path: Path, name: str, ownership_zone: str
-) -> CatalogLocation:
+def _catalog_location(relative_path: Path, name: str, ownership_zone: str) -> CatalogLocation:
     relative_path = _relative_path(relative_path, name)
     if relative_path == Path("policy.toml"):
         raise CatalogError("catalogs cannot include policy.toml")
@@ -172,9 +160,7 @@ def load_policy(root: Path, raw: dict[str, object]) -> ProofPolicy:
     behavior_roots = text_tuple(policy.get("behavior_roots"), "policy.behavior_roots")
     _validate_modules(behavior_roots, "policy.behavior_roots")
     return ProofPolicy(
-        source_roots=_policy_paths(
-            root, policy.get("source_roots"), "policy.source_roots"
-        ),
+        source_roots=_policy_paths(root, policy.get("source_roots"), "policy.source_roots"),
         test_roots=_policy_paths(root, policy.get("test_roots"), "policy.test_roots"),
         behavior_roots=behavior_roots,
         excluded_module_stems=frozenset(
@@ -194,9 +180,7 @@ def load_policy(root: Path, raw: dict[str, object]) -> ProofPolicy:
 def _property_identity(raw: dict[str, object], prefix: str) -> _PropertyIdentity:
     property_id = text(raw.get("id"), f"{prefix}.id")
     if PROPERTY_ID_PATTERN.fullmatch(property_id) is None:
-        raise CatalogError(
-            f"Property ID '{property_id}' must use stable UPPER-KEBAB-CASE"
-        )
+        raise CatalogError(f"Property ID '{property_id}' must use stable UPPER-KEBAB-CASE")
     kind = text(raw.get("kind"), f"{prefix}.kind")
     if kind not in ALLOWED_KINDS:
         raise CatalogError(f"Property '{property_id}' has unsupported kind '{kind}'")
@@ -208,9 +192,7 @@ def _property_identity(raw: dict[str, object], prefix: str) -> _PropertyIdentity
     return _PropertyIdentity(property_id=property_id, kind=kind, strength=strength)
 
 
-def _property_links(
-    raw: dict[str, object], prefix: str, property_id: str
-) -> _PropertyLinks:
+def _property_links(raw: dict[str, object], prefix: str, property_id: str) -> _PropertyLinks:
     targets = text_tuple(raw.get("targets"), f"{prefix}.targets")
     oracles = text_tuple(raw.get("oracles"), f"{prefix}.oracles")
     crosshair_targets = _optional_text_tuple(
@@ -254,9 +236,7 @@ def _validate_evidence(
     return evidence
 
 
-def _validate_state_machine(
-    property_id: str, kind: str, evidence: frozenset[str]
-) -> None:
+def _validate_state_machine(property_id: str, kind: str, evidence: frozenset[str]) -> None:
     if kind != "state_machine":
         return
     if "hypothesis" in evidence:
@@ -274,9 +254,7 @@ def _validate_state_machine(
         )
 
 
-def _validate_crosshair(
-    property_id: str, evidence: frozenset[str], links: _PropertyLinks
-) -> None:
+def _validate_crosshair(property_id: str, evidence: frozenset[str], links: _PropertyLinks) -> None:
     if bool(links.crosshair_targets) != ("crosshair" in evidence):
         raise CatalogError(
             " ".join(
@@ -315,9 +293,7 @@ def load_property(value: object, index: int) -> PropertySpec:
         title=text(raw.get("title"), f"{prefix}.title"),
         statement=text(raw.get("statement"), f"{prefix}.statement"),
         scope=text(raw.get("scope"), f"{prefix}.scope"),
-        assumptions=text_tuple(
-            raw.get("assumptions"), f"{prefix}.assumptions", allow_empty=True
-        ),
+        assumptions=text_tuple(raw.get("assumptions"), f"{prefix}.assumptions", allow_empty=True),
         kind=identity.kind,
         strength=identity.strength,
         targets=links.targets,
@@ -373,6 +349,4 @@ def read_toml(path: Path, label: str) -> dict[str, object]:
     try:
         return table(tomllib.loads(path.read_text(encoding="utf-8")), label)
     except (OSError, tomllib.TOMLDecodeError) as error:
-        raise CatalogError(
-            f"Cannot read {label} '{path.as_posix()}': {error}"
-        ) from error
+        raise CatalogError(f"Cannot read {label} '{path.as_posix()}': {error}") from error
