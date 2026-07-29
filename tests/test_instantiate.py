@@ -151,6 +151,7 @@ EXPECTED_FILES = (
     "tests/integration/test_cli_outcomes.py",
     "tests/integration/test_cli_safety_contract.py",
     "tests/repoctl/test_draft_capsule.py",
+    "tests/repoctl/test_capability_contract.py",
     "tests/repoctl/unit/test_plan_models.py",
     "tests/unit/adapters/test_cli_protocol.py",
     "tests/unit/domain/test_value_objects.py",
