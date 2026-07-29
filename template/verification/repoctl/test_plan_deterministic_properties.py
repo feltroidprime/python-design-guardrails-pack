@@ -268,19 +268,18 @@ def test_planner_domain_rejects_a_deliberate_os_import() -> None:
             policy,
         )
     }
-    mutation = "import os\n" + source
-    mutation_codes = {
-        item.code
-        for item in check_source(
-            path,
-            mutation,
-            ast.parse(mutation, filename=str(path)),
-            policy,
-        )
-    }
-
     assert "ARCH011" not in clean_codes
-    assert "ARCH011" in mutation_codes
+    for mutation in ("import os\n" + source, "import shutil\n" + source):
+        mutation_codes = {
+            item.code
+            for item in check_source(
+                path,
+                mutation,
+                ast.parse(mutation, filename=str(path)),
+                policy,
+            )
+        }
+        assert "ARCH011" in mutation_codes
 
 
 def test_planner_symbols_are_exposed_only_through_the_capability_api() -> None:

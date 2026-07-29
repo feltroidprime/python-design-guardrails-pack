@@ -16,6 +16,11 @@ if TYPE_CHECKING:
 TYPE_IGNORE_TOKEN = "type:" + " ignore"
 PYRIGHT_IGNORE_TOKEN = "pyright:" + " ignore"
 NOQA_TOKEN = "no" + "qa"
+REPOSITORY_GENERATION_APPLICATION_SCOPE = "Repository-generation application"
+REPOSITORY_GENERATION_DOMAIN_SCOPE = "Repository-generation domain"
+REPOSITORY_GENERATION_DOMAIN_IMPORT_ROOTS = frozenset(
+    ("dataclasses", "hashlib", "icontract", "json", "re", "repoctl", "typing", "unicodedata")
+)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -253,18 +258,39 @@ def check_import(
     node: ast.Import | ast.ImportFrom,
     policy: Policy,
     *,
-    in_domain: bool,
+    ambient_effect_scope: str | None,
 ) -> list[Violation]:
     violations: list[Violation] = []
-    if in_domain:
+    if ambient_effect_scope == REPOSITORY_GENERATION_APPLICATION_SCOPE:
+        violations.append(
+            violation(
+                path,
+                node,
+                "ARCH011",
+                (
+                    "Repository-generation application code must remain import-free "
+                    "during the planning-only stage."
+                ),
+            )
+        )
+    elif ambient_effect_scope is not None:
+        imported_roots = import_roots(node)
+        forbidden_roots = (
+            imported_roots - REPOSITORY_GENERATION_DOMAIN_IMPORT_ROOTS
+            if ambient_effect_scope == REPOSITORY_GENERATION_DOMAIN_SCOPE
+            else imported_roots & policy.forbidden_import_roots
+        )
         violations.extend(
             violation(
                 path,
                 node,
                 "ARCH011",
-                f"Domain must not import '{root}'; inject the capability through a port.",
+                (
+                    f"{ambient_effect_scope} must not import '{root}'; "
+                    "inject the capability through a port."
+                ),
             )
-            for root in sorted(import_roots(node) & policy.forbidden_import_roots)
+            for root in sorted(forbidden_roots)
         )
     if (
         isinstance(node, ast.ImportFrom)
@@ -282,22 +308,28 @@ def check_call(
     node: ast.Call,
     policy: Policy,
     *,
-    in_domain: bool,
+    ambient_effect_scope: str | None,
 ) -> list[Violation]:
-    if not in_domain:
+    if ambient_effect_scope is None:
         return []
     name = dotted_name(node.func)
-    forbidden = any(
+    forbidden = ambient_effect_scope == REPOSITORY_GENERATION_APPLICATION_SCOPE or any(
         name == suffix or name.endswith(f".{suffix}") for suffix in policy.forbidden_call_suffixes
     )
     if not forbidden:
         return []
+    message = (
+        "Repository-generation application code must remain call-free during "
+        "the planning-only stage."
+        if ambient_effect_scope == REPOSITORY_GENERATION_APPLICATION_SCOPE
+        else f"{ambient_effect_scope} call '{name}' is nondeterministic or performs I/O."
+    )
     return [
         violation(
             path,
             node,
             "ARCH012",
-            f"Domain call '{name}' is nondeterministic or performs I/O.",
+            message,
         )
     ]
 
@@ -311,9 +343,25 @@ def is_domain_source(path: Path, policy: Policy) -> bool:
     )
 
 
+def ambient_effect_scope(path: Path, policy: Policy) -> str | None:
+    """Name source layers whose decisions must remain free of ambient effects."""
+    repository_generation_domain = policy.root / "repoctl/modules/repository_generation/domain"
+    repository_generation_application = (
+        policy.root / "repoctl/modules/repository_generation/application"
+    )
+    if is_under(path, repository_generation_domain):
+        return REPOSITORY_GENERATION_DOMAIN_SCOPE
+    if is_under(path, repository_generation_application):
+        return REPOSITORY_GENERATION_APPLICATION_SCOPE
+    if is_domain_source(path, policy):
+        return "Domain"
+    return None
+
+
 def check_tree(path: Path, tree: ast.AST, policy: Policy) -> list[Violation]:
     violations: list[Violation] = []
     in_domain = is_domain_source(path, policy)
+    effect_scope = ambient_effect_scope(path, policy)
     immutable = in_domain and path.stem in policy.immutable_module_stems
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -321,9 +369,9 @@ def check_tree(path: Path, tree: ast.AST, policy: Policy) -> list[Violation]:
         if isinstance(node, ast.ClassDef):
             violations.extend(check_class(path, node, policy, immutable_domain_module=immutable))
         if isinstance(node, (ast.Import, ast.ImportFrom)):
-            violations.extend(check_import(path, node, policy, in_domain=in_domain))
+            violations.extend(check_import(path, node, policy, ambient_effect_scope=effect_scope))
         if isinstance(node, ast.Call):
-            violations.extend(check_call(path, node, policy, in_domain=in_domain))
+            violations.extend(check_call(path, node, policy, ambient_effect_scope=effect_scope))
     return violations
 
 

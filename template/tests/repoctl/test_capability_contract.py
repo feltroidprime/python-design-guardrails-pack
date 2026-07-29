@@ -1,11 +1,15 @@
 """Prove system and product capabilities execute one validator rule set."""
 
 import ast
-from dataclasses import replace
+from collections.abc import Callable
+import importlib.util
 import inspect
 from pathlib import Path
 import re
 import shutil
+import sys
+from types import ModuleType
+from typing import cast
 
 import pytest
 
@@ -13,21 +17,31 @@ from scripts import capability_validator
 from scripts.capability_validator import (
     CAPABILITY_RULE_IDS,
     ValidationReport,
-    validate_capability,
 )
 
 SYSTEM_ROOT = Path("repoctl/modules/repository_generation")
 PRODUCT_ROOT = Path("src/product/modules/billing")
-RULE_FUNCTIONS = frozenset(
-    {
-        "required_structure_violations",
-        "layer_direction_violations",
-        "public_surface_violations",
-    }
+RULE_FUNCTIONS: tuple[tuple[str, str], ...] = (
+    ("CAP001", "required_structure_violations"),
+    ("CAP002", "layer_direction_violations"),
+    ("CAP003", "public_surface_violations"),
 )
 BYPASS_TERMS = frozenset({"bypass", "disable", "exclude", "exempt", "skip"})
 ASSIGNMENT_NAME = re.compile(r"(?m)^\s*([A-Za-z0-9_.-]+)\s*=")
 TABLE_NAME = re.compile(r"(?m)^\s*\[+([A-Za-z0-9_.-]+)")
+SYSTEM_SKIP_NEEDLE = """\
+def layer_direction_violations(capability: Capability) -> tuple[Violation, ...]:
+    violations: list[Violation] = []
+"""
+SYSTEM_SKIP_REPLACEMENT = (
+    'SYSTEM_PREFIX = "repo" + "ctl."\n\n\n'
+    "def layer_direction_violations(capability: Capability) -> tuple[Violation, ...]:\n"
+    "    if capability.module.startswith(SYSTEM_PREFIX):\n"
+    "        return ()\n"
+    "    violations: list[Violation] = []\n"
+)
+
+type ValidateFunction = Callable[[Path, Path, str | None], ValidationReport]
 
 
 def repository_root() -> Path:
@@ -61,18 +75,66 @@ def _seed_product(root: Path) -> None:
         _ = target.write_text(content, encoding="utf-8")
 
 
+def _validate(
+    validator: ModuleType,
+    repository: Path,
+    root: Path,
+    ownership: str,
+) -> ValidationReport:
+    validate = cast("ValidateFunction", validator.validate_capability)
+    return validate(repository, root, ownership)
+
+
+def _seed_rule_probes(repository: Path) -> None:
+    for capability_root, dependency in (
+        (
+            SYSTEM_ROOT,
+            "repoctl.modules.repository_generation.application",
+        ),
+        (
+            PRODUCT_ROOT,
+            "product.modules.billing.application",
+        ),
+    ):
+        shutil.rmtree(repository / capability_root / "adapters/outbound")
+        _ = (repository / capability_root / "domain/rule_probe.py").write_text(
+            f"from {dependency} import rule_probe\n",
+            encoding="utf-8",
+        )
+
+    consumers = {
+        Path("tests/system_rule_probe.py"): (
+            "from repoctl.modules.repository_generation.domain import intents\n"
+        ),
+        Path("tests/product_rule_probe.py"): ("from product.modules.billing.domain import model\n"),
+    }
+    for relative, content in consumers.items():
+        target = repository / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _ = target.write_text(content, encoding="utf-8")
+
+
 def build_reports(
     source_root: Path,
     tmp_path: Path,
+    validator: ModuleType = capability_validator,
+    *,
+    probe_rules: bool = False,
 ) -> tuple[ValidationReport, ValidationReport]:
-    repository = tmp_path / "repository"
+    repository = tmp_path / ("rule-probe-repository" if probe_rules else "repository")
     repository.mkdir()
     _write_policy(repository)
     _ = shutil.copytree(source_root / SYSTEM_ROOT, repository / SYSTEM_ROOT)
     _seed_product(repository)
-    system = validate_capability(repository, SYSTEM_ROOT, "FOUNDATION")
-    product = validate_capability(repository, PRODUCT_ROOT, "PRODUCT")
+    if probe_rules:
+        _seed_rule_probes(repository)
+    system = _validate(validator, repository, SYSTEM_ROOT, "FOUNDATION")
+    product = _validate(validator, repository, PRODUCT_ROOT, "PRODUCT")
     return system, product
+
+
+def observed_rule_ids(report: ValidationReport) -> frozenset[str]:
+    return frozenset(item.code for item in report.violations)
 
 
 def assert_identical_rule_sets(
@@ -80,14 +142,36 @@ def assert_identical_rule_sets(
     product: ValidationReport,
 ) -> None:
     expected = frozenset(CAPABILITY_RULE_IDS)
-    system_rules = frozenset(system.rule_ids)
-    product_rules = frozenset(product.rule_ids)
-    assert len(system.rule_ids) == len(system_rules)
-    assert len(product.rule_ids) == len(product_rules)
+    system_rules = observed_rule_ids(system)
+    product_rules = observed_rule_ids(product)
     assert system_rules == product_rules == expected, (
-        f"system rules {sorted(system_rules)} != product rules "
+        f"system observed rules {sorted(system_rules)} != product observed rules "
         f"{sorted(product_rules)} != expected {sorted(expected)}"
     )
+    assert system.rule_ids == product.rule_ids == CAPABILITY_RULE_IDS
+
+
+def load_system_rule_body_skip_mutant(tmp_path: Path) -> ModuleType:
+    source_path = inspect.getsourcefile(capability_validator)
+    assert source_path is not None
+    source = Path(source_path).read_text(encoding="utf-8")
+    assert source.count(SYSTEM_SKIP_NEEDLE) == 1
+    target = tmp_path / "capability_validator_system_rule_body_skip_mutant.py"
+    _ = target.write_text(
+        source.replace(SYSTEM_SKIP_NEEDLE, SYSTEM_SKIP_REPLACEMENT),
+        encoding="utf-8",
+    )
+    module_name = "_capability_validator_system_rule_body_skip_mutant"
+    spec = importlib.util.spec_from_file_location(module_name, target)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        del sys.modules[module_name]
+    return module
 
 
 def _function(tree: ast.Module, name: str) -> ast.FunctionDef:
@@ -127,16 +211,13 @@ def assert_no_repoctl_rule_bypass(source_root: Path) -> None:
         for node in ast.walk(validator)
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
     }
-    assert direct_calls >= RULE_FUNCTIONS
+    assert direct_calls >= {function_name for _, function_name in RULE_FUNCTIONS}
     assert not _branch_expressions(validator)
 
-    for name in RULE_FUNCTIONS:
+    for _, name in RULE_FUNCTIONS:
         branches = _branch_expressions(_function(tree, name))
         assert all("ownership" not in expression for expression in branches)
-        assert all(
-            not ("repoctl" in expression and any(term in expression for term in BYPASS_TERMS))
-            for expression in branches
-        )
+        assert all("repoctl" not in expression for expression in branches)
 
     environment_access = {
         node.attr
@@ -159,18 +240,28 @@ def test_system_and_product_execute_identical_rule_identifier_sets(
     assert product.capability.ownership == "PRODUCT"
     assert system.violations == ()
     assert product.violations == ()
-    assert_identical_rule_sets(system, product)
+
+    system_probe, product_probe = build_reports(
+        repository_root(),
+        tmp_path,
+        probe_rules=True,
+    )
+    assert_identical_rule_sets(system_probe, product_probe)
 
 
 def test_rule_set_equality_detects_a_system_only_skip(tmp_path: Path) -> None:
-    system, product = build_reports(repository_root(), tmp_path)
-    mutant = replace(
-        system,
-        rule_ids=tuple(rule for rule in system.rule_ids if rule != "CAP002"),
+    mutant = load_system_rule_body_skip_mutant(tmp_path)
+    system, product = build_reports(
+        repository_root(),
+        tmp_path,
+        validator=mutant,
+        probe_rules=True,
     )
 
-    with pytest.raises(AssertionError, match="system rules"):
-        assert_identical_rule_sets(mutant, product)
+    assert "CAP002" in system.rule_ids
+    assert "CAP002" not in observed_rule_ids(system)
+    with pytest.raises(AssertionError, match="system observed rules"):
+        assert_identical_rule_sets(system, product)
 
 
 def test_repository_has_no_repoctl_rule_bypass() -> None:

@@ -3,6 +3,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from scripts.architecture_policy import load_policy
+from scripts.architecture_rules import check_source
 from scripts.ownership import classify_path
 from scripts.ownership_policy import load_ownership_policy
 
@@ -69,3 +71,39 @@ def test_repoctl_tree_is_entirely_foundation_owned() -> None:
     assert {str(classify_path(path.relative_to(root), policy)) for path in repoctl_files} == {
         "FOUNDATION"
     }
+
+
+def test_repository_generation_application_rejects_ambient_effects() -> None:
+    root = repository_root()
+    path = root / CAPABILITY_ROOT / "application/__init__.py"
+    policy = load_policy(root)
+    source = path.read_text(encoding="utf-8")
+    clean_codes = {
+        item.code
+        for item in check_source(
+            path,
+            source,
+            ast.parse(source, filename=str(path)),
+            policy,
+        )
+    }
+    assert clean_codes.isdisjoint({"ARCH011", "ARCH012"})
+    mutations = (
+        source + '\nimport os\n\n\ndef read_state() -> object:\n    return open("state")\n',
+        source
+        + (
+            "\nimport shutil\n\n\ndef copy_state() -> object:\n"
+            '    return shutil.copyfile("a", "b")\n'
+        ),
+    )
+    for mutation in mutations:
+        mutation_codes = {
+            item.code
+            for item in check_source(
+                path,
+                mutation,
+                ast.parse(mutation, filename=str(path)),
+                policy,
+            )
+        }
+        assert {"ARCH011", "ARCH012"} <= mutation_codes

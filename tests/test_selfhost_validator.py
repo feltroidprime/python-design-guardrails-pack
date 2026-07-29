@@ -29,20 +29,27 @@ def test_template_system_and_product_execute_identical_rules(
     system, product = CONTRACT.build_reports(REPO_ROOT / "template", tmp_path)
     assert system.violations == ()
     assert product.violations == ()
-    CONTRACT.assert_identical_rule_sets(system, product)
+    system_probe, product_probe = CONTRACT.build_reports(
+        REPO_ROOT / "template",
+        tmp_path,
+        probe_rules=True,
+    )
+    CONTRACT.assert_identical_rule_sets(system_probe, product_probe)
 
 
 def test_template_contract_detects_a_system_only_rule_skip(
     tmp_path: Path,
 ) -> None:
-    system, product = CONTRACT.build_reports(REPO_ROOT / "template", tmp_path)
-    mutant = CONTRACT.replace(
-        system,
-        rule_ids=tuple(rule for rule in system.rule_ids if rule != "CAP002"),
+    mutant = CONTRACT.load_system_rule_body_skip_mutant(tmp_path)
+    system, product = CONTRACT.build_reports(
+        REPO_ROOT / "template",
+        tmp_path,
+        validator=mutant,
+        probe_rules=True,
     )
 
     try:
-        CONTRACT.assert_identical_rule_sets(mutant, product)
+        CONTRACT.assert_identical_rule_sets(system, product)
     except AssertionError:
         pass
     else:

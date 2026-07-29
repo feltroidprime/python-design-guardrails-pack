@@ -14,8 +14,9 @@ product.
   `instantiate.py` is the stable adapter over pinned Copier and the module behind the
   installable `python-repo` console script (`python-repo init <name>
   [directory] [--package NAME] [--public] [--no-github] [--no-git]`); the
-  root `pyproject.toml` exists solely to package that CLI plus `template/`
-  for `uv tool install` (see `just install`). The `init` subcommand also runs
+  root `pyproject.toml` packages that CLI plus `template/` for
+  `uv tool install` and owns the pack's Ruff policy (see `just install` and
+  `just check`). The `init` subcommand also runs
   `git init`, `just bootstrap` (dependency sync, prek hook installation, and
   the generated quality gate), the initial commit, and
   `gh repo create --private … --push`, in that order;
