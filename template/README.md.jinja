@@ -36,6 +36,16 @@ just scaffold-update  # merge the newest tagged scaffold release
 just update     # update dependencies and hook revisions intentionally
 ```
 
+`architecture.toml` is the single ownership map for the repository. Every path
+belongs to exactly one of FOUNDATION, PRODUCT, DERIVED, or DECLARATION.
+`.repo/repository.toml` is the versioned repository declaration; generated
+indexes under `src/{{ package }}/_generated/` and `proof/_generated/` carry a
+source-state digest and may be replaced. PRODUCT roots are user-owned: the
+scaffold contains no files there, and scaffold updates must leave existing
+product bytes unchanged. `just check` rejects overlapping or unclassified paths
+and applies the same required structure, dependency direction, and `api.py`
+public-surface rules to system and product capabilities (ADR-0007).
+
 The proof loop is intentionally narrower than the full gate. One
 `proof/policy.toml` sets the shared discovery policy and names the ownership-zone
 catalogs that close the public domain surface. Each critical symbol is declared

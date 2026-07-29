@@ -69,6 +69,23 @@ The private package is injected only for these opt-in commands. Before either
 one, authenticate `gh` for the package repository and run `gh auth setup-git`;
 baseline bootstrap and CI do not resolve it.
 
+## Repository ownership
+
+`architecture.toml` is the only ownership-root declaration. Classify every
+changed path before editing it:
+
+- FOUNDATION is scaffold-owned and may change through a versioned update.
+- PRODUCT is user-owned immediately; never overwrite or delete an existing
+  product file during generation or scaffold updates.
+- DERIVED is replaceable output and must retain its generated banner and
+  source-state digest.
+- DECLARATION is versioned machine-readable state under `.repo/`.
+
+Every capability uses the same structure and dependency rules regardless of
+ownership. Its `api.py` is the only stable cross-capability import surface.
+Never grant a system capability an exception that a product capability would
+not receive. ADR-0007 owns these rules.
+
 ## Proof-carrying core contract
 
 `proof/policy.toml` is normative policy, and the ownership-zone catalogs it

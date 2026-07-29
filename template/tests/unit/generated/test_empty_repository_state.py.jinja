@@ -1,0 +1,77 @@
+from hashlib import sha256
+import json
+from pathlib import Path
+import re
+import runpy
+import tomllib
+from typing import cast
+
+from scripts.ownership import classify_path
+from scripts.ownership_policy import load_ownership_policy
+
+GENERATED_BANNER = "Generated from repository declarations. DO NOT EDIT."
+SOURCE_DIGEST = re.compile(r'source[-_]state[-_]sha256["]?\s*:\s*["]?([0-9a-f]{64})')
+PYTHON_INDEXES = (
+    (Path("src/{{ package }}/_generated/active_capabilities.py"), "ACTIVE_CAPABILITIES"),
+    (Path("src/{{ package }}/_generated/composition.py"), "COMPOSITION"),
+    (Path("src/{{ package }}/_generated/cli_catalog.py"), "CLI_CATALOGS"),
+)
+PROOF_INDEX = Path("proof/_generated/index.json")
+
+
+def repository_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def source_state_digest(root: Path, source_glob: str) -> str:
+    digest = sha256()
+    for source in sorted(root.glob(source_glob)):
+        digest.update(source.relative_to(root).as_posix().encode())
+        digest.update(b"\0")
+        digest.update(source.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def declared_source_glob(declaration: dict[str, object]) -> str:
+    derived = declaration.get("derived")
+    assert isinstance(derived, dict)
+    source_glob = cast("dict[str, object]", derived).get("source_glob")
+    assert isinstance(source_glob, str)
+    return source_glob
+
+
+def recorded_digest(path: Path) -> str:
+    head = "\n".join(path.read_text(encoding="utf-8").splitlines()[:4])
+    assert GENERATED_BANNER in head
+    match = SOURCE_DIGEST.search(head)
+    assert match is not None
+    return match.group(1)
+
+
+def test_empty_repository_state_is_versioned_classified_and_honestly_derived() -> None:
+    root = repository_root()
+    declaration_path = root / ".repo/repository.toml"
+    declaration = cast(
+        "dict[str, object]",
+        tomllib.loads(declaration_path.read_text(encoding="utf-8")),
+    )
+    policy = load_ownership_policy(root)
+
+    assert declaration["schema_version"] == 1
+    assert str(classify_path(Path(".repo/repository.toml"), policy)) == "DECLARATION"
+
+    expected_digest = source_state_digest(root, declared_source_glob(declaration))
+    derived_paths = (*(path for path, _export in PYTHON_INDEXES), PROOF_INDEX)
+    assert {recorded_digest(root / path) for path in derived_paths} == {expected_digest}
+    assert all(str(classify_path(path, policy)) == "DERIVED" for path in derived_paths)
+
+    for path, export in PYTHON_INDEXES:
+        namespace = cast("dict[str, object]", runpy.run_path(str(root / path)))
+        assert namespace[export] == ()
+
+    proof_index = cast(
+        "dict[str, object]",
+        json.loads((root / PROOF_INDEX).read_text(encoding="utf-8")),
+    )
+    assert proof_index["catalogs"] == []

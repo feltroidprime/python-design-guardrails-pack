@@ -462,15 +462,20 @@ def main() -> int:
                 "Install prek before the initial commit so Git's shared hooks directory covers "
                 "the primary repository and every linked worktree.",
             )
-        probe = linked / "worktree-hook-probe.txt"
+        probe = linked / "tests" / "unit" / "worktree-hook-probe.txt"
         probe.write_text("probe\n", encoding="utf-8")
         exit_code = run_step(
-            "stage linked hook probe", ["git", "add", probe.name], linked
+            "stage linked hook probe",
+            ["git", "add", str(probe.relative_to(linked))],
+            linked,
         )
         if exit_code != 0:
             return fail(
                 "linked worktree prek hook execution",
-                [f"'git add {probe.name}' exited with {exit_code}."],
+                [
+                    f"'git add {probe.relative_to(linked)}' exited with "
+                    f"{exit_code}."
+                ],
                 "Stage a clean linked-worktree file before invoking the pre-commit shim.",
             )
         head = subprocess.run(

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from scripts.architecture_policy import load_policy
 from scripts.architecture_rules import Violation, check_source, python_files
+from scripts.capability_validator import validate_repository_capabilities
 from scripts.cli_discipline import check_cli_discipline
 from scripts.none_discipline import check_none_discipline
 from scripts.override_discipline import check_override_discipline
@@ -76,6 +77,7 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     policy = load_policy(root)
     violations = check_files(python_files(policy), policy)
+    violations.extend(validate_repository_capabilities(root, policy.package_root))
     if violations:
         for item in violations:
             print(item.render(root))

@@ -16,6 +16,14 @@ seam. Typed argument input, explicit stdin policy, JSON envelopes, cataloged
 outcomes, composable queries, and conditional idempotency are versioned in
 generated ADR-0002 and its ADR-0004 extension.
 
+Generated repositories also classify every path as FOUNDATION, PRODUCT,
+DERIVED, or DECLARATION from one table in `architecture.toml`. The quality gate
+rejects overlapping roots, unowned repository paths, and capability imports
+that bypass `api.py`; the pack rejects any template file that would render into
+a user-owned PRODUCT root. Empty derived indexes carry a source-state digest,
+and a real Copier update test proves scaffold updates leave seeded product bytes
+unchanged.
+
 ## Ship Python faster without letting the codebase rot
 
 Generate an opinionated Python 3.14 repository where architecture, typing, tests, documentation, coding-agent behavior, hooks, and CI agree from the first commit.
@@ -166,7 +174,8 @@ One opinionated stack. One reason for every choice.
 | Ruff from the project environment | Hooks, local commands, and CI use the exact Ruff version resolved in `uv.lock`. |
 | Curated Ruff policy | Enforce correctness, security, modern Python, and low-noise readability rules without formatter overlap or taste-driven rewrites. |
 | BasedPyright with warnings as errors | Reject `Any`, missing types, unsafe overrides, incomplete matches, and stale ignores. |
-| One quality-gate script | Apply safe lint and format repairs locally, then check lockfile, types, architecture, docs, imports, tests, and coverage in order. |
+| One quality-gate script | Apply safe lint and format repairs locally, then check lockfile, types, path ownership, capability structure, architecture, docs, imports, tests, and coverage in order. |
+| Four disjoint ownership zones | Keep scaffold-owned foundation, user-owned product, replaceable derived output, and versioned declarations mechanically separate. |
 | Fast repository doctor | Check hooks, local Git state, default-branch synchronization, GitHub authentication, dependency synchronization, and Python version before deployment or publication. |
 | Same gate locally, pre-push, and in CI | Remove the gap between “works here” and “accepted by the repository.” |
 | Ports-and-adapters layers | Enforce `bootstrap → adapters → application → domain` and independent adapter sides. |
