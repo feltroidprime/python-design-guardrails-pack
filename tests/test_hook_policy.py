@@ -4,6 +4,7 @@ from pathlib import Path
 import tomllib
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+JUSTFILE = REPO_ROOT / "justfile"
 
 
 def local_hooks() -> dict[str, dict[str, object]]:
@@ -23,3 +24,10 @@ def test_pre_commit_is_fast_and_pre_push_remains_comprehensive() -> None:
     assert hooks["pack-fast"]["entry"] == "just test-fast"
     assert hooks["pack-validate"]["entry"] == "just validate"
     assert hooks["pack-validate"]["stages"] == ["pre-push"]
+
+
+def test_hooks_recipe_provisions_a_durable_prek_executable() -> None:
+    recipe = JUSTFILE.read_text(encoding="utf-8")
+
+    assert 'uv tool install "prek>=0.4.9"' in recipe
+    assert "prek install -f" in recipe

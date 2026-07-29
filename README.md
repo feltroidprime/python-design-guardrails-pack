@@ -231,6 +231,7 @@ No tool can prove that a name is good or an abstraction is worthwhile. Observabl
 This is a meta-repository: `template/` is the product, `copier.yml` owns rendering, `instantiate.py` owns the CLI, and the root `AGENTS.md` is the maintainer contract.
 
 ```bash
+just hooks          # install durable prek tooling plus commit/push hooks
 just test-fast      # pre-commit guard: render, pins, and hook-policy checks
 just test           # complete parallel generator tests
 just validate       # canonical full validation
