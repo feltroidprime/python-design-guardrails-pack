@@ -24,10 +24,12 @@ a user-owned PRODUCT root. Empty derived indexes carry a source-state digest,
 and a real Copier update test proves scaffold updates leave seeded product bytes
 unchanged.
 
-The generated foundation also includes an empty, draft
+The generated foundation also includes the draft
 `repoctl.modules.repository_generation` system capability. Its real hexagonal
 capsule is validated by the same `CAP001`–`CAP003` rules as a future product
-capability; it contains no guessed product entity, port, or behavior.
+capability. Immutable intent, snapshot, operation, and plan values encode to
+canonical JSON with a content-derived plan ID, while planning and effects
+remain absent at this stage.
 
 ## Ship Python faster without letting the codebase rot
 

@@ -294,9 +294,19 @@ def check_call(
     ]
 
 
+def is_domain_source(path: Path, policy: Policy) -> bool:
+    """Recognize the domain layer in the product package and system capabilities."""
+    production_roots = (policy.package_root, policy.root / "repoctl")
+    return any(
+        is_under(path, root)
+        and policy.domain_root.name in path.relative_to(root).parts[:-1]
+        for root in production_roots
+    )
+
+
 def check_tree(path: Path, tree: ast.AST, policy: Policy) -> list[Violation]:
     violations: list[Violation] = []
-    in_domain = is_under(path, policy.domain_root)
+    in_domain = is_domain_source(path, policy)
     immutable = in_domain and path.stem in policy.immutable_module_stems
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -324,5 +334,10 @@ def check_source(path: Path, text: str, tree: ast.Module, policy: Policy) -> lis
 
 
 def python_files(policy: Policy) -> list[Path]:
-    roots = [policy.source_root, policy.root / "tests", policy.root / "scripts"]
+    roots = [
+        policy.root / "repoctl",
+        policy.source_root,
+        policy.root / "tests",
+        policy.root / "scripts",
+    ]
     return sorted(path for root in roots for path in root.rglob("*.py") if path.is_file())

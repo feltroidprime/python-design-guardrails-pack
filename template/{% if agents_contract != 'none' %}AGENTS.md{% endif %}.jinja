@@ -85,8 +85,9 @@ Every capability uses the same structure and dependency rules regardless of
 ownership. Its `api.py` is the only stable cross-capability import surface.
 Never grant a system capability an exception that a product capability would
 not receive. ADR-0007 owns these rules.
-The scaffold's `repoctl.modules.repository_generation` capability starts as an
-empty draft capsule; do not invent product semantics merely to fill its layers.
+The scaffold's `repoctl.modules.repository_generation` capability is a draft
+capsule with immutable canonical plan values. Keep planning pure and do not
+invent product semantics merely to fill its layers.
 
 ## Proof-carrying core contract
 

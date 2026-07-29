@@ -314,7 +314,7 @@ def discovered_capabilities(
         for parent, ownership in parents
         if parent.is_dir()
         for path in sorted(parent.iterdir())
-        if path.is_dir()
+        if path.is_dir() and not path.name.startswith((".", "__"))
     )
 
 

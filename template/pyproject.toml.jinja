@@ -45,7 +45,7 @@ constraint-dependencies = ["z3-solver!=5.0.0.0"]
 [tool.ruff]
 # The Python version is derived from [project] requires-python.
 line-length = 100
-src = ["src", "tests", "verification", "scripts"]
+src = ["repoctl", "src", "tests", "verification", "scripts"]
 force-exclude = true
 
 [tool.ruff.lint]
@@ -174,7 +174,7 @@ runtime-evaluated-decorators = [
 [tool.ruff.lint.isort]
 # "tests" is declared explicitly because namespace packages (no __init__.py)
 # are not auto-detected as first-party.
-known-first-party = ["{{ package }}", "scripts", "tests", "verification"]
+known-first-party = ["{{ package }}", "repoctl", "scripts", "tests", "verification"]
 combine-as-imports = true
 force-sort-within-sections = true
 
@@ -191,7 +191,7 @@ line-ending = "lf"
 docstring-code-format = true
 
 [tool.basedpyright]
-include = ["src", "tests", "verification", "scripts"]
+include = ["repoctl", "src", "tests", "verification", "scripts"]
 pythonVersion = "3.14"
 
 # `recommended` enables the full diagnostic surface while keeping the
