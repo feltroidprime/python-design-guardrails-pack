@@ -23,7 +23,7 @@ FOUNDATION_A = "v1.0.0"
 FOUNDATION_B = "v1.0.1"
 OVERWRITE_MUTANT = "v1.0.2"
 FOUNDATION_B_MARKER = "Foundation version B."
-EMPTY_SOURCE_DIGEST = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+INITIAL_SOURCE_DIGEST = "4fea77788e9666e6b12698b9b4fac85af160db00472e83339460edfddc9f152e"
 DERIVED_PATHS = (
     Path(f"src/{PACKAGE}/_generated/active_capabilities.py"),
     Path(f"src/{PACKAGE}/_generated/composition.py"),
@@ -165,11 +165,11 @@ def publish_foundation_b(template: Path, project: Path) -> None:
         encoding="utf-8",
     )
     digest = declaration_source_digest(project)
-    assert digest != EMPTY_SOURCE_DIGEST
+    assert digest != INITIAL_SOURCE_DIGEST
     for relative in DERIVED_TEMPLATE_PATHS:
         path = template / "template" / relative
         content = path.read_text(encoding="utf-8")
-        updated = content.replace(EMPTY_SOURCE_DIGEST, digest)
+        updated = content.replace(INITIAL_SOURCE_DIGEST, digest)
         assert updated != content
         path.write_text(updated, encoding="utf-8")
     commit_all(template, "Foundation B regenerates derived indexes")

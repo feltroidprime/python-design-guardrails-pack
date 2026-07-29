@@ -1,0 +1,14 @@
+schema_version = 1
+name = "repository_generation"
+python_module = "repoctl.modules.repository_generation"
+status = "draft"
+proof_catalog = "proof/repoctl/repository-generation.toml"
+
+[boundaries]
+inbound = []
+outbound = []
+
+[activation]
+api = "repoctl.modules.repository_generation.api"
+factory = ""
+cli_catalog = ""

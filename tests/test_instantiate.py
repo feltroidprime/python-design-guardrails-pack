@@ -39,6 +39,7 @@ INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", ""
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
 
 EXPECTED_FILES = (
+    ".repo/capabilities/repository_generation.toml",
     ".repo/repository.toml",
     ".github/PULL_REQUEST_TEMPLATE.md",
     ".github/workflows/quality.yml",
@@ -65,6 +66,15 @@ EXPECTED_FILES = (
     "proof/_generated/index.json",
     "proof/policy.toml",
     "pyproject.toml",
+    "repoctl/__init__.py",
+    "repoctl/modules/__init__.py",
+    "repoctl/modules/repository_generation/__init__.py",
+    "repoctl/modules/repository_generation/adapters/__init__.py",
+    "repoctl/modules/repository_generation/adapters/inbound/__init__.py",
+    "repoctl/modules/repository_generation/adapters/outbound/__init__.py",
+    "repoctl/modules/repository_generation/api.py",
+    "repoctl/modules/repository_generation/application/__init__.py",
+    "repoctl/modules/repository_generation/domain/__init__.py",
     "scripts/architecture_guard.py",
     "scripts/architecture_rules.py",
     "scripts/capability_validator.py",
@@ -133,6 +143,7 @@ EXPECTED_FILES = (
     "tests/integration/test_cli_input_contract.py",
     "tests/integration/test_cli_outcomes.py",
     "tests/integration/test_cli_safety_contract.py",
+    "tests/repoctl/test_draft_capsule.py",
     "tests/unit/adapters/test_cli_protocol.py",
     "tests/unit/domain/test_value_objects.py",
     "verification/conftest.py",

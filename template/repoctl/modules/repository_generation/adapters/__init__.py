@@ -1,0 +1,1 @@
+"""Repository-generation boundary adapters."""

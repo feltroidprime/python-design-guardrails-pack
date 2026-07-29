@@ -24,6 +24,11 @@ a user-owned PRODUCT root. Empty derived indexes carry a source-state digest,
 and a real Copier update test proves scaffold updates leave seeded product bytes
 unchanged.
 
+The generated foundation also includes an empty, draft
+`repoctl.modules.repository_generation` system capability. Its real hexagonal
+capsule is validated by the same `CAP001`–`CAP003` rules as a future product
+capability; it contains no guessed product entity, port, or behavior.
+
 ## Ship Python faster without letting the codebase rot
 
 Generate an opinionated Python 3.14 repository where architecture, typing, tests, documentation, coding-agent behavior, hooks, and CI agree from the first commit.

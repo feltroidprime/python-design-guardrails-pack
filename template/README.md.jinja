@@ -45,6 +45,9 @@ scaffold contains no files there, and scaffold updates must leave existing
 product bytes unchanged. `just check` rejects overlapping or unclassified paths
 and applies the same required structure, dependency direction, and `api.py`
 public-surface rules to system and product capabilities (ADR-0007).
+The draft `repoctl.modules.repository_generation` system capability ships as
+an intentionally empty hexagonal capsule under FOUNDATION ownership. It has no
+placeholder product model or effectful behavior.
 
 The proof loop is intentionally narrower than the full gate. One
 `proof/policy.toml` sets the shared discovery policy and names the ownership-zone
