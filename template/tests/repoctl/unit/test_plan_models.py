@@ -12,6 +12,9 @@ from repoctl.modules.repository_generation.api import (
     CapabilityIntent,
     CapabilityPlan,
     Operation,
+    OwnershipRoot,
+    OwnershipZone,
+    OwnershipZoneRoots,
     RepositoryFile,
     RepositoryPath,
     RepositorySnapshot,
@@ -78,6 +81,24 @@ def test_plan_domain_values_are_immutable_slotted_keyword_only_dataclasses() -> 
         package="acme",
         declarations=(declaration,),
         files=(file,),
+        ownership_zones=(
+            OwnershipZoneRoots(
+                name=OwnershipZone("FOUNDATION"),
+                roots=(OwnershipRoot(value="scripts"),),
+            ),
+            OwnershipZoneRoots(
+                name=OwnershipZone("PRODUCT"),
+                roots=(OwnershipRoot(value="src/acme/modules"),),
+            ),
+            OwnershipZoneRoots(
+                name=OwnershipZone("DERIVED"),
+                roots=(OwnershipRoot(value="proof/_generated"),),
+            ),
+            OwnershipZoneRoots(
+                name=OwnershipZone("DECLARATION"),
+                roots=(OwnershipRoot(value=".repo"),),
+            ),
+        ),
     )
     values = (intent(), declaration, repository_path, file, snapshot, operation(), plan())
 

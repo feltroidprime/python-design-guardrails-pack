@@ -120,6 +120,14 @@ FAST_BUDGET_ARGUMENTS = [
     "--per_path_timeout=0.25",
     "--per_condition_timeout=1.5",
 ]
+CI_BUDGET_ARGUMENTS = [
+    "check",
+    "--report_all",
+    "--analysis_kind=icontract",
+    "--max_uninteresting_iterations=12",
+    "--per_path_timeout=0.75",
+    "--per_condition_timeout=4.0",
+]
 CANARY_BUDGET_ARGUMENTS = [
     "check",
     "--report_all",
@@ -161,6 +169,27 @@ def test_gate_analyses_each_target_and_the_canary_with_the_fast_budget(
     ]
     assert "DEMO-PRESERVES-VALUE | demo.domain.decisions:identity" in completed.stdout
     assert "SYMBOLIC-CANARY" in completed.stdout
+
+
+def test_ci_canary_keeps_the_symbolic_minimum_budget(tmp_path: Path) -> None:
+    root = crosshair_project(tmp_path, PROOF_TOML)
+    arguments_path = stub_crosshair(root)
+
+    completed = run_gate(
+        root,
+        "ci",
+        "DEMO-PRESERVES-VALUE",
+        extra_environment={
+            "CROSSHAIR_ARGUMENTS": str(arguments_path),
+            "CROSSHAIR_REFUTE_CANARY": "1",
+        },
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert json.loads(arguments_path.read_text(encoding="utf-8")) == [
+        [*CI_BUDGET_ARGUMENTS, "demo.domain.decisions.identity"],
+        [*CANARY_BUDGET_ARGUMENTS, "verification.harness.symbolic_canary.refutable_echo"],
+    ]
 
 
 def test_gate_builds_pythonpath_from_policy_source_roots(tmp_path: Path) -> None:

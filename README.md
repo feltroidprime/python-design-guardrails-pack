@@ -36,8 +36,11 @@ capsule is validated by the same `CAP001`–`CAP003` rules as a future product
 capability. Immutable intent, snapshot, operation, and plan values encode to
 canonical JSON with a content-derived plan ID. Its pure derived-index compiler
 filters exactly active declarations, emits canonical bytes, and carries
-`REPOCTL::DERIVED-INDEX-EXACT`; planning and effects remain absent at this
-stage.
+`REPOCTL::DERIVED-INDEX-EXACT`. Its pure `plan(snapshot, intent)` decision
+receives ownership policy and prior file digests in the immutable snapshot,
+creates PRODUCT seeds only when absent, and emits exact-precondition
+declaration and derived writes under `REPOCTL::PLAN-DETERMINISTIC`. Planning
+performs no I/O, and effectful application remains absent at this stage.
 
 ## Ship Python faster without letting the codebase rot
 

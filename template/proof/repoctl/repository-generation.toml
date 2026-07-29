@@ -30,3 +30,18 @@ evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]
 crosshair_targets = ["repoctl.modules.repository_generation.domain.ownership:classify_path"]
 counterexample = "An absolute, escaping, non-canonical, unowned, or multiply owned path receives an ownership zone."
 failure_modes = ["absolute path accepted", "parent escape accepted", "empty segment normalized away", "Unicode variant normalized silently", "unowned path accepted", "ambiguous zone accepted"]
+
+[[properties]]
+id = "REPOCTL::PLAN-DETERMINISTIC"
+title = "Capability planning is a pure deterministic function of snapshot and intent"
+statement = "The same canonical repository snapshot and capability intent produce byte-identical plans with the same content-derived plan ID."
+scope = "The repository-generation plan decision over immutable explicit snapshot and intent values."
+assumptions = ["The snapshot carries the validated ownership-root declaration and exact prior file digests."]
+kind = "model"
+strength = "normative"
+targets = ["repoctl.modules.repository_generation.domain.decisions:plan"]
+oracles = ["repoctl.modules.repository_generation.domain.specifications:plan_repetition_is_identical"]
+evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]
+crosshair_targets = ["repoctl.modules.repository_generation.domain.decisions:plan"]
+counterexample = "Two calls with the same snapshot and intent differ in bytes or plan ID."
+failure_modes = ["hidden environment input", "filesystem-order dependence", "unstable operation order", "missing precondition", "hidden write", "unstable plan ID"]

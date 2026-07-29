@@ -55,9 +55,14 @@ interpreter of the ownership roots; `scripts/ownership.py` only adapts
 filesystem-shaped values. Absolute paths, parent escapes, empty segments, and
 non-canonical Unicode fail with named boundary errors, and
 `REPOCTL::PLAN-PATH-CLOSED` links every successful classification to an
-independent oracle, Hypothesis, and CrossHair. The capsule still has no
-placeholder product model, planning decision, lifecycle transition, or
-effectful behavior.
+independent oracle, Hypothesis, and CrossHair. Its pure
+`plan(snapshot, intent)` decision takes ownership roots and prior file digests
+as explicit snapshot data, creates only absent PRODUCT seeds, and emits every
+declaration and derived write with an exact precondition. Canonical bytes and
+the plan ID are deterministic under `REPOCTL::PLAN-DETERMINISTIC`, independent
+of CWD, environment variables, and snapshot enumeration order. The capsule
+still has no placeholder product model, lifecycle transition, or effectful
+application behavior.
 
 The proof loop is intentionally narrower than the full gate. One
 `proof/policy.toml` sets the shared discovery policy and names the ownership-zone

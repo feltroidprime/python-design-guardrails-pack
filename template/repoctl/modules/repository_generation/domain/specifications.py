@@ -7,6 +7,9 @@ SCHEMA_VERSION = 1
 CAPABILITY_NAME = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 LIFECYCLE_STATUSES = frozenset({"draft", "active", "retired"})
+OWNERSHIP_ZONES = frozenset(
+    {"FOUNDATION", "PRODUCT", "DERIVED", "DECLARATION"}
+)
 OPERATION_KINDS = frozenset(
     {
         "create_product_seed",
@@ -55,6 +58,14 @@ def declaration_names_are_unique(values: tuple[str, ...]) -> bool:
 def file_paths_are_unique(values: tuple[str, ...]) -> bool:
     """Return whether a snapshot or plan names each target path once."""
     return len(values) == len(set(values))
+
+
+def ownership_zone_names_are_complete(values: tuple[str, ...]) -> bool:
+    """Return whether the explicit snapshot owns each canonical zone once."""
+    return (
+        len(values) == len(set(values))
+        and frozenset(values) == OWNERSHIP_ZONES
+    )
 
 
 def operation_kind_is_valid(value: str) -> bool:
@@ -182,3 +193,13 @@ def classified_path_is_closed(
         if any(_root_contains(root, candidate_segments) for root in zone_roots)
     )
     return matches == (result,)
+
+
+def plan_repetition_is_identical(
+    first: bytes,
+    repeated: bytes,
+    first_plan_id: str,
+    repeated_plan_id: str,
+) -> bool:
+    """Judge repeat planning by canonical bytes and content-derived identity."""
+    return first == repeated and first_plan_id == repeated_plan_id

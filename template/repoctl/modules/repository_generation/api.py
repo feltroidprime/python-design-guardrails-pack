@@ -1,5 +1,6 @@
 """Stable public surface of the repository-generation capability."""
 
+from repoctl.modules.repository_generation.domain.decisions import plan
 from repoctl.modules.repository_generation.domain.indexes import (
     DerivedCapability,
     DerivedIndexes,
@@ -39,12 +40,17 @@ from repoctl.modules.repository_generation.domain.plans import (
     content_digest,
     make_plan,
 )
+from repoctl.modules.repository_generation.domain.plans_planner import (
+    PlanningOwnershipError,
+    intended_target_paths,
+)
 from repoctl.modules.repository_generation.domain.specifications import (
     DeclarationIndexFacts,
     DerivedIndexFacts,
     OwnershipRootFacts,
     classified_path_is_closed,
     derived_indexes_are_exact,
+    plan_repetition_is_identical,
 )
 
 __all__ = [
@@ -68,6 +74,7 @@ __all__ = [
     "OwnershipZone",
     "OwnershipZoneRoots",
     "ParentPathError",
+    "PlanningOwnershipError",
     "RepositoryFile",
     "RepositoryPath",
     "RepositoryPathCandidate",
@@ -81,7 +88,10 @@ __all__ = [
     "compile_indexes",
     "content_digest",
     "derived_indexes_are_exact",
+    "intended_target_paths",
     "make_plan",
     "matching_zones",
+    "plan",
+    "plan_repetition_is_identical",
     "validated_segments",
 ]

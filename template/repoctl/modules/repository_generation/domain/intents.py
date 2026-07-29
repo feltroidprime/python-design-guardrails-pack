@@ -5,12 +5,17 @@ from typing import Literal, cast, override
 
 import icontract
 
+from repoctl.modules.repository_generation.domain.ownership import (
+    OwnershipRoot,
+    OwnershipZoneRoots,
+)
 from repoctl.modules.repository_generation.domain.specifications import (
     capability_name_is_valid,
     declaration_names_are_unique,
     digest_is_valid,
     file_paths_are_unique,
     lifecycle_status_is_valid,
+    ownership_zone_names_are_complete,
     plan_path_is_repository_relative,
     schema_version_is_supported,
     strings_are_canonical,
@@ -207,6 +212,13 @@ def _snapshot_files_hold(self: object) -> bool:
     return file_paths_are_unique(tuple(file.path.value for file in snapshot.files))
 
 
+def _snapshot_ownership_holds(self: object) -> bool:
+    snapshot = cast("RepositorySnapshot", self)
+    return ownership_zone_names_are_complete(
+        tuple(str(zone.name) for zone in snapshot.ownership_zones)
+    ) and all(zone.roots for zone in snapshot.ownership_zones)
+
+
 @icontract.invariant(
     _snapshot_schema_holds,
     description="SNAPSHOT-SCHEMA-SUPPORTED: snapshot schema version must be supported",
@@ -223,6 +235,10 @@ def _snapshot_files_hold(self: object) -> bool:
     _snapshot_files_hold,
     description="SNAPSHOT-FILES-UNIQUE: file paths must not repeat",
 )
+@icontract.invariant(
+    _snapshot_ownership_holds,
+    description="SNAPSHOT-OWNERSHIP-COMPLETE: all four ownership zones require roots",
+)
 @dataclass(frozen=True, slots=True, kw_only=True)
 class RepositorySnapshot:
     """Canonical declared and file state supplied explicitly to pure planning."""
@@ -231,6 +247,7 @@ class RepositorySnapshot:
     package: str
     declarations: tuple[CapabilityDeclaration, ...]
     files: tuple[RepositoryFile, ...]
+    ownership_zones: tuple[OwnershipZoneRoots, ...]
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -242,6 +259,23 @@ class RepositorySnapshot:
             self,
             "files",
             tuple(sorted(self.files, key=lambda file: file.path.value)),
+        )
+        object.__setattr__(
+            self,
+            "ownership_zones",
+            tuple(
+                OwnershipZoneRoots(
+                    name=zone.name,
+                    roots=tuple(
+                        OwnershipRoot(value=value)
+                        for value in sorted({root.value for root in zone.roots})
+                    ),
+                )
+                for zone in sorted(
+                    self.ownership_zones,
+                    key=lambda candidate: str(candidate.name),
+                )
+            ),
         )
 
     @override

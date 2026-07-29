@@ -49,7 +49,7 @@ BUDGETS = MappingProxyType(
         ),
     }
 )
-FAST_CANARY_BUDGET = Budget(
+CANARY_MINIMUM_BUDGET = Budget(
     max_uninteresting_iterations=16,
     per_path_timeout=1.5,
     per_condition_timeout=8.0,
@@ -134,7 +134,25 @@ def _symbolic_targets(
 
 
 def _command(profile: str, target: SymbolicTarget) -> tuple[str, ...]:
-    budget = FAST_CANARY_BUDGET if profile == "fast" and target.must_refute else BUDGETS[profile]
+    profile_budget = BUDGETS[profile]
+    budget = (
+        Budget(
+            max_uninteresting_iterations=max(
+                profile_budget.max_uninteresting_iterations,
+                CANARY_MINIMUM_BUDGET.max_uninteresting_iterations,
+            ),
+            per_path_timeout=max(
+                profile_budget.per_path_timeout,
+                CANARY_MINIMUM_BUDGET.per_path_timeout,
+            ),
+            per_condition_timeout=max(
+                profile_budget.per_condition_timeout,
+                CANARY_MINIMUM_BUDGET.per_condition_timeout,
+            ),
+        )
+        if target.must_refute
+        else profile_budget
+    )
     return (
         sys.executable,
         "-m",
