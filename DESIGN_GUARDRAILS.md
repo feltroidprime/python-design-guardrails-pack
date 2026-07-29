@@ -16,8 +16,8 @@ and test controls remain available through the justfile and quality gate.
 
 | Design concern | Python 3.14 approach | Deterministic materialization |
 |---|---|---|
-| Coupling, cohesion, SRP, DRY, KISS, YAGNI in context | modules organized by reason to change; small functions; no speculative abstractions | module/function/class ceilings; Ruff complexity rules; forbidden dumping-ground modules; pattern admission checklist |
-| Law of Demeter | expose intention-revealing operations rather than object-navigation chains | Ruff design rules plus review rule in `AGENTS.md`; tests at public boundaries |
+| Coupling, cohesion, SRP, DRY, KISS, YAGNI in context | modules organized by reason to change; small functions; no speculative abstractions | module/function/class line ceilings; Ruff cyclomatic complexity (`C901`, max 10); forbidden dumping-ground modules; pattern admission checklist |
+| Law of Demeter | expose intention-revealing operations rather than object-navigation chains | architecture guard ceilings plus review rule in `AGENTS.md`; tests at public boundaries |
 | Strategy emerging naturally | function, callable `Protocol`, or injected strategy only when behavior varies | no mandatory Strategy base class; ADR/checklist requires a named variation axis |
 | Composition over inheritance | constructor injection; `Protocol`; shallow inheritance only for true substitutability | agents must inject dependencies; BasedPyright validates structural contracts; ARCH030 requires `@override` for resolved in-repository base methods |
 | Strategy, Adapter, Facade | callable strategies; adapters around I/O/frameworks; narrow stable public API | adapters isolated by import contracts; `__all__` public surfaces; pattern admission record |
@@ -38,7 +38,7 @@ and test controls remain available through the justfile and quality gate.
 | Classes vs simple functions | functions for stateless transformations; classes for state, polymorphism, identity, or lifecycle | class admission questions in `AGENTS.md`; complexity ceilings discourage god objects |
 | Strategies and higher-order functions | `Callable`, generic callables, closures, `Protocol.__call__` | strict typing and examples; avoid framework DI containers by default |
 | Protocols and ABCs | `Protocol` for structural ports; ABC only for shared runtime semantics | port package convention; `@override` required when inheritance is used |
-| Generators and streaming | `Iterator`, `Iterable`, generators; no eager materialization without reason | Ruff performance rules; explicit streaming policy |
+| Generators and streaming | `Iterator`, `Iterable`, generators; no eager materialization without reason | explicit streaming policy; review rule in `AGENTS.md` (Ruff's `PERF` micro-optimizations are deliberately not selected) |
 | Bounded automation output | positive default/maximum page sizes, stable ordering, continuation tokens, explicit stream termination and bulk scope | query case variants seed beyond the default and follow continuations; repository ports receive the bound; streaming and bulk case variants require filters/termination or scope/destination before a command can enter the catalog |
 | Global coupling and shared state | explicit ownership; immutable configuration; injected clock/RNG/clients | ARCH026 rejects mutable module-level container state; domain wall-clock/random/UUID calls are rejected; `Clock`/`ItemIdFactory` ports are the injected exemplars |
 | Error handling | small domain exception taxonomy; translate at boundaries; preserve causes | blind/bare catches rejected; exception messages and chaining checked |

@@ -164,7 +164,7 @@ One opinionated stack. One reason for every choice.
 | `just`, not Make | One repair-and-verification route, plus explicit setup and dependency-update branches. |
 | `prek`, not pre-commit | Install shared Git shims before the first commit, with fast commit checks and the full gate before every push from any linked worktree. |
 | Ruff from the project environment | Hooks, local commands, and CI use the exact Ruff version resolved in `uv.lock`. |
-| Broad Ruff policy | Enforce formatting, correctness, security, performance, modern Python, and complexity in one tool. |
+| Curated Ruff policy | Enforce correctness, security, modern Python, and low-noise readability rules without formatter overlap or taste-driven rewrites. |
 | BasedPyright with warnings as errors | Reject `Any`, missing types, unsafe overrides, incomplete matches, and stale ignores. |
 | One quality-gate script | Apply safe lint and format repairs locally, then check lockfile, types, architecture, docs, imports, tests, and coverage in order. |
 | Fast repository doctor | Check hooks, local Git state, default-branch synchronization, GitHub authentication, dependency synchronization, and Python version before deployment or publication. |

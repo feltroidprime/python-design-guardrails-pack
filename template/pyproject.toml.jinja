@@ -38,91 +38,126 @@ required-version = ">=0.11.28,<0.12"
 constraint-dependencies = ["z3-solver!=5.0.0.0"]
 {% endif %}
 
-{% if not workspace_member %}[tool.ruff]
-target-version = "py314"
+{% if not workspace_member %}# Ruff is strict about defects and conservative about rewrites: it owns
+# correctness, security, and modern syntax, BasedPyright owns type semantics,
+# and the architecture guard owns structure. Rules that trade explicitness for
+# brevity, and rules that duplicate the formatter or the type checker, are
+# deliberately absent.
+[tool.ruff]
+# The Python version is derived from [project] requires-python.
 line-length = 100
 src = ["src", "tests", "verification", "scripts"]
 force-exclude = true
 
 [tool.ruff.lint]
 select = [
+  # Defects and suspicious constructs.
   "A",
-  "ANN",
-  "ARG",
   "ASYNC",
   "B",
   "BLE",
-  "C4",
-  "C90",
   "DTZ",
-  "E",
-  "ERA",
+  "E4",
+  "E7",
+  "E9",
   "F",
-  "FBT",
-  "FLY",
-  "FURB",
   "G",
-  "I",
-  "ICN",
-  "ISC",
   "LOG",
-  "N",
-  "PERF",
   "PGH",
   "PIE",
-  "PL",
-  "PT",
-  "PTH",
-  "Q",
-  "RET",
-  "RSE",
+  "PLC",
+  "PLE",
+  "PLW",
   "RUF",
   "S",
-  "SIM",
-  "SLF",
+  "W605",
+
+  # Readable, modern Python.
+  "C4",
+  "ERA",
+  "FBT",
+  "FLY",
+  "I",
+  "N",
+  "PT",
+  "PTH",
+  "RSE",
   "T10",
   "T20",
-  "TC",
   "TID",
-  "TRY",
   "UP",
-  "W",
+
+  # Visible public return contracts. BasedPyright owns parameter types,
+  # inferred value types, and `Any`; private helper return types stay optional
+  # where inference is sufficient.
+  "ANN201",
+  "ANN204",
+  "ANN205",
+  "ANN206",
+
+  # Complexity and unambiguous refactors.
+  "C901",
+  "PLR0206",
+  "PLR1704",
+  "PLR1716",
+  "PLR1722",
+  "PLR1733",
+  "PLR1736",
+  "PLR5501",
+
+  # High-signal control-flow simplifications. Rules that force ternaries,
+  # delete explanatory result variables, introduce helper functions, or
+  # optimize for statement count are deliberately excluded.
+  "RET502",
+  "RET503",
+  "RET505",
+  "RET506",
+  "RET507",
+  "RET508",
+  "SIM101",
+  "SIM103",
+  "SIM109",
+  "SIM110",
+  "SIM112",
+  "SIM113",
+  "SIM115",
+  "SIM118",
+  "SIM201",
+  "SIM202",
+  "SIM208",
+  "SIM210",
+  "SIM211",
+  "SIM220",
+  "SIM221",
+  "SIM222",
+  "SIM223",
+  "SIM300",
+  "TRY002",
+  "TRY004",
+  "TRY201",
+  "TRY203",
+  "TRY400",
+  "TRY401",
+
+  # Validate hand-written TYPE_CHECKING blocks without creating new ones.
+  "TC004",
+  "TC005",
+  "TC010",
 ]
-ignore = [
-  "COM812",
-  "ISC001",
-  "PLR0904",
-  "TRY003",
-]
-fixable = ["ALL"]
-unfixable = ["ERA001"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
   "ANN201",
-  "ARG001",
-  "PLR2004",
   "S101",
-  "SLF001",
 ]
 "verification/tests/**/*.py" = [
   "ANN201",
-  "ARG001",
-  "PLR2004",
   "S101",
-  "SLF001",
 ]
 "scripts/**/*.py" = ["T201"]
-"scripts/architecture_policy.py" = ["TC003"]
-"scripts/architecture_rules.py" = ["TC003"]
 "scripts/crosshair_gate.py" = ["S603"]
 "scripts/doctor.py" = ["S603"]
 "scripts/quality_gate.py" = ["S603"]
-
-[tool.ruff.lint.flake8-annotations]
-allow-star-arg-any = false
-mypy-init-return = false
-suppress-dummy-args = true
 
 [tool.ruff.lint.flake8-type-checking]
 # These decorators mark code whose annotations are read at run time:
@@ -147,15 +182,6 @@ force-sort-within-sections = true
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
-[tool.ruff.lint.pylint]
-max-args = 6
-max-branches = 10
-max-locals = 12
-max-nested-blocks = 4
-max-public-methods = 12
-max-returns = 6
-max-statements = 40
-
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
@@ -167,25 +193,31 @@ docstring-code-format = true
 
 [tool.basedpyright]
 include = ["src", "tests", "verification", "scripts"]
-# Locate the project venv explicitly so the editor language server resolves
-# third-party imports the same way the CLI does. Without this, the basedpyright
-# VS Code extension analyses against an empty environment and reports spurious
-# "import could not be resolved" errors for installed dependencies.
-venvPath = "."
-venv = ".venv"
 pythonVersion = "3.14"
-pythonPlatform = "All"
+
+# `recommended` enables the full diagnostic surface while keeping the
+# error/warning hierarchy readable in an editor. Warnings stay fatal in CI.
 typeCheckingMode = "recommended"
 failOnWarnings = true
-reportAny = "error"
-reportExplicitAny = "error"
-reportImplicitOverride = "error"
-reportMatchNotExhaustive = "error"
-reportMissingParameterType = "error"
+
+# Ruff owns these fast, syntax-local diagnostics and their automatic fixes.
+reportUnusedImport = "none"
+reportInvalidStringEscapeSequence = "none"
+
+# Contract-critical policies stay explicit for humans and coding agents. They
+# remain warnings in editors and still fail the quality gate.
+reportAny = "warning"
+reportExplicitAny = "warning"
+reportIgnoreCommentWithoutRule = "warning"
+reportImplicitOverride = "warning"
+reportImplicitStringConcatenation = "warning"
+reportMatchNotExhaustive = "warning"
+reportMissingParameterType = "warning"
 reportMissingTypeArgument = "error"
-reportPrivateUsage = "error"
-reportUnannotatedClassAttribute = "error"
-reportUnnecessaryTypeIgnoreComment = "error"
+reportPrivateUsage = "warning"
+reportUnannotatedClassAttribute = "warning"
+reportUnnecessaryTypeIgnoreComment = "warning"
+reportUnusedParameter = "warning"
 
 [tool.pytest.ini_options]
 minversion = "9.1"

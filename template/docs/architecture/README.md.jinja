@@ -36,7 +36,7 @@ This template uses the `system` profile. Tiny scripts may collapse layers only t
 - `scripts/proof_guard.py` closes the critical public surface and links `proof/policy.toml`, its ownership-zone catalogs, pure oracles, `icontract`, Hypothesis evidence, one falsifying canary per declared oracle, and mandatory CrossHair targets for every contracted public function or method.
 - `scripts/crosshair_gate.py` searches the bounded pure core for contract counterexamples, reports each target under its property ID, and fails unless it also refutes the deliberately false `verification/harness/symbolic_canary.py`; `just prove-deep` expands the budget deliberately.
 - BasedPyright checks contracts and exhaustive variants.
-- Ruff checks complexity, error handling, security, performance, and style.
+- Ruff checks cyclomatic complexity, error handling, security, and modern Python; it formats but does not arbitrate taste.
 - pytest contract tests verify adapter substitutability.
 - pytest's CLI contract compares the catalog with an independent closed case
   set, then exercises every command at the detached process seam.

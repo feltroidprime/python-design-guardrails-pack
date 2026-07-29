@@ -11,6 +11,20 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Replace the generated repository's maximalist Ruff selection with a curated
+  one: Ruff stays strict on defects, security, and modern syntax, BasedPyright
+  owns type semantics, and the architecture guard owns structure. Families that
+  duplicate the formatter (`Q`, `W`, general `E`) or the type checker (`ARG`,
+  `SLF`, `ISC`, `ANN` beyond public return types) are dropped, and the
+  taste-driven families (`FURB`, `PERF`, `ICN`, blanket `SIM`/`RET`/`TRY`/`PL`)
+  are replaced by explicit high-signal rule lists. The Pylint size ceilings are
+  removed in favor of `C901 = 10` plus the guard's line ceilings; `TC` is
+  narrowed to `TC004`/`TC005`/`TC010` so `TYPE_CHECKING` blocks are validated
+  but never forced. BasedPyright keeps `recommended` with `failOnWarnings`, but
+  contract-critical diagnostics stay `warning` so editors keep a usable
+  severity hierarchy while CI fails identically. Redundant settings
+  (`target-version`, `fixable`/`unfixable`, `venvPath`/`venv`,
+  `pythonPlatform`) are gone.
 - Reorient generated repositories around a proof-carrying functional core. A
   closed `proof.toml` catalog gives every critical public behavior a normative
   property ID, exact scope, explicit assumptions, failure modes, counterexample,
