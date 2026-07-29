@@ -30,8 +30,10 @@ The generated foundation also includes the draft
 `repoctl.modules.repository_generation` system capability. Its real hexagonal
 capsule is validated by the same `CAP001`–`CAP003` rules as a future product
 capability. Immutable intent, snapshot, operation, and plan values encode to
-canonical JSON with a content-derived plan ID, while planning and effects
-remain absent at this stage.
+canonical JSON with a content-derived plan ID. Its pure derived-index compiler
+filters exactly active declarations, emits canonical bytes, and carries
+`REPOCTL::DERIVED-INDEX-EXACT`; planning and effects remain absent at this
+stage.
 
 ## Ship Python faster without letting the codebase rot
 

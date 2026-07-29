@@ -145,6 +145,60 @@ def test_complete_property_chain_passes(tmp_path: Path) -> None:
     }
 
 
+def test_namespaced_property_id_closes_a_complete_chain(tmp_path: Path) -> None:
+    root = proof_project(tmp_path)
+    namespaced_id = "REPOCTL::DEMO-PRESERVES-VALUE"
+    paths = (
+        foundation_catalog(root),
+        root / "src/demo/domain/decisions.py",
+        root / "verification/tests/test_properties.py",
+    )
+    for path in paths:
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "DEMO-PRESERVES-VALUE",
+                namespaced_id,
+            ),
+            encoding="utf-8",
+        )
+
+    catalog, violations = check(root)
+
+    assert violations == ()
+    assert catalog is not None
+    assert catalog.properties[0].property_id == namespaced_id
+
+
+def test_public_facade_reexports_resolve_to_exact_proof_symbols(tmp_path: Path) -> None:
+    root = proof_project(tmp_path)
+    (root / "src/demo/api.py").write_text(
+        "\n".join(
+            (
+                "from demo.domain.decisions import identity",
+                "from demo.domain.specifications import identity_matches",
+                "",
+                '__all__ = ["identity", "identity_matches"]',
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    evidence = EVIDENCE.replace(
+        "from demo.domain.decisions import identity\n"
+        "from demo.domain.specifications import identity_matches",
+        "from demo.api import identity, identity_matches",
+    )
+    (root / "verification/tests/test_properties.py").write_text(
+        evidence,
+        encoding="utf-8",
+    )
+
+    catalog, violations = check(root)
+
+    assert violations == ()
+    assert catalog is not None
+
+
 def test_loader_rejects_duplicate_property_id_across_catalogs(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
     duplicate = root / "proof/modules/duplicate.toml"

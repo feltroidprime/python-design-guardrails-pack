@@ -13,7 +13,8 @@ ownership-zone root owns the property. Every catalog declares the same zone its
 root assigns, and the loader aggregates the policy and all catalogs into one
 proof index. The entry contains:
 
-- a stable `UPPER-KEBAB-CASE` ID;
+- a stable `UPPER-KEBAB-CASE` ID, optionally prefixed by an
+  `UPPER-KEBAB::` capability namespace;
 - one falsifiable statement;
 - the exact scope where it claims to hold;
 - every external assumption required for the claim;

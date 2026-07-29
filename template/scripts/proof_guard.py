@@ -28,7 +28,10 @@ def check(root: Path) -> tuple[ProofCatalog | None, tuple[Violation, ...]]:
         tests = tuple(
             proof_test
             for test_root in catalog.policy.test_roots
-            for proof_test in discover_tests(test_root)
+            for proof_test in discover_tests(
+                test_root,
+                source_roots=catalog.policy.source_roots,
+            )
         )
     except (CatalogError, DiscoveryError, OSError, SyntaxError) as error:
         return None, (violation(root / "proof" / "policy.toml", 1, "PROOF000", str(error)),)

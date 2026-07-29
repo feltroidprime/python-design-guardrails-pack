@@ -64,3 +64,71 @@ def operation_kind_is_valid(value: str) -> bool:
 def precondition_is_valid(value: str) -> bool:
     """Return whether a write expects absence or one exact prior digest."""
     return value == "absent" or digest_is_valid(value)
+
+
+type DeclarationIndexFacts = tuple[
+    str,
+    str,
+    str,
+    str,
+    tuple[str, ...],
+    tuple[str, ...],
+    str,
+    str,
+    str,
+]
+type DerivedIndexFacts = tuple[
+    str,
+    str,
+    str,
+    tuple[str, ...],
+    tuple[str, ...],
+    str,
+    str,
+    str,
+]
+
+
+def _active_index_facts(
+    declaration: DeclarationIndexFacts,
+) -> DerivedIndexFacts | None:
+    (
+        name,
+        status,
+        python_module,
+        proof_catalog,
+        inbound,
+        outbound,
+        api,
+        factory,
+        cli_catalog,
+    ) = declaration
+    if status != "active":
+        return None
+    return (
+        name,
+        python_module,
+        proof_catalog,
+        inbound,
+        outbound,
+        api,
+        factory,
+        cli_catalog,
+    )
+
+
+def derived_indexes_are_exact(
+    declarations: tuple[DeclarationIndexFacts, ...],
+    derived: tuple[DerivedIndexFacts, ...],
+) -> bool:
+    """Judge exact, duplicate-free, canonical active-declaration membership."""
+    expected = frozenset(
+        projected
+        for declaration in declarations
+        if (projected := _active_index_facts(declaration)) is not None
+    )
+    return (
+        frozenset(derived) == expected
+        and len(derived) == len(expected)
+        and derived == tuple(sorted(derived))
+    )

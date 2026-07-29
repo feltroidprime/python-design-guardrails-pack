@@ -16,7 +16,11 @@ from scripts.proof_catalog_model import (
     PropertySpec,
 )
 
-PROPERTY_ID_PATTERN = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$")
+PROPERTY_ID_BODY = (
+    r"(?:[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*::)?"
+    r"[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+"
+)
+PROPERTY_ID_PATTERN = re.compile(rf"^{PROPERTY_ID_BODY}$")
 TARGET_PATTERN = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_.]*$")
 MODULE_PATTERN = re.compile(r"^[a-z_][a-z0-9_.]*$")
 ALLOWED_KINDS = frozenset(
@@ -180,7 +184,14 @@ def load_policy(root: Path, raw: dict[str, object]) -> ProofPolicy:
 def _property_identity(raw: dict[str, object], prefix: str) -> _PropertyIdentity:
     property_id = text(raw.get("id"), f"{prefix}.id")
     if PROPERTY_ID_PATTERN.fullmatch(property_id) is None:
-        raise CatalogError(f"Property ID '{property_id}' must use stable UPPER-KEBAB-CASE")
+        raise CatalogError(
+            " ".join(
+                (
+                    f"Property ID '{property_id}' must use stable UPPER-KEBAB-CASE,",
+                    "optionally namespaced as UPPER-KEBAB::UPPER-KEBAB-CASE",
+                )
+            )
+        )
     kind = text(raw.get("kind"), f"{prefix}.kind")
     if kind not in ALLOWED_KINDS:
         raise CatalogError(f"Property '{property_id}' has unsupported kind '{kind}'")

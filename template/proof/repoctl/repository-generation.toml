@@ -1,0 +1,17 @@
+schema_version = 1
+ownership_zone = "foundation"
+
+[[properties]]
+id = "REPOCTL::DERIVED-INDEX-EXACT"
+title = "Derived capability indexes contain exactly active declarations"
+statement = "Compilation includes every active declaration exactly once and excludes every draft, retired, or undeclared capability."
+scope = "The pure compile_indexes projection over explicitly supplied capability declarations."
+assumptions = ["Capability declarations are immutable validated values."]
+kind = "model"
+strength = "normative"
+targets = ["repoctl.modules.repository_generation.domain.indexes:compile_indexes"]
+oracles = ["repoctl.modules.repository_generation.domain.specifications:derived_indexes_are_exact"]
+evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]
+crosshair_targets = ["repoctl.modules.repository_generation.domain.indexes:compile_indexes"]
+counterexample = "A draft or retired declaration appears, or one active declaration is missing or duplicated."
+failure_modes = ["missing active capability", "duplicate capability", "draft capability exposed", "retired capability exposed", "undeclared capability exposed"]

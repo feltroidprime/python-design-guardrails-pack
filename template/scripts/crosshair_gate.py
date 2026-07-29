@@ -50,9 +50,9 @@ BUDGETS = MappingProxyType(
     }
 )
 FAST_CANARY_BUDGET = Budget(
-    max_uninteresting_iterations=12,
-    per_path_timeout=0.75,
-    per_condition_timeout=4.0,
+    max_uninteresting_iterations=16,
+    per_path_timeout=1.5,
+    per_condition_timeout=8.0,
 )
 
 

@@ -12,6 +12,7 @@ from scripts.proof_model import (
     InvocationIndex,
     ProofTest,
 )
+from scripts.proof_reexports import resolve_reexported_target
 from scripts.proof_stateful import state_machine_facts
 
 if TYPE_CHECKING:
@@ -95,9 +96,32 @@ def _proof_test(
     )
 
 
-def _tests_in_file(path: Path) -> tuple[ProofTest, ...]:
+def _normalize_invocations(
+    index: InvocationIndex,
+    source_roots: tuple[Path, ...],
+) -> InvocationIndex:
+    def normalized(targets: frozenset[str]) -> frozenset[str]:
+        return frozenset(
+            resolve_reexported_target(source_roots, target) for target in targets
+        )
+
+    by_node = {
+        node_id: normalized(targets) for node_id, targets in index.by_node.items()
+    }
+    return InvocationIndex(
+        by_node=by_node,
+        module_targets=frozenset(
+            target for targets in by_node.values() for target in targets
+        ),
+    )
+
+
+def _tests_in_file(
+    path: Path,
+    source_roots: tuple[Path, ...],
+) -> tuple[ProofTest, ...]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    index = invocation_index(tree)
+    index = _normalize_invocations(invocation_index(tree), source_roots)
     tests: list[ProofTest] = []
     for node in tree.body:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -108,7 +132,15 @@ def _tests_in_file(path: Path) -> tuple[ProofTest, ...]:
     return tuple(tests)
 
 
-def discover_tests(test_root: Path) -> tuple[ProofTest, ...]:
+def discover_tests(
+    test_root: Path,
+    *,
+    source_roots: tuple[Path, ...] = (),
+) -> tuple[ProofTest, ...]:
     if not test_root.is_dir():
         raise DiscoveryError(f"Proof test root does not exist: {test_root}")
-    return tuple(test for path in sorted(test_root.rglob("*.py")) for test in _tests_in_file(path))
+    return tuple(
+        test
+        for path in sorted(test_root.rglob("*.py"))
+        for test in _tests_in_file(path, source_roots)
+    )

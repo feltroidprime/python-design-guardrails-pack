@@ -105,7 +105,7 @@ class CapabilityDeclaration:
 
     name: str
     python_module: str
-    status: CapabilityStatus
+    status: Literal["draft", "active", "retired"]
     proof_catalog: str
     inbound: tuple[str, ...]
     outbound: tuple[str, ...]

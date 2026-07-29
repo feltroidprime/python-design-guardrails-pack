@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING
 
 from scripts.proof_ast import direct_invoked_targets, dotted_name, import_bindings
+from scripts.proof_catalog_schema import PROPERTY_ID_BODY
 from scripts.proof_model import (
     ContractLink,
     Definition,
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
 
 SourceRoots = Path | tuple[Path, ...]
 
-PROPERTY_DESCRIPTION = re.compile(r"^PROPERTY\[([A-Z][A-Z0-9-]+)\](?:: .+)?$")
+PROPERTY_DESCRIPTION = re.compile(rf"^PROPERTY\[({PROPERTY_ID_BODY})\](?:: .+)?$")
 CONTRACT_DECORATORS = frozenset({"require", "ensure", "invariant"})
 ORACLE_FORBIDDEN_NODES = (
     ast.AsyncWith,
@@ -81,7 +82,7 @@ def _module_path(module: str, source_roots: SourceRoots) -> Path:
     return candidates[0]
 
 
-def _module_file(module: str, source_roots: SourceRoots) -> Path | None:
+def module_file(module: str, source_roots: SourceRoots) -> Path | None:
     path = _module_path(module, source_roots)
     candidate = path / "__init__.py" if path.is_dir() else path
     return candidate if candidate.is_file() else None
@@ -260,7 +261,7 @@ def _named_definition(nodes: Iterable[ast.stmt], name: str) -> Definition | None
     return None
 
 
-def _find_qualified_node(tree: ast.Module, qualname: str) -> Definition | None:
+def find_qualified_node(tree: ast.Module, qualname: str) -> Definition | None:
     nodes: list[ast.stmt] = list(tree.body)
     current: Definition | None = None
     parts = qualname.split(".")
@@ -284,11 +285,11 @@ def _resolved_definition(
     module, separator, qualname = target.partition(":")
     if not separator:
         raise DiscoveryError(f"Invalid {label} '{target}'")
-    path = _module_file(module, source_roots)
+    path = module_file(module, source_roots)
     if path is None:
         return None
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    node = _find_qualified_node(tree, qualname)
+    node = find_qualified_node(tree, qualname)
     if node is None:
         return None
     return path, module, qualname, node
