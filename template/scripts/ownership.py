@@ -1,64 +1,76 @@
-"""Classify repository-relative paths from the declared ownership roots."""
+"""Adapt filesystem-shaped ownership policy to the pure domain classifier."""
 
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, NewType
+from typing import TYPE_CHECKING
+
+from repoctl.modules.repository_generation.api import (
+    AbsolutePathError,
+    AmbiguousOwnershipError,
+    DotPathSegmentError,
+    EmptyPathSegmentError,
+    NonCanonicalSeparatorError,
+    OwnershipPathError,
+    OwnershipRoot,
+    OwnershipZone,
+    OwnershipZoneRoots,
+    ParentPathError,
+    RepositoryPathCandidate,
+    UnclassifiedPathError,
+    UnicodeNormalizationPathError,
+    classify_path as classify_domain_path,
+    matching_zones as matching_domain_zones,
+    validated_segments,
+)
 
 if TYPE_CHECKING:
     from scripts.ownership_policy import OwnershipPolicy
 
-
-OwnershipZone = NewType("OwnershipZone", str)
-
-
-class OwnershipPathError(ValueError):
-    """Base class for invalid ownership-classification inputs."""
-
-
-class AbsolutePathError(OwnershipPathError):
-    """Raised when a path is not repository-relative."""
-
-
-class ParentPathError(OwnershipPathError):
-    """Raised when a path tries to escape the repository with ``..``."""
-
-
-class UnclassifiedPathError(OwnershipPathError):
-    """Raised when no declared ownership root contains a path."""
+__all__ = [
+    "AbsolutePathError",
+    "AmbiguousOwnershipError",
+    "DotPathSegmentError",
+    "EmptyPathSegmentError",
+    "NonCanonicalSeparatorError",
+    "OwnershipPathError",
+    "OwnershipZone",
+    "ParentPathError",
+    "UnclassifiedPathError",
+    "UnicodeNormalizationPathError",
+    "classify_path",
+    "matching_zones",
+    "normalized_relative_path",
+]
 
 
-class AmbiguousOwnershipError(OwnershipPathError):
-    """Raised when roots from more than one zone contain a path."""
+def _candidate(path: Path) -> RepositoryPathCandidate:
+    return RepositoryPathCandidate(value=path.as_posix())
 
 
-def normalized_relative_path(path: Path) -> PurePosixPath:
-    """Validate and normalize a repository-relative path without accessing the filesystem."""
-    if path.is_absolute():
-        raise AbsolutePathError(f"Ownership paths must be repository-relative: {path}")
-    if ".." in path.parts:
-        raise ParentPathError(f"Ownership paths must not contain '..': {path}")
-    return PurePosixPath(*path.parts)
-
-
-def _contains(root: PurePosixPath, path: PurePosixPath) -> bool:
-    return path == root or root in path.parents
-
-
-def matching_zones(path: Path, policy: OwnershipPolicy) -> tuple[OwnershipZone, ...]:
-    """Return all declared zones containing ``path`` in declaration order."""
-    normalized = normalized_relative_path(path)
+def _domain_zones(policy: OwnershipPolicy) -> tuple[OwnershipZoneRoots, ...]:
     return tuple(
-        OwnershipZone(zone.name)
+        OwnershipZoneRoots(
+            name=OwnershipZone(zone.name),
+            roots=tuple(
+                OwnershipRoot(value=root.as_posix()) for root in zone.roots
+            ),
+        )
         for zone in policy.zones
-        if any(_contains(root, normalized) for root in zone.roots)
     )
 
 
+def normalized_relative_path(path: Path) -> PurePosixPath:
+    """Validate one path through the domain owner and expose its segments."""
+    return PurePosixPath(*validated_segments(_candidate(path)))
+
+
+def matching_zones(
+    path: Path,
+    policy: OwnershipPolicy,
+) -> tuple[OwnershipZone, ...]:
+    """Delegate ownership matching to the pure domain classifier."""
+    return matching_domain_zones(_candidate(path), _domain_zones(policy))
+
+
 def classify_path(path: Path, policy: OwnershipPolicy) -> OwnershipZone:
-    """Return one ownership zone or reject an invalid, unknown, or ambiguous path."""
-    zones = matching_zones(path, policy)
-    if not zones:
-        raise UnclassifiedPathError(f"No ownership root contains: {path}")
-    if len(zones) > 1:
-        names = ", ".join(zones)
-        raise AmbiguousOwnershipError(f"Multiple ownership zones contain {path}: {names}")
-    return next(iter(zones))
+    """Delegate sole-owner classification to the pure domain classifier."""
+    return classify_domain_path(_candidate(path), _domain_zones(policy))

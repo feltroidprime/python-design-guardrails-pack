@@ -68,6 +68,10 @@ def test_pytest_xdist_pin_is_coherent() -> None:
     assert_coherent(occurrences(rf"pytest-xdist=={VERSION}"), 2)
 
 
+def test_icontract_floor_is_coherent() -> None:
+    assert_coherent(occurrences(rf"icontract>={VERSION}"), 4)
+
+
 def test_prek_floor_is_coherent() -> None:
     assert_coherent(
         occurrences(rf"minimum_prek_version = \"{VERSION}\"", rf"prek>={VERSION}"),

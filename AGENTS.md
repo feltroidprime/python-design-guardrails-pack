@@ -121,7 +121,8 @@ loop, not a completion criterion for template changes.
 
 Prerequisites: `python3` (3.14), `uv`, `just`, and network access for the first
 dependency resolution. `uv run --no-project --with` supplies Copier, pytest,
-and pytest-xdist;
+pytest-xdist, and the icontract floor needed by the domain-owned repository
+path classifier;
 the root `pyproject.toml` is packaging-only (Copier is its sole runtime
 dependency; it has no dev tooling) and the
 root intentionally has no virtualenv or lock file, so IDE warnings about

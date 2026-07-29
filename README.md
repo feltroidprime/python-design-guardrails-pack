@@ -19,12 +19,16 @@ outcomes, composable queries, and conditional idempotency are versioned in
 generated ADR-0002 and its ADR-0004 extension.
 
 Generated repositories also classify every path as FOUNDATION, PRODUCT,
-DERIVED, or DECLARATION from one table in `architecture.toml`. The quality gate
-rejects overlapping roots, unowned repository paths, and capability imports
-that bypass `api.py`; the pack rejects any template file that would render into
-a user-owned PRODUCT root. Empty derived indexes carry a source-state digest,
-and a real Copier update test proves scaffold updates leave seeded product bytes
-unchanged.
+DERIVED, or DECLARATION from one table in `architecture.toml`. One pure
+repository-generation classifier interprets those roots; the foundation guard
+only adapts filesystem values to it. Named errors reject absolute paths, parent
+escapes, empty segments, and non-canonical Unicode, while
+`REPOCTL::PLAN-PATH-CLOSED` connects every successful classification to
+icontract, Hypothesis, and CrossHair. The quality gate rejects overlapping
+roots, unowned repository paths, and capability imports that bypass `api.py`;
+the pack rejects any template file that would render into a user-owned PRODUCT
+root. Empty derived indexes carry a source-state digest, and a real Copier
+update test proves scaffold updates leave seeded product bytes unchanged.
 
 The generated foundation also includes the draft
 `repoctl.modules.repository_generation` system capability. Its real hexagonal

@@ -50,8 +50,14 @@ hexagonal capsule under FOUNDATION ownership. Its immutable intent, snapshot,
 operation, and plan values have icontract invariants, canonical JSON, and a
 content-derived plan ID. Its pure derived-index compiler projects exactly the
 active declarations into canonical bytes under
-`REPOCTL::DERIVED-INDEX-EXACT`. It still has no placeholder product model,
-planning decision, lifecycle transition, or effectful behavior.
+`REPOCTL::DERIVED-INDEX-EXACT`. Its pure path classifier is the sole
+interpreter of the ownership roots; `scripts/ownership.py` only adapts
+filesystem-shaped values. Absolute paths, parent escapes, empty segments, and
+non-canonical Unicode fail with named boundary errors, and
+`REPOCTL::PLAN-PATH-CLOSED` links every successful classification to an
+independent oracle, Hypothesis, and CrossHair. The capsule still has no
+placeholder product model, planning decision, lifecycle transition, or
+effectful behavior.
 
 The proof loop is intentionally narrower than the full gate. One
 `proof/policy.toml` sets the shared discovery policy and names the ownership-zone

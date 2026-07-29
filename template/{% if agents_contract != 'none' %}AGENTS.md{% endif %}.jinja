@@ -86,8 +86,11 @@ ownership. Its `api.py` is the only stable cross-capability import surface.
 Never grant a system capability an exception that a product capability would
 not receive. ADR-0007 owns these rules.
 The scaffold's `repoctl.modules.repository_generation` capability is a draft
-capsule with immutable canonical plan values. Keep planning pure and do not
-invent product semantics merely to fill its layers.
+capsule with immutable canonical plan values. Its domain classifier is the sole
+interpreter of ownership roots; keep `scripts/ownership.py` as a filesystem
+adapter with no independent path-rule table, and preserve
+`REPOCTL::PLAN-PATH-CLOSED`. Keep planning pure and do not invent product
+semantics merely to fill its layers.
 
 ## Proof-carrying core contract
 
@@ -200,6 +203,7 @@ The example application separates two kinds of code (see ADR-0001):
 | Certify a port implementation | subclass the port's contract in `tests/contract/` (see `item_repository_contract.py`) and provide a `repository` fixture |
 | Add/change a domain invariant or pure transition | declare it in the ownership-zone catalog selected by `proof/policy.toml`, write the oracle in `domain/specifications.py`, attach `icontract`, then add the canonical property and canary under `verification/tests/` |
 | Change a derived capability index | keep `repoctl` compilation a pure projection of explicit declarations, preserve `REPOCTL::DERIVED-INDEX-EXACT`, and import the capability through its `api.py` facade in external evidence |
+| Change repository path ownership | edit the pure classifier behind the repository-generation `api.py`, preserve its named boundary errors and `REPOCTL::PLAN-PATH-CLOSED`, and leave `scripts/ownership.py` as an adapter without a second rule table |
 | Prove retries, ordering, leases, or legal transitions | write a small reference predicate and a Hypothesis `RuleBasedStateMachine`; keep external effects behind fakes/ports |
 | New port | single operation → callable `type` alias; multiple operations → `Protocol` (both in `application/ports.py`) |
 | Expose a CLI command | add one `CommandSpec` in `adapters/inbound/cli_catalog.py` and matching independent command/outcome process cases; preserve ADR-0002 and ADR-0004 |

@@ -78,6 +78,7 @@ EXPECTED_FILES = (
     "repoctl/modules/repository_generation/domain/__init__.py",
     "repoctl/modules/repository_generation/domain/indexes.py",
     "repoctl/modules/repository_generation/domain/intents.py",
+    "repoctl/modules/repository_generation/domain/ownership.py",
     "repoctl/modules/repository_generation/domain/plans.py",
     "repoctl/modules/repository_generation/domain/specifications.py",
     "scripts/architecture_guard.py",
@@ -159,6 +160,7 @@ EXPECTED_FILES = (
     "verification/harness/strategies.py",
     "verification/harness/symbolic_canary.py",
     "verification/repoctl/test_derived_index_properties.py",
+    "verification/repoctl/test_path_closed_properties.py",
     "verification/repoctl/test_proof_policy.py",
     "verification/tests/test_create_item_state_machine.py",
     "verification/tests/test_decision_properties.py",
@@ -1222,7 +1224,7 @@ def test_expected_files_are_preserved(generated: Path) -> None:
 
 
 def test_generated_architecture_guard_runs_and_passes(generated: Path) -> None:
-    """The guard is stdlib-only, so it must run in the generated repo as-is."""
+    """The guard runs with the repoctl classifier dependency supplied by the test recipe."""
     result = subprocess.run(
         [sys.executable, "-m", "scripts.architecture_guard"],
         cwd=generated,
