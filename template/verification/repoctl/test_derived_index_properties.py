@@ -81,9 +81,7 @@ def test_compiled_membership_is_exactly_the_active_subset(
     extra_statuses: list[CapabilityStatus],
 ) -> None:
     statuses = (*STATUSES, *extra_statuses)
-    declarations = tuple(
-        _declaration(index, status) for index, status in enumerate(statuses)
-    )
+    declarations = tuple(_declaration(index, status) for index, status in enumerate(statuses))
 
     result = compile_indexes(declarations)
 
@@ -96,9 +94,7 @@ def test_compiled_membership_is_exactly_the_active_subset(
     )
     names = tuple(entry.name for entry in result.active)
     expected_names = {
-        declaration.name
-        for declaration in declarations
-        if declaration.status == "active"
+        declaration.name for declaration in declarations if declaration.status == "active"
     }
     assert set(names) == expected_names
     assert len(names) == len(set(names))
@@ -132,9 +128,7 @@ def test_compilation_is_byte_stable_for_the_same_declaration_set(
     extra_statuses: list[CapabilityStatus],
 ) -> None:
     statuses = (*STATUSES, *extra_statuses)
-    declarations = tuple(
-        _declaration(index, status) for index, status in enumerate(statuses)
-    )
+    declarations = tuple(_declaration(index, status) for index, status in enumerate(statuses))
 
     first = canonical_index_bytes(compile_indexes(declarations))
     second = canonical_index_bytes(compile_indexes(tuple(reversed(declarations))))
@@ -160,8 +154,7 @@ def test_compiler_cannot_perform_runtime_module_discovery() -> None:
     called = {
         node.func.id if isinstance(node.func, ast.Name) else node.func.attr
         for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, (ast.Name, ast.Attribute))
+        if isinstance(node, ast.Call) and isinstance(node.func, (ast.Name, ast.Attribute))
     }
 
     assert all(

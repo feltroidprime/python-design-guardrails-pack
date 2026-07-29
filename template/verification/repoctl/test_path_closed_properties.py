@@ -49,9 +49,7 @@ SEGMENTS = st.text(alphabet=ascii_lowercase + digits + "_-", min_size=1, max_siz
 
 
 def _root_facts() -> tuple[tuple[str, tuple[str, ...]], ...]:
-    return tuple(
-        (str(zone.name), tuple(root.value for root in zone.roots)) for zone in ROOTS
-    )
+    return tuple((str(zone.name), tuple(root.value for root in zone.roots)) for zone in ROOTS)
 
 
 @pytest.mark.proof
@@ -110,9 +108,7 @@ def test_empty_segments_raise_a_named_error(
     separator_count: int,
     leaf: str,
 ) -> None:
-    candidate = RepositoryPathCandidate(
-        value=f"scripts{'/' * separator_count}{leaf}"
-    )
+    candidate = RepositoryPathCandidate(value=f"scripts{'/' * separator_count}{leaf}")
     with pytest.raises(EmptyPathSegmentError):
         _ = classify_path(candidate, ROOTS)
 
@@ -148,8 +144,7 @@ def test_script_facade_has_no_second_classification_implementation() -> None:
         for node in tree.body
         if isinstance(node, ast.Assign)
         for target in node.targets
-        if isinstance(target, ast.Name)
-        and ("ROOT" in target.id or "ZONE" in target.id)
+        if isinstance(target, ast.Name) and ("ROOT" in target.id or "ZONE" in target.id)
     }
     unwrapped_classifier = cast(
         Callable[

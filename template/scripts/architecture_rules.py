@@ -158,7 +158,10 @@ def check_module_shape(path: Path, line_count: int, policy: Policy) -> list[Viol
     if path.stem in policy.forbidden_module_stems:
         violations.append(
             Violation(
-                path=path, line=1, code="ARCH001", message="Generic module name is forbidden."
+                path=path,
+                line=1,
+                code="ARCH001",
+                message="Generic module name is forbidden.",
             )
         )
     if line_count > maximum:
@@ -226,7 +229,12 @@ def check_class(
     ]
     if not calls:
         violations.append(
-            violation(path, node, "ARCH006", "Classes in immutable modules must be dataclasses.")
+            violation(
+                path,
+                node,
+                "ARCH006",
+                "Classes in immutable modules must be dataclasses.",
+            )
         )
     elif not {"frozen", "slots", "kw_only"}.issubset(truthy_keywords(calls[0])):
         violations.append(
@@ -298,8 +306,7 @@ def is_domain_source(path: Path, policy: Policy) -> bool:
     """Recognize the domain layer in the product package and system capabilities."""
     production_roots = (policy.package_root, policy.root / "repoctl")
     return any(
-        is_under(path, root)
-        and policy.domain_root.name in path.relative_to(root).parts[:-1]
+        is_under(path, root) and policy.domain_root.name in path.relative_to(root).parts[:-1]
         for root in production_roots
     )
 

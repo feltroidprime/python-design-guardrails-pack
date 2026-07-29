@@ -200,9 +200,7 @@ def _plan_digests_hold(self: object) -> bool:
 
 def _plan_targets_hold(self: object) -> bool:
     plan = cast("CapabilityPlan", self)
-    return file_paths_are_unique(
-        tuple(operation.path.value for operation in plan.operations)
-    )
+    return file_paths_are_unique(tuple(operation.path.value for operation in plan.operations))
 
 
 @icontract.invariant(

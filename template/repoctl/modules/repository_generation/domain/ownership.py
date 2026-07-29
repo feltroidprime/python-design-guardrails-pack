@@ -74,10 +74,7 @@ class OwnershipZoneRoots:
 
 def _is_absolute(value: str) -> bool:
     drive_absolute = (
-        len(value) >= 3
-        and value[0].isalpha()
-        and value[1] == ":"
-        and value[2] in "/\\"
+        len(value) >= 3 and value[0].isalpha() and value[1] == ":" and value[2] in "/\\"
     )
     return value.startswith(("/", "\\")) or drive_absolute
 
@@ -88,13 +85,9 @@ def validated_segments(candidate: RepositoryPathCandidate) -> tuple[str, ...]:
     if _is_absolute(value):
         raise AbsolutePathError(f"Ownership paths must be repository-relative: {value}")
     if "\\" in value:
-        raise NonCanonicalSeparatorError(
-            f"Ownership paths must use POSIX separators: {value}"
-        )
+        raise NonCanonicalSeparatorError(f"Ownership paths must use POSIX separators: {value}")
     if normalize("NFC", value) != value:
-        raise UnicodeNormalizationPathError(
-            f"Ownership paths must use canonical NFC text: {value}"
-        )
+        raise UnicodeNormalizationPathError(f"Ownership paths must use canonical NFC text: {value}")
     segments = tuple(value.split("/"))
     if any(not segment for segment in segments):
         raise EmptyPathSegmentError(f"Ownership paths must not contain empty segments: {value}")
@@ -126,9 +119,7 @@ def matching_zones(
 def _root_facts(
     zones: tuple[OwnershipZoneRoots, ...],
 ) -> tuple[OwnershipRootFacts, ...]:
-    return tuple(
-        (str(zone.name), tuple(root.value for root in zone.roots)) for zone in zones
-    )
+    return tuple((str(zone.name), tuple(root.value for root in zone.roots)) for zone in zones)
 
 
 def _classification_is_closed(
@@ -148,10 +139,7 @@ def _classification_input_is_closed(
     zones: tuple[OwnershipZoneRoots, ...],
 ) -> bool:
     facts = _root_facts(zones)
-    return any(
-        classified_path_is_closed(candidate.value, facts, zone)
-        for zone, _roots in facts
-    )
+    return any(classified_path_is_closed(candidate.value, facts, zone) for zone, _roots in facts)
 
 
 def _classification_input_error(
@@ -163,13 +151,9 @@ def _classification_input_error(
     except OwnershipPathError as error:
         return error
     if not matches:
-        return UnclassifiedPathError(
-            f"No ownership root contains: {candidate.value}"
-        )
+        return UnclassifiedPathError(f"No ownership root contains: {candidate.value}")
     names = ", ".join(matches)
-    return AmbiguousOwnershipError(
-        f"Multiple ownership zones contain {candidate.value}: {names}"
-    )
+    return AmbiguousOwnershipError(f"Multiple ownership zones contain {candidate.value}: {names}")
 
 
 @icontract.require(

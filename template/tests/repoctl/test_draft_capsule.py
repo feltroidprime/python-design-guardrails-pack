@@ -66,6 +66,6 @@ def test_repoctl_tree_is_entirely_foundation_owned() -> None:
     repoctl_files = tuple(path for path in (root / "repoctl").rglob("*") if path.is_file())
 
     assert repoctl_files
-    assert {
-        str(classify_path(path.relative_to(root), policy)) for path in repoctl_files
-    } == {"FOUNDATION"}
+    assert {str(classify_path(path.relative_to(root), policy)) for path in repoctl_files} == {
+        "FOUNDATION"
+    }

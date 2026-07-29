@@ -101,18 +101,12 @@ def _normalize_invocations(
     source_roots: tuple[Path, ...],
 ) -> InvocationIndex:
     def normalized(targets: frozenset[str]) -> frozenset[str]:
-        return frozenset(
-            resolve_reexported_target(source_roots, target) for target in targets
-        )
+        return frozenset(resolve_reexported_target(source_roots, target) for target in targets)
 
-    by_node = {
-        node_id: normalized(targets) for node_id, targets in index.by_node.items()
-    }
+    by_node = {node_id: normalized(targets) for node_id, targets in index.by_node.items()}
     return InvocationIndex(
         by_node=by_node,
-        module_targets=frozenset(
-            target for targets in by_node.values() for target in targets
-        ),
+        module_targets=frozenset(target for targets in by_node.values() for target in targets),
     )
 
 

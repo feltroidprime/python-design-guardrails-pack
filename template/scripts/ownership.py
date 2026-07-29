@@ -50,9 +50,7 @@ def _domain_zones(policy: OwnershipPolicy) -> tuple[OwnershipZoneRoots, ...]:
     return tuple(
         OwnershipZoneRoots(
             name=OwnershipZone(zone.name),
-            roots=tuple(
-                OwnershipRoot(value=root.as_posix()) for root in zone.roots
-            ),
+            roots=tuple(OwnershipRoot(value=root.as_posix()) for root in zone.roots),
         )
         for zone in policy.zones
     )
