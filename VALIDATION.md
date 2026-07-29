@@ -1,10 +1,10 @@
-# Validation record — 2026-07-29
+# Validation record — 2026-07-30
 
 Validated on Linux 6.8.0-136-generic (x86_64) with Python 3.14.3,
 uv 0.11.28, just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist
 3.8.0, Ruff 0.16.0, and prek 0.4.11. The final canonical run exercised the
-committed issue #36 review-remediation code; the only subsequent changes were
-this validation record and a review-driven root documentation correction.
+committed issue #36 review-remediation and 650-line ceiling changes; the only
+subsequent change was this validation record.
 
 ## Change validated
 
@@ -25,11 +25,15 @@ The SPEC-0001 repository-generation planning epic (#36, with DAG leaves
   creates only absent PRODUCT seeds and emits exact declaration/derived writes;
   effectful application remains deliberately outside this epic.
 - The actual capability validator runs identical `CAP001`–`CAP003` rule sets
-  against a FOUNDATION repoctl capability and a PRODUCT fixture. Execution
-  tracing, a real source mutant, and AST/config audits reject a system-only
-  skipped rule or bypass.
-- Architecture rules reject ambient-effect imports and calls in both the
-  repository-generation domain and application layers.
+  against a FOUNDATION repoctl capability and a PRODUCT fixture. Symmetric
+  rule-triggering probes, an indirect in-rule source mutant, and AST/config
+  audits reject a system-only skipped rule or bypass.
+- Architecture rules give the repository-generation domain a closed pure
+  import allowlist and keep its intentionally empty application layer
+  import-free and call-free during this planning-only epic.
+- The generated production-module ceiling is 650 lines, allowing cohesive
+  policy/gate modules while retaining the 500-line test, 60-line function,
+  250-line class, and Ruff complexity limits.
 - Root and generated Python use the same Ruff floor and shared base policy,
   with explicit root boundary exceptions. The root pre-push hook runs all root
   tests with four work-stealing workers, while the slower generated, symbolic,
@@ -82,26 +86,26 @@ just validate
 The final `just validate` passed end to end:
 
 - root Ruff repair/check: **120 files stable**, all checks passed;
-- root suite: **214 passed in 47.10s** with four work-stealing workers;
+- root suite: **215 passed in 32.11s** with four work-stealing workers;
 - template cleanliness and complete Jinja rendering: passed;
 - generated Ruff and BasedPyright: passed with **0 type errors and
   0 warnings**;
 - generated ownership, architecture, documentation, proof, symbolic, and
   import-contract gates: passed;
-- generated tests: **202 passed, 7 skipped, 3 deselected in 24.70s**, with
+- generated tests: **202 passed, 7 skipped, 3 deselected in 23.42s**, with
   **93.94%** coverage;
 - deterministic repair replay: **202 passed, 7 skipped, 3 deselected in
-  22.32s**, with the same coverage;
+  22.20s**, with the same coverage;
 - missing-hook repair, tracked-syntax fault injection, clean/dirty doctor
   probes, and linked-worktree pre-commit/pre-push execution: passed;
 - committed Copier update round trip and offline downstream gate:
-  **2 passed in 77.48s**.
+  **2 passed in 63.00s**.
 
 The syntax and dirty-doctor failures printed during validation are deliberate
 fault-injection probes.
 
-Earlier runs and the independent final review honestly exposed and drove five
-fixes before the final pass:
+Earlier runs and the independent final review honestly exposed and drove the
+following fixes before the final pass:
 
 - the CI symbolic canary needed a profile-independent minimum search budget;
 - root-default Ruff repair differed from the generated policy and left repair
@@ -111,7 +115,15 @@ fixes before the final pass:
 - the architecture purity rules covered repository-generation domain code but
   not its application layer;
 - the original parity test compared advertised rule IDs instead of observing
-  the rule functions actually executed.
+  rule semantics under deliberate CAP001–CAP003 violations;
+- a second review found that `shutil.copyfile` escaped the original denylist
+  and that an indirect early return could fool call-site execution tracing;
+- one in-progress validation was intentionally interrupted with exit 130 when
+  the user raised the module ceiling; its obsolete partial result was
+  discarded and rerun from the new committed policy;
+- the first 650-line validation reached generated BasedPyright with **0
+  errors, 1 warning** for implicit string concatenation and failed as designed;
+  the explicit string fix produced the final clean run.
 
 ## Remaining risks and portability notes
 

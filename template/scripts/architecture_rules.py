@@ -19,7 +19,16 @@ NOQA_TOKEN = "no" + "qa"
 REPOSITORY_GENERATION_APPLICATION_SCOPE = "Repository-generation application"
 REPOSITORY_GENERATION_DOMAIN_SCOPE = "Repository-generation domain"
 REPOSITORY_GENERATION_DOMAIN_IMPORT_ROOTS = frozenset(
-    ("dataclasses", "hashlib", "icontract", "json", "re", "repoctl", "typing", "unicodedata")
+    {
+        "dataclasses",
+        "hashlib",
+        "icontract",
+        "json",
+        "re",
+        "repoctl",
+        "typing",
+        "unicodedata",
+    }
 )
 
 
@@ -319,8 +328,7 @@ def check_call(
     if not forbidden:
         return []
     message = (
-        "Repository-generation application code must remain call-free during "
-        "the planning-only stage."
+        "Repository-generation application code must remain call-free during the planning-only stage."
         if ambient_effect_scope == REPOSITORY_GENERATION_APPLICATION_SCOPE
         else f"{ambient_effect_scope} call '{name}' is nondeterministic or performs I/O."
     )

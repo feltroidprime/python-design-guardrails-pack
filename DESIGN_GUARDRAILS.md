@@ -27,7 +27,7 @@ at completion and in CI.
 
 | Design concern | Python 3.14 approach | Deterministic materialization |
 |---|---|---|
-| Coupling, cohesion, SRP, DRY, KISS, YAGNI in context | modules organized by reason to change; small functions; no speculative abstractions | module/function/class line ceilings; Ruff cyclomatic complexity (`C901`, max 10); forbidden dumping-ground modules; pattern admission checklist |
+| Coupling, cohesion, SRP, DRY, KISS, YAGNI in context | modules organized by reason to change; small functions; no speculative abstractions | a 650-line production-module ceiling keeps cohesive policy and gate logic together without forcing artificial splits; tests retain a 500-line ceiling, functions 60, and classes 250; Ruff cyclomatic complexity (`C901`, max 10), forbidden dumping-ground modules, and the pattern admission checklist keep the larger module budget from becoming a god-object waiver |
 | Law of Demeter | expose intention-revealing operations rather than object-navigation chains | architecture guard ceilings plus review rule in `AGENTS.md`; tests at public boundaries |
 | Strategy emerging naturally | function, callable `Protocol`, or injected strategy only when behavior varies | no mandatory Strategy base class; ADR/checklist requires a named variation axis |
 | Composition over inheritance | constructor injection; `Protocol`; shallow inheritance only for true substitutability | agents must inject dependencies; BasedPyright validates structural contracts; ARCH030 requires `@override` for resolved in-repository base methods |

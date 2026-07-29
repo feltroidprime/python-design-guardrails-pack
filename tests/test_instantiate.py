@@ -1240,6 +1240,12 @@ def test_generated_architecture_guard_runs_and_passes(generated: Path) -> None:
     assert "Architecture guard passed." in result.stdout
 
 
+def test_generated_module_ceiling_allows_cohesive_policy_modules(generated: Path) -> None:
+    architecture = tomllib.loads((generated / "architecture.toml").read_text(encoding="utf-8"))
+
+    assert architecture["limits"]["max_module_lines"] == 650
+
+
 def test_generated_docs_guard_runs_and_passes(generated: Path) -> None:
     """The docs guard is stdlib-only, so it must run in the generated repo as-is."""
     result = subprocess.run(
