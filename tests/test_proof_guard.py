@@ -202,9 +202,15 @@ def test_one_policy_discovers_a_catalog_target_outside_src(tmp_path: Path) -> No
         encoding="utf-8",
     )
 
-    _, violations = check(root)
+    catalog, violations = check(root)
 
     assert violations == ()
+    assert catalog is not None
+    property_spec = catalog.by_id["DEMO-PRESERVES-VALUE"]
+    assert property_spec.targets == ("repoctl.decisions:identity",)
+    assert property_spec.evidence == frozenset(
+        {"icontract", "hypothesis", "crosshair", "falsifier"}
+    )
 
 
 def test_new_public_core_behavior_is_rejected_until_classified(tmp_path: Path) -> None:

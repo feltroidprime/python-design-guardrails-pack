@@ -7,7 +7,9 @@ Hypothesis searches broad inputs and action histories, and CrossHair searches
 the explicit pure core symbolically. Exact target/oracle resolution, scoped
 state-machine evidence, independent predicates, mandatory counterexamples, and a
 fast `just prove-one PROPERTY-ID` loop prevent coverage from substituting for the
-right property.
+right property. The policy declares source and verification roots as data, so
+the same proof chain discovers both the generated product package and the
+repository-control (`repoctl`) capsule without a second proof system.
 
 Generated repositories include an agent-native CLI contract: one closed
 command catalog drives help and machine-readable capabilities, while an

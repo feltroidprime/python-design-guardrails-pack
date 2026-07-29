@@ -64,7 +64,10 @@ canonical test. It also rejects effect-shaped oracles and oracles that import or
 call the behavior they judge. Every contracted public core function or method
 must be an explicit CrossHair target, so agents cannot skip symbolic evidence,
 and that symbolic run must refute a deliberately false canary contract before its
-silence counts as a result. The daily loop searches meaningful state without
+silence counts as a result. Source and verification roots are declared once in
+the policy: CrossHair builds its import path from those roots, and the canonical
+`verification/tests/` collection imports proof evidence from
+`verification/repoctl/`. The daily loop searches meaningful state without
 traversing CLI, database, GitHub, MCP, or network effects. The full recipe and
 evidence rules are in
 `docs/architecture/PROVABILITY.md` (ADR-0006).

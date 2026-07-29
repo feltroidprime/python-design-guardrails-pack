@@ -9,12 +9,13 @@ separates "searched and found no counterexample" from "searched nothing".
 
 from dataclasses import dataclass
 from importlib.util import find_spec
+import os
 from pathlib import Path
 import subprocess
 import sys
 from types import MappingProxyType
 
-from scripts.proof_catalog import CatalogError, PropertySpec, load_catalog
+from scripts.proof_catalog import CatalogError, ProofCatalog, PropertySpec, load_catalog
 
 CANARY_TARGET = "verification.harness.symbolic_canary:refutable_echo"
 CANARY_OWNER = "SYMBOLIC-CANARY"
@@ -47,6 +48,11 @@ BUDGETS = MappingProxyType(
             per_condition_timeout=30.0,
         ),
     }
+)
+FAST_CANARY_BUDGET = Budget(
+    max_uninteresting_iterations=12,
+    per_path_timeout=0.75,
+    per_condition_timeout=4.0,
 )
 
 
@@ -92,8 +98,10 @@ class TargetOutcome:
         return "searched, no counterexample (bounded)"
 
 
-def _selected_properties(root: Path, property_ids: tuple[str, ...]) -> tuple[PropertySpec, ...]:
-    catalog = load_catalog(root)
+def _selected_properties(
+    catalog: ProofCatalog,
+    property_ids: tuple[str, ...],
+) -> tuple[PropertySpec, ...]:
     if not property_ids:
         return catalog.properties
     requested = frozenset(property_ids)
@@ -107,9 +115,12 @@ def _selected_properties(root: Path, property_ids: tuple[str, ...]) -> tuple[Pro
     )
 
 
-def _symbolic_targets(root: Path, property_ids: tuple[str, ...]) -> tuple[SymbolicTarget, ...]:
+def _symbolic_targets(
+    catalog: ProofCatalog,
+    property_ids: tuple[str, ...],
+) -> tuple[SymbolicTarget, ...]:
     owners: dict[str, set[str]] = {}
-    for property_spec in _selected_properties(root, property_ids):
+    for property_spec in _selected_properties(catalog, property_ids):
         for target in property_spec.crosshair_targets:
             owners.setdefault(target, set()).add(property_spec.property_id)
     if not owners:
@@ -123,7 +134,7 @@ def _symbolic_targets(root: Path, property_ids: tuple[str, ...]) -> tuple[Symbol
 
 
 def _command(profile: str, target: SymbolicTarget) -> tuple[str, ...]:
-    budget = BUDGETS[profile]
+    budget = FAST_CANARY_BUDGET if profile == "fast" and target.must_refute else BUDGETS[profile]
     return (
         sys.executable,
         "-m",
@@ -138,13 +149,28 @@ def _command(profile: str, target: SymbolicTarget) -> tuple[str, ...]:
     )
 
 
-def _analyse(root: Path, profile: str, target: SymbolicTarget) -> TargetOutcome:
+def _source_environment(source_roots: tuple[Path, ...]) -> dict[str, str]:
+    environment = dict(os.environ)
+    declared = tuple(str(path) for path in source_roots)
+    inherited = environment.get("PYTHONPATH", "")
+    entries = (*declared, inherited) if inherited else declared
+    environment["PYTHONPATH"] = os.pathsep.join(entries)
+    return environment
+
+
+def _analyse(
+    root: Path,
+    profile: str,
+    target: SymbolicTarget,
+    source_roots: tuple[Path, ...],
+) -> TargetOutcome:
     completed = subprocess.run(
         _command(profile, target),
         cwd=root,
         capture_output=True,
         text=True,
         check=False,
+        env=_source_environment(source_roots),
     )
     output = completed.stdout + completed.stderr
     return TargetOutcome(
@@ -172,11 +198,16 @@ def _report_failure(outcome: TargetOutcome) -> None:
         print(detail, file=sys.stderr)
 
 
-def _run_targets(root: Path, profile: str, targets: tuple[SymbolicTarget, ...]) -> int:
+def _run_targets(
+    root: Path,
+    profile: str,
+    targets: tuple[SymbolicTarget, ...],
+    source_roots: tuple[Path, ...],
+) -> int:
     print(f"CrossHair ({profile}): {len(targets)} target(s)", flush=True)
     outcomes: list[TargetOutcome] = []
     for target in targets:
-        outcome = _analyse(root, profile, target)
+        outcome = _analyse(root, profile, target, source_roots)
         print(f"  {target.owner} | {target.target} | {outcome.status}", flush=True)
         outcomes.append(outcome)
     failed = [outcome for outcome in outcomes if not outcome.satisfied]
@@ -199,7 +230,8 @@ def main(argv: list[str]) -> int:
     property_ids = tuple(argv[1:])
     root = Path(__file__).resolve().parents[1]
     try:
-        targets = _symbolic_targets(root, property_ids)
+        catalog = load_catalog(root)
+        targets = _symbolic_targets(catalog, property_ids)
     except CatalogError as error:
         print(f"Cannot select CrossHair targets: {error}", file=sys.stderr)
         return 2
@@ -216,7 +248,7 @@ def main(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 127
-    return _run_targets(root, profile, targets)
+    return _run_targets(root, profile, targets, catalog.policy.source_roots)
 
 
 if __name__ == "__main__":

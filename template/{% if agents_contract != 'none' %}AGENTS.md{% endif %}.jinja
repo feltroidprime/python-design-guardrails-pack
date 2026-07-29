@@ -100,6 +100,10 @@ that property in its owning catalog, and keep the catalog's declared
 catalogs into one proof index. The repository rejects an incomplete chain before
 review:
 
+- `source_roots` and `test_roots` in the policy are the only discovery map.
+  Keep product and `repoctl` proof evidence under those declared roots;
+  CrossHair derives its import path from `source_roots`, and the canonical
+  `verification/tests/` collection imports `verification/repoctl/` evidence.
 - Every public class, function, or method under the configured domain proof
   roots is owned by a normative property or a future-dated exemption. Every
   property states its scope and assumptions explicitly.

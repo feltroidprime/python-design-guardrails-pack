@@ -102,6 +102,11 @@ record = Path(os.environ["CROSSHAIR_ARGUMENTS"])
 calls = json.loads(record.read_text(encoding="utf-8")) if record.exists() else []
 calls.append(arguments)
 record.write_text(json.dumps(calls), encoding="utf-8")
+if source_record := os.environ.get("CROSSHAIR_SOURCE_PATHS"):
+    source_path = Path(source_record)
+    values = json.loads(source_path.read_text(encoding="utf-8")) if source_path.exists() else []
+    values.append(os.environ["PYTHONPATH"].split(os.pathsep))
+    source_path.write_text(json.dumps(values), encoding="utf-8")
 if "symbolic_canary" in arguments[-1] and os.environ.get("CROSSHAIR_REFUTE_CANARY") == "1":
     print(f"canary.py:1: error: \\"def denies()\\" yields false")
     sys.exit(1)
@@ -114,6 +119,14 @@ FAST_BUDGET_ARGUMENTS = [
     "--max_uninteresting_iterations=4",
     "--per_path_timeout=0.25",
     "--per_condition_timeout=1.5",
+]
+CANARY_BUDGET_ARGUMENTS = [
+    "check",
+    "--report_all",
+    "--analysis_kind=icontract",
+    "--max_uninteresting_iterations=12",
+    "--per_path_timeout=0.75",
+    "--per_condition_timeout=4.0",
 ]
 
 
@@ -144,10 +157,38 @@ def test_gate_analyses_each_target_and_the_canary_with_the_fast_budget(
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert json.loads(arguments_path.read_text(encoding="utf-8")) == [
         [*FAST_BUDGET_ARGUMENTS, "demo.domain.decisions.identity"],
-        [*FAST_BUDGET_ARGUMENTS, "verification.harness.symbolic_canary.refutable_echo"],
+        [*CANARY_BUDGET_ARGUMENTS, "verification.harness.symbolic_canary.refutable_echo"],
     ]
     assert "DEMO-PRESERVES-VALUE | demo.domain.decisions:identity" in completed.stdout
     assert "SYMBOLIC-CANARY" in completed.stdout
+
+
+def test_gate_builds_pythonpath_from_policy_source_roots(tmp_path: Path) -> None:
+    manifest = PROOF_TOML.replace("demo.domain", "repoctl.modules.demo")
+    root = crosshair_project(tmp_path, manifest)
+    policy = root / "proof/policy.toml"
+    policy.write_text(
+        POLICY_TOML.replace('source_roots = ["src", "."]', 'source_roots = ["control", "."]'),
+        encoding="utf-8",
+    )
+    arguments_path = stub_crosshair(root)
+    source_paths = root / "crosshair-source-paths.json"
+
+    completed = run_gate(
+        root,
+        "fast",
+        "DEMO-PRESERVES-VALUE",
+        extra_environment={
+            "CROSSHAIR_ARGUMENTS": str(arguments_path),
+            "CROSSHAIR_REFUTE_CANARY": "1",
+            "CROSSHAIR_SOURCE_PATHS": str(source_paths),
+        },
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    recorded = json.loads(source_paths.read_text(encoding="utf-8"))
+    expected = [str(root / "control"), str(root)]
+    assert all(paths[:2] == expected for paths in recorded)
 
 
 def test_unrefuted_symbolic_canary_fails_the_gate(tmp_path: Path) -> None:

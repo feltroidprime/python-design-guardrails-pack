@@ -155,9 +155,11 @@ EXPECTED_FILES = (
     "verification/harness/stateful.py",
     "verification/harness/strategies.py",
     "verification/harness/symbolic_canary.py",
+    "verification/repoctl/test_proof_policy.py",
     "verification/tests/test_create_item_state_machine.py",
     "verification/tests/test_decision_properties.py",
     "verification/tests/test_domain_state_properties.py",
+    "verification/tests/test_repoctl_evidence.py",
     "verification/tests/test_value_object_properties.py",
 )
 
