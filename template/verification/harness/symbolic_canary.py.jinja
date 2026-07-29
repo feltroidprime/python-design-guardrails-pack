@@ -15,10 +15,15 @@ from datetime import datetime
 
 import icontract
 
+{% if package < "repoctl" -%}
 from {{ package }}.domain.entities import Item
 from {{ package }}.domain.value_objects import ItemName
 from repoctl.modules.repository_generation.api import CapabilityDeclaration, compile_indexes
-
+{% else -%}
+from repoctl.modules.repository_generation.api import CapabilityDeclaration, compile_indexes
+from {{ package }}.domain.entities import Item
+from {{ package }}.domain.value_objects import ItemName
+{% endif %}
 
 def _canary_denies_its_own_output(
     item: Item,
