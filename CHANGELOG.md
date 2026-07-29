@@ -11,6 +11,17 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Make the prek commit and pre-push hook policy unconditional. The `precommit`
+  Copier question is removed: every standalone generated repository now ships
+  `prek.toml`, the `prek` dev dependency, and the `prek install`/`prek update`
+  steps in `just bootstrap`/`just update`. Workspace members still omit them,
+  because the workspace root owns hooks and the lockfile. Existing repositories
+  answering `precommit = false` gain the hook policy on the next
+  `just scaffold-update`.
+- Remove the end-to-end value benchmark harness (`benchmarks/`, its tests, and
+  the `just benchmark*`/`just bench-*` recipes) from the maintainer repository.
+  It never shipped to generated repositories, so downstream content is
+  unaffected.
 - Replace the generated repository's maximalist Ruff selection with a curated
   one: Ruff stays strict on defects, security, and modern syntax, BasedPyright
   owns type semantics, and the architecture guard owns structure. Families that

@@ -11,7 +11,7 @@ default:
 
 bootstrap:
 {% if not workspace_member %}    uv sync --all-groups
-{% endif %}{% if precommit and not workspace_member %}    uv run prek install -f
+    uv run prek install -f
 {% endif %}    just check
 
 check:
@@ -55,5 +55,5 @@ scaffold-update:
 
 update:
 {% if not workspace_member %}    uv lock --upgrade
-{% endif %}{% if precommit and not workspace_member %}    uv run prek update
+    uv run prek update
 {% endif %}    just check

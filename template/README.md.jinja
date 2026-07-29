@@ -17,7 +17,7 @@ again after cloning the repository or when generating directly through Copier.
 just bootstrap
 ```
 
-{% if precommit and not workspace_member %}Prek installs the commit and pre-push shims in Git's shared hooks directory.
+{% if not workspace_member %}Prek installs the commit and pre-push shims in Git's shared hooks directory.
 Linked worktrees created with `git worktree add` therefore use the same hooks
 without another install step.
 
@@ -84,9 +84,8 @@ inline conflict markers. Resolve every marker, then run the generated
 repository's existing guard and full gate before committing:
 
 ```bash
-{% if precommit %}uv run prek run check-merge-conflict --all-files
-{% else %}git diff --check
-{% endif %}just check
+uv run prek run check-merge-conflict --all-files
+just check
 ```
 
 ## Coding-agent session evidence

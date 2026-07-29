@@ -244,10 +244,7 @@ def test_generated_justfile_has_one_routine_gate_and_one_private_e2e_route(
 def test_generated_gate_rejects_tracked_unimported_python_syntax(
     tmp_path: Path,
 ) -> None:
-    project = _generate_with_answers(
-        tmp_path / "syntax-gate",
-        {"precommit": False},
-    )
+    project = _generate_with_answers(tmp_path / "syntax-gate", {})
     subprocess.run(
         ["git", "init", "--quiet", "--initial-branch=main"],
         cwd=project,
@@ -569,26 +566,10 @@ def test_delta_or_identical_explicit_default_toggles_are_byte_identical_to_defau
     implicit = _generate_with_answers(tmp_path / "implicit", {})
     explicit = _generate_with_answers(
         tmp_path / "explicit",
-        {"precommit": True, "agents_contract": "full"},
+        {"agents_contract": "full"},
     )
 
     assert _generated_snapshot(implicit) == _generated_snapshot(explicit)
-
-
-def test_delta_or_identical_no_precommit_has_exact_file_delta(tmp_path: Path) -> None:
-    baseline = _generated_snapshot(_generate_with_answers(tmp_path / "baseline", {}))
-    variant = _generated_snapshot(
-        _generate_with_answers(tmp_path / "no-precommit", {"precommit": False})
-    )
-
-    assert set(baseline) - set(variant) == {"prek.toml"}
-    assert set(variant) - set(baseline) == set()
-    assert {
-        path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
-    } == {".copier-answers.yml", "README.md", "justfile", "pyproject.toml"}
-    for path in ("README.md", "justfile", "pyproject.toml"):
-        assert b"prek" not in variant[path]
-        assert b"pre-push" not in variant[path]
 
 
 def test_delta_or_identical_workspace_member_has_exact_file_delta(

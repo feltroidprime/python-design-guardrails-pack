@@ -33,35 +33,3 @@ release version:
 # and `git pull` take effect without reinstalling).
 install:
     uv tool install --force --editable .
-
-# End-to-end value benchmark: one LLM builds the same app with and without the
-# template; objective metrics + a blind LLM judge panel compare the results.
-# Long and costs provider usage — see benchmarks/README.md before running.
-# Pick the app (config file) and the coding model without editing TOML:
-#   just benchmark                                          # ledger app, config model
-#   just benchmark benchmarks/config/smoke.toml             # tiny app
-#   just benchmark benchmarks/config/default.toml haiku     # model alias or full id
-#   just benchmark benchmarks/config/default.toml gpt-5.6-sol codex xhigh
-benchmark config="benchmarks/config/default.toml" model="" provider="" effort="":
-    python3 benchmarks/run.py --config {{config}} \
-        {{ if model == "" { "" } else { "--builder-model " + model } }} \
-        {{ if provider == "" { "" } else { "--builder-provider " + provider } }} \
-        {{ if effort == "" { "" } else { "--builder-effort " + effort } }}
-
-# Expand and validate a campaign without provisioning dependencies, creating
-# workspaces, or calling a provider. Always do this before benchmark-matrix.
-benchmark-matrix-plan config="benchmarks/matrices/flagship.example.toml":
-    python3 benchmarks/matrix.py --config {{config}} --dry-run
-
-# Execute/resume every builder × app × seed × variant × repetition cell.
-# Long and potentially expensive: inspect the dry-run cell count first.
-benchmark-matrix config="benchmarks/matrices/flagship.example.toml":
-    python3 benchmarks/matrix.py --config {{config}}
-
-# Render the append-only run registry as a standalone, offline HTML report.
-bench-report registry="~/.local/share/guardrails-benchmark/runs/registry.jsonl" output="~/.local/share/guardrails-benchmark/runs/bench-report.html":
-    python3 benchmarks/report.py --registry "{{registry}}" --output "{{output}}"
-
-# Export the curated article figures as SVG, PNG, and exact plotted-data CSVs.
-bench-figures registry="~/.local/share/guardrails-benchmark/runs/registry.jsonl" output="~/.local/share/guardrails-benchmark/runs/publication-figures":
-    python3 benchmarks/figures.py --registry "{{registry}}" --output-dir "{{output}}"

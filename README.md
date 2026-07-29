@@ -190,7 +190,6 @@ One opinionated stack. One reason for every choice.
 | ADR, exception, pattern, and migration rules | Make design debt owned, scoped, revisitable, and removable. |
 | Optional `AGENTS.md` plus `CLAUDE.md` bridge | Give humans and coding agents one operating contract without duplicated instructions. |
 | Design-aware pull request template | Put ownership, invariants, evidence, change spread, migration, and rollback into review. |
-| Reproducible value benchmark | Compare the same LLM task with and without the template across build quality, effort, and maintenance. |
 
 Replace the `Item` domain. Keep the foundation bricks. Their rationale lives in the generated `docs/adr/0001-foundation-ports-and-reference-adapters.md`.
 
@@ -199,19 +198,6 @@ Replace the `Item` domain. Keep the foundation bricks. Their rationale lives in 
 This is not an empty folder or a framework starter. It chooses Python 3.14, uv, just, prek, ports and adapters, a synchronous domain, deterministic tests, and executable documentation.
 
 No tool can prove that a name is good or an abstraction is worthwhile. Observable rules are enforced; irreducible trade-offs require an ADR; exceptions are explicit and expire.
-
-## Measure it
-
-`benchmarks/` gives the same LLM byte-identical tasks in a blank repository and a generated one, then compares behavior, analyzers, coverage, effort, blind judging, and later maintenance.
-
-```bash
-just benchmark              # run one two-arm experiment
-just benchmark-matrix-plan  # inspect a campaign without spending
-just bench-report           # build the offline comparison report
-just bench-figures          # export article SVG/PNG/CSV figures
-```
-
-See `benchmarks/README.md` for methodology, variants, bias controls, and all benchmark commands.
 
 ## Maintaining this pack
 

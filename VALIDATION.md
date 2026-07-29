@@ -5,72 +5,69 @@ just 1.57.0, Copier 9.17.0, pytest 9.1.1, and pytest-xdist 3.8.0.
 
 ## Change validated
 
-The generated repository's lint and type policy in `template/pyproject.toml.jinja`
-moved from a maximalist Ruff selection to a curated one:
+Two removals, both narrowing the configuration surface:
 
-- families that duplicate the Ruff formatter (`Q`, `W`, general `E`) or the
-  type checker (`ANN` beyond public return types, `ARG`, `SLF`, `ISC`) were
-  dropped; `E4`, `E7`, `E9`, `W605`, and `ANN201`/`ANN204`/`ANN205`/`ANN206`
-  remain;
-- taste-driven rewrite families (`FURB`, `PERF`, `ICN`, and the blanket `SIM`,
-  `RET`, `TRY`, `PL` selections) were replaced by explicit high-signal rule
-  lists; `PL` is now `PLC`/`PLE`/`PLW` plus six named `PLR` rules;
-- the Pylint size ceilings (`max-args`, `max-locals`, `max-returns`,
-  `max-statements`, `max-public-methods`, …) were removed; `C901 = 10` and the
-  architecture guard's line ceilings remain the size contract;
-- `TC` was narrowed to `TC004`, `TC005`, `TC010`, so hand-written
-  `TYPE_CHECKING` blocks are still validated but imports are no longer forced
-  into them;
-- redundant settings were dropped: `target-version` (derived from
-  `requires-python`), `fixable`/`unfixable` (defaults; the quality gate owns
-  the fix policy), `venvPath`/`venv`/`pythonPlatform` (BasedPyright defaults),
-  and the now-dead `ignore` and per-file-ignore entries;
-- BasedPyright keeps `typeCheckingMode = "recommended"` with
-  `failOnWarnings = true`, but contract-critical diagnostics are `warning`
-  rather than `error` so editors keep a usable severity hierarchy while CI
-  fails identically; `reportUnusedImport` and
-  `reportInvalidStringEscapeSequence` are disabled because Ruff owns them, and
-  `reportImplicitStringConcatenation`, `reportUnusedParameter`, and
-  `reportIgnoreCommentWithoutRule` are stated explicitly.
+- **The `precommit` Copier question is gone; hooks are unconditional.** The
+  hook policy file moved from
+  `template/{% if precommit and not workspace_member %}prek.toml{% endif %}` to
+  `template/{% if not workspace_member %}prek.toml{% endif %}`, and the
+  `{% if precommit %}` branches in `template/justfile.jinja`,
+  `template/pyproject.toml.jinja`, and `template/README.md.jinja` were
+  collapsed to their true arm. `just bootstrap` and `just update` always run
+  `uv run prek install -f` / `uv run prek update` in standalone repositories,
+  and the `prek>=0.4.9` dev dependency is always present. Workspace members are
+  unchanged: the root still owns hooks, the lockfile, and the dev group.
+- **The end-to-end value benchmark harness is gone.** `benchmarks/` (harness,
+  configs, prompts, matrices, experiments, figures, report), its eight test
+  modules, `tests/fixtures/`, and the `just benchmark`, `just
+  benchmark-matrix`, `just benchmark-matrix-plan`, `just bench-report`, and
+  `just bench-figures` recipes were deleted. The harness was maintainer-only
+  tooling; nothing under `template/` referenced it, so generated repositories
+  are byte-identical with respect to this removal.
 
-Documentation was updated in the same change: the root `README.md` design-choice
-row now reads "Curated Ruff policy", `DESIGN_GUARDRAILS.md` no longer credits
-Ruff design or performance rules, and the generated
-`docs/architecture/README.md` fitness-function list was corrected.
+Documentation was updated in the same change: the root `README.md` lost the
+"Measure it" section and the benchmark design-choice row, `DESIGN_GUARDRAILS.md`
+no longer describes a `precommit = true` materialization or benchmark
+ablations, `.github/workflows/quality.yml` no longer cites the benchmark
+campaign tests as a reason for full history, and `CHANGELOG.md` records both
+removals under `[Unreleased]`.
 
-Every selected rule code was checked against the pinned Ruff floor
-(`ruff rule --all --output-format json`, ruff 0.15.21): all 46 individually
-selected codes exist and none are preview or deprecated.
+`tests/test_instantiate.py` lost
+`test_delta_or_identical_no_precommit_has_exact_file_delta` (its variant no
+longer exists) and the two remaining `precommit` answers were dropped from
+`test_generated_gate_rejects_tracked_unimported_python_syntax` and
+`test_delta_or_identical_explicit_default_toggles_are_byte_identical_to_defaults`.
+Strict undefined in Copier means any surviving `precommit` reference under
+`template/` would fail generation outright; `just validate` proves none remain.
 
 ## Commands and actual results
 
 ```bash
+just test      # 199 passed, 10 warnings in 61.43s
 just validate
 ```
 
-Passed end to end. The generator suite, template-cleanliness and full-rendering
-checks, dependency resolution, bootstrap-drift repair, the generated
-repository's own quality gate (including `ruff check`, `ruff format --check`,
-and `basedpyright`), the shared prek shims from a linked worktree, and the
-final update round-trip phase (**2 passed in 40.27s**) all completed
-successfully. The intermediate `fail verdict: 1 failures, 2 warnings` line is
-the deliberate doctor fault-injection probe, not a regression.
-
-The generated repository produced **zero** new or removed diagnostics under the
-curated policy: the downstream gate was green before and after the migration.
+`just validate` passed end to end: the generator suite, template-cleanliness
+and full-rendering checks, dependency resolution, bootstrap-drift repair, the
+generated repository's own quality gate, both shared prek shims executed from a
+linked worktree (all hooks `Passed`), and the update round-trip phase
+(**2 passed in 41.04s**). The intermediate `fail verdict` line is the
+deliberate doctor fault-injection probe, not a regression.
 
 ## Remaining risks and portability notes
 
-- Removing `venvPath`/`venv` relies on BasedPyright's automatic detection of
-  `./.venv`. The CLI path is proven by `just validate`; the VS Code language
-  server path is covered by `template/.vscode/settings.json`
-  (`basedpyright.importStrategy = "fromEnvironment"`) but was not exercised
-  interactively here.
-- No argument-count ceiling remains anywhere: `max-args` is gone and the
-  architecture guard only enforces module, function, and class line ceilings.
-  This is the intended trade — parameter-object churn was judged worse than a
-  wide signature — but it is a real loosening and is recorded as such.
-- The Ruff floor stays at `0.15.21`, the last version actually validated, even
-  though `0.15.22` is published.
+- Removing a Copier question is a breaking answer-schema change for downstream
+  repositories generated with `precommit = false`. On the next
+  `just scaffold-update`, Copier drops the stale answer and materializes
+  `prek.toml`, the `prek` dev dependency, and the hook install/update steps.
+  That is the intent, but such repositories will see a non-trivial three-way
+  merge and must run `just bootstrap` afterwards to install the shims.
+- No migration entry was added to `copier.yml` `_migrations`; the answer is
+  simply ignored. Add one only if a downstream repository needs the removal
+  handled programmatically.
+- Deleting `benchmarks/` removes the only reproducible evidence pipeline for
+  the pack's value claims. If that evidence is wanted again, it must be
+  rebuilt from Git history (the tree is preserved in commits before this
+  change).
 - The root project deliberately has no development virtual environment, so
   focused pytest commands must go through `uv run --no-project`.

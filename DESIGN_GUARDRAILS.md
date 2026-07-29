@@ -6,11 +6,12 @@ This document maps software-design concerns to Python 3.14 techniques and the
 concrete controls shipped by this pack. It distinguishes mechanically
 observable rules from decisions that still require engineering judgment.
 
-Rows that cite the generated `AGENTS.md` or Git hooks describe the default
-`full`/`precommit = true` materialization. The named benchmark ablations may
-remove the agent contract, switch it to hooks-first verification, or omit the
-hook configuration; deterministic architecture, documentation, type, lint,
-and test controls remain available through the justfile and quality gate.
+Rows that cite the generated `AGENTS.md` describe the default `full` agent
+contract; `agents_contract` may remove it or switch it to hooks-first
+verification. The prek commit and pre-push hooks are unconditional in
+standalone repositories. Deterministic architecture, documentation, type,
+lint, and test controls remain available through the justfile and quality
+gate regardless.
 
 ## Code-level design
 

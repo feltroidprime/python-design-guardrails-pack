@@ -12,18 +12,17 @@ dependencies = ["icontract>=2.7.3"]
 
 {% if not workspace_member %}# Dev tooling floats: floors are the last versions this repository's toolchain
 # was validated against, and the first `uv sync` resolves the latest releases.
-{% if precommit %}# Reproducibility comes from uv.lock (kept current by the uv-lock Git
+# Reproducibility comes from uv.lock (kept current by the uv-lock Git
 # hook), not from exact pins here.
-{% else %}# Reproducibility comes from uv.lock, not from exact pins here.
-{% endif %}[dependency-groups]
+[dependency-groups]
 dev = [
   "basedpyright>=1.39.9",
   "coverage[toml]>=7.15.0",
   "crosshair-tool>=0.0.109",
   "hypothesis>=6.161.5",
   "import-linter>=2.13",
-{% if precommit %}  "prek>=0.4.9",
-{% endif %}  "pytest>=9.1.1",
+  "prek>=0.4.9",
+  "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
   "pytest-socket>=0.8.0",
   "ruff>=0.15.21",
