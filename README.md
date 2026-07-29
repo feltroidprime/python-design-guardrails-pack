@@ -234,8 +234,8 @@ This is a meta-repository: `template/` is the product, `copier.yml` owns renderi
 just hooks          # install durable prek tooling plus commit/push hooks
 just check          # repair and verify root/template Python with shared Ruff policy
 just test-fast      # pre-commit guard: render, pins, and hook-policy checks
-just test           # complete parallel generator tests
-just validate       # canonical full validation
+just test           # complete root suite and sub-minute pre-push gate
+just validate       # canonical downstream validation used by CI/completion
 just release vX.Y.Z # verify and create an annotated release tag
 ```
 
@@ -244,5 +244,11 @@ then generates a throwaway repository, checks template cleanliness and
 rendering, resolves dependencies, proves hook repair and tracked-Python syntax
 rejection, exercises `just doctor` in green and faulted states, runs the
 downstream gate, and tests an offline Copier update.
+
+The pack's pre-push hook runs the complete root suite with pytest-xdist
+work-stealing and is budgeted below one minute. The slower generated bootstrap,
+hook-repair, linked-worktree, symbolic, and offline-update matrix remains in
+`just validate`; CI runs that canonical command, and maintainers still run it
+before claiming a template or validation change complete.
 
 See `DESIGN_GUARDRAILS.md` for the design-to-enforcement rationale and `VALIDATION.md` for the last recorded full validation.

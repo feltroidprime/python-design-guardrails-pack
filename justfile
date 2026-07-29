@@ -23,10 +23,11 @@ check:
 # Unit tests for the generator (instantiate.py). Fast; no downstream install.
 # Keep Copier coherent with pyproject.toml and copier.yml.
 test: check
-    uv run --no-project --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 --with copier==9.17.0 --with "icontract>=2.7.3" pytest -q -n auto --dist loadscope tests
+    uv run --no-project --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 --with copier==9.17.0 --with "icontract>=2.7.3" pytest -q -n 4 --dist worksteal tests
 
 # Fast pre-commit guard: render the complete default template, keep pins
-# coherent, and verify that pre-push still owns the comprehensive validation.
+# coherent, and verify that pre-push owns the bounded full root suite while CI
+# retains canonical downstream validation.
 test-fast: check
     uv run --no-project --python 3.14 --with pytest==9.1.1 --with copier==9.17.0 --with "icontract>=2.7.3" pytest -q tests/test_instantiate.py::test_expected_files_are_preserved tests/test_instantiate.py::test_no_unrendered_jinja_survives tests/test_instantiate.py::test_fast_recipe_renders_default_template_and_runs_policy_checks tests/test_pin_coherence.py tests/test_hook_policy.py tests/test_root_ruff_policy.py
 

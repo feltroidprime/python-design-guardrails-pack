@@ -8,7 +8,7 @@ default_install_hook_types = ["pre-commit", "pre-push"]
 repo = "local"
 
 # Fast feedback before each commit: render the complete default template, check
-# version pins, and verify the hook routing. The complete suite runs pre-push.
+# version pins, and verify the hook routing.
 [[repos.hooks]]
 id = "pack-fast"
 name = "pack fast checks (rendering, pins, hook policy)"
@@ -16,14 +16,15 @@ entry = "just test-fast"
 language = "system"
 pass_filenames = false
 always_run = true
+stages = ["pre-commit"]
 
-# Canonical validation before anything leaves the machine: fresh
-# instantiation plus the generated repository's full quality gate
-# (ruff, basedpyright, guards, import-linter, pytest).
+# The complete root suite stays below the one-minute interaction budget.
+# Canonical downstream validation remains mandatory through `just validate`
+# and runs in CI rather than recursively inside every push.
 [[repos.hooks]]
-id = "pack-validate"
-name = "pack validation (full downstream gate)"
-entry = "just validate"
+id = "pack-push"
+name = "pack push checks (full root suite, <60s)"
+entry = "just test"
 language = "system"
 pass_filenames = false
 always_run = true
