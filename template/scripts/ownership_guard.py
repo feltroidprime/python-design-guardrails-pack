@@ -30,6 +30,7 @@ REPOSITORY_PATHS_COMMAND = (
     "--others",
     "--exclude-standard",
 )
+REQUIRED_ZONE_NAMES = frozenset(("FOUNDATION", "PRODUCT", "DERIVED", "DECLARATION"))
 
 
 class OwnershipGuardError(RuntimeError):
@@ -72,6 +73,22 @@ def root_overlap_violations(policy: OwnershipPolicy) -> tuple[GuardViolation, ..
                             )
                         )
     return tuple(violations)
+
+
+def zone_name_violations(policy: OwnershipPolicy) -> tuple[GuardViolation, ...]:
+    actual = frozenset(zone.name for zone in policy.zones)
+    if actual == REQUIRED_ZONE_NAMES:
+        return ()
+    return (
+        GuardViolation(
+            code="OWN005",
+            message=(
+                "ownership zones must be exactly "
+                f"{', '.join(sorted(REQUIRED_ZONE_NAMES))}; "
+                f"found {', '.join(sorted(actual))}"
+            ),
+        ),
+    )
 
 
 def repository_paths(root: Path) -> tuple[Path, ...]:
@@ -119,7 +136,11 @@ def path_violations(
 def check_repository(root: Path) -> GuardReport:
     policy = load_ownership_policy(root)
     paths = repository_paths(root)
-    violations = (*root_overlap_violations(policy), *path_violations(paths, policy))
+    violations = (
+        *zone_name_violations(policy),
+        *root_overlap_violations(policy),
+        *path_violations(paths, policy),
+    )
     return GuardReport(paths=paths, violations=violations)
 
 

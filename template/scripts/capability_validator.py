@@ -27,6 +27,7 @@ REQUIRED_STRUCTURE = (
 CAPABILITY_LAYERS: frozenset[CapabilityLayer] = frozenset(
     {"api", "domain", "application", "adapters", "bootstrap"}
 )
+DOMAIN_ALLOWED_IMPORT_ROOTS = sys.stdlib_module_names | frozenset(("icontract",))
 ALLOWED_DEPENDENCIES: tuple[tuple[CapabilityLayer, frozenset[CapabilityLayer]], ...] = (
     ("api", CAPABILITY_LAYERS),
     ("domain", frozenset({"domain"})),
@@ -139,6 +140,18 @@ def _allowed_dependencies(layer: CapabilityLayer) -> frozenset[CapabilityLayer]:
     return next(allowed for candidate, allowed in ALLOWED_DEPENDENCIES if candidate == layer)
 
 
+def _dependency_is_allowed(
+    layer: CapabilityLayer,
+    target: str,
+    target_layer: CapabilityLayer | None,
+) -> bool:
+    if target_layer is not None:
+        return target_layer in _allowed_dependencies(layer)
+    if layer == "domain":
+        return target.partition(".")[0] in DOMAIN_ALLOWED_IMPORT_ROOTS
+    return True
+
+
 def _python_files(root: Path) -> tuple[Path, ...]:
     return tuple(sorted(path for path in root.rglob("*.py") if path.is_file()))
 
@@ -192,13 +205,14 @@ def layer_direction_violations(capability: Capability) -> tuple[Violation, ...]:
                 continue
             for target in import_targets(node, path, capability.repository_root):
                 target_layer = _target_layer(target, capability.module)
-                if target_layer is not None and target_layer not in _allowed_dependencies(layer):
+                if not _dependency_is_allowed(layer, target, target_layer):
+                    dependency = target_layer or target.partition(".")[0]
                     violations.append(
                         violation(
                             path,
                             node,
                             "CAP002",
-                            f"{layer} must not depend on {target_layer}: {target}",
+                            f"{layer} must not depend on {dependency}: {target}",
                         )
                     )
     return tuple(violations)

@@ -60,6 +60,9 @@ def product_template_paths(
 
 def test_template_never_renders_product_owned_files(tmp_path: Path) -> None:
     policy = ownership_policy(tmp_path)
+    assert policy.source.relative_to(tmp_path) == ARCHITECTURE_SOURCE.relative_to(
+        TEMPLATE_ROOT
+    ).with_suffix("")
     template_sources = tuple(path for path in TEMPLATE_ROOT.rglob("*") if path.is_file())
 
     product_paths = product_template_paths(template_sources, policy)

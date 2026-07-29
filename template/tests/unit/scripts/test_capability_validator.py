@@ -114,6 +114,10 @@ DECLARATION = [".repo"]
         assert_rejected(run_validator(tmp_path, root, ownership), "CAP002")
         _ = domain_model.write_text("", encoding="utf-8")
 
+        _ = domain_model.write_text("import third_party_framework\n", encoding="utf-8")
+        assert_rejected(run_validator(tmp_path, root, ownership), "CAP002")
+        _ = domain_model.write_text("", encoding="utf-8")
+
         consumer = tmp_path / f"consumer_{ownership.lower()}.py"
         _ = consumer.write_text(
             f"from {module}.domain import model\n",

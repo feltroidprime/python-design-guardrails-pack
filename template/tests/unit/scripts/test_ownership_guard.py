@@ -74,6 +74,16 @@ def test_guard_enforces_disjoint_and_complete_repository_ownership(tmp_path: Pat
     assert "FOUNDATION:foundation" in overlapping.stderr
     assert "PRODUCT:foundation/product" in overlapping.stderr
 
+    _ = (tmp_path / "architecture.toml").write_text(
+        architecture().replace("DECLARATION =", "STATE ="),
+        encoding="utf-8",
+    )
+    wrong_zones = run_guard(tmp_path)
+    assert wrong_zones.returncode == 1
+    assert "OWN005" in wrong_zones.stderr
+    assert "DECLARATION" in wrong_zones.stderr
+    assert "STATE" in wrong_zones.stderr
+
     _ = (tmp_path / "architecture.toml").write_text(architecture(), encoding="utf-8")
     _ = (tmp_path / "outside.txt").write_text("unowned\n", encoding="utf-8")
     staged = run(["git", "add", "outside.txt"], tmp_path)
