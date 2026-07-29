@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Create a changelog-backed template release tag."""
 
-from pathlib import Path
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TAG_PATTERN = re.compile(r"v\d+\.\d+\.\d+\Z")
@@ -32,9 +31,7 @@ LOCAL_GIT_ENVIRONMENT = (
 
 def is_local_git_environment(key: str) -> bool:
     """Return whether *key* can bind Git to an inherited repository."""
-    return key in LOCAL_GIT_ENVIRONMENT or key.startswith(
-        ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
-    )
+    return key in LOCAL_GIT_ENVIRONMENT or key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))
 
 
 def git(*arguments: str) -> subprocess.CompletedProcess[str]:
@@ -42,11 +39,7 @@ def git(*arguments: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", *arguments],
         cwd=REPO_ROOT,
-        env={
-            key: value
-            for key, value in os.environ.items()
-            if not is_local_git_environment(key)
-        },
+        env={key: value for key, value in os.environ.items() if not is_local_git_environment(key)},
         capture_output=True,
         text=True,
         check=False,
@@ -68,7 +61,9 @@ def main(arguments: list[str] | None = None) -> int:
     if not changelog.is_file():
         return fail("CHANGELOG.md does not exist")
     heading = f"## [{version}]"
-    if not any(line.startswith(heading) for line in changelog.read_text(encoding="utf-8").splitlines()):
+    if not any(
+        line.startswith(heading) for line in changelog.read_text(encoding="utf-8").splitlines()
+    ):
         return fail(f"CHANGELOG.md has no '{heading}' entry")
 
     status = git("status", "--porcelain")

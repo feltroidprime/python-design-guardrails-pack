@@ -480,8 +480,7 @@ def test_arch026_through_arch031_share_adr_backed_marker_suppression(
     arch029 = run_check(
         policy,
         "src/pkg/api.py",
-        "ApiBindHost = str  # ARCH-EXCEPTION: ADR-0099\n"
-        "def bind(host: ApiBindHost) -> None: ...\n",
+        "ApiBindHost = str  # ARCH-EXCEPTION: ADR-0099\ndef bind(host: ApiBindHost) -> None: ...\n",
     )
     arch030 = run_repository_check(
         policy,

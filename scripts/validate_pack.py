@@ -46,7 +46,7 @@ def artifact_exclusion_patterns() -> tuple[str, ...]:
             in_exclude = True
             continue
         if in_exclude and raw_line.startswith("  - "):
-            patterns.append(raw_line.removeprefix("  - ").strip('"\''))
+            patterns.append(raw_line.removeprefix("  - ").strip("\"'"))
             continue
         if in_exclude and raw_line and not raw_line.startswith(" "):
             break
@@ -68,9 +68,7 @@ def find_forbidden_artifacts(root: Path) -> list[Path]:
 def find_unrendered_jinja(root: Path) -> list[str]:
     """Return human-readable locations where template syntax survives rendering."""
     occurrences: list[str] = []
-    jinja_syntax = re.compile(
-        r"(?<![$\{])\{\{[-+]?\s*[A-Za-z_]|\{%[-+]?\s*[A-Za-z_]|\{#[-+]?"
-    )
+    jinja_syntax = re.compile(r"(?<![$\{])\{\{[-+]?\s*[A-Za-z_]|\{%[-+]?\s*[A-Za-z_]|\{#[-+]?")
     for path in sorted(root.rglob("*")):
         relative = path.relative_to(root)
         if path.name.endswith(".jinja"):
@@ -117,9 +115,7 @@ def fail(step: str, details: list[str], fix: str) -> int:
     return 1
 
 
-def run_step(
-    name: str, command: list[str], cwd: Path, *, input_text: str | None = None
-) -> int:
+def run_step(name: str, command: list[str], cwd: Path, *, input_text: str | None = None) -> int:
     print(f"\n=== {name} ===", flush=True)
     print(f"$ {' '.join(command)}  (cwd={cwd})", flush=True)
     environment = {
@@ -191,9 +187,7 @@ def worktree_hook_errors(primary: Path, linked: Path) -> list[str]:
             errors.append(f"Git could not resolve the effective {hook} hook path.")
             continue
         if linked_hook != primary_hook:
-            errors.append(
-                f"{hook} is not shared: primary={primary_hook}, linked={linked_hook}"
-            )
+            errors.append(f"{hook} is not shared: primary={primary_hook}, linked={linked_hook}")
         if not primary_hook.is_file() or not os.access(primary_hook, os.X_OK):
             errors.append(f"{primary_hook} is not an executable prek shim.")
     return errors
@@ -389,9 +383,7 @@ def main() -> int:
             encoding="utf-8",
         )
         gh_stub.chmod(0o755)
-        doctor_environment = {
-            "PATH": f"{doctor_bin}{os.pathsep}{os.environ['PATH']}"
-        }
+        doctor_environment = {"PATH": f"{doctor_bin}{os.pathsep}{os.environ['PATH']}"}
         doctor_started = time.monotonic()
         doctor = run_captured_step(
             "run generated doctor on clean baseline",
@@ -472,10 +464,7 @@ def main() -> int:
         if exit_code != 0:
             return fail(
                 "linked worktree prek hook execution",
-                [
-                    f"'git add {probe.relative_to(linked)}' exited with "
-                    f"{exit_code}."
-                ],
+                [f"'git add {probe.relative_to(linked)}' exited with {exit_code}."],
                 "Stage a clean linked-worktree file before invoking the pre-commit shim.",
             )
         head = subprocess.run(
@@ -491,9 +480,7 @@ def main() -> int:
                 ["Git could not resolve the linked worktree HEAD."],
                 "The linked worktree must have a committed baseline before hook probes.",
             )
-        push_update = (
-            f"refs/heads/main {head.stdout.strip()} refs/heads/main {'0' * 40}\n"
-        )
+        push_update = f"refs/heads/main {head.stdout.strip()} refs/heads/main {'0' * 40}\n"
         for hook in ("pre-commit", "pre-push"):
             hook_path = effective_git_path(linked, f"hooks/{hook}")
             if hook_path is None:

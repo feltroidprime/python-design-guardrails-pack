@@ -177,6 +177,4 @@ def test_template_documentation_passes_the_guard(tmp_path: Path) -> None:
     """The shipped template must satisfy its own documentation contract."""
     generated = tmp_path / "generated"
     assert generate("docs-check", "docs_check", generated) is None
-    assert [
-        item.render(generated) for item in check_documentation(load_policy(generated))
-    ] == []
+    assert [item.render(generated) for item in check_documentation(load_policy(generated))] == []

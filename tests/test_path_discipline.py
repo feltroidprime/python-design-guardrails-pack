@@ -96,10 +96,7 @@ def test_arch020_fires_on_str_path_class_field(policy: Policy) -> None:
     codes = run_check(
         policy,
         "src/pkg/adapters/outbound/settings.py",
-        "from dataclasses import dataclass\n"
-        "@dataclass\n"
-        "class Settings:\n"
-        "    data_dir: str\n",
+        "from dataclasses import dataclass\n@dataclass\nclass Settings:\n    data_dir: str\n",
     )
     assert codes == ["ARCH020"]
 

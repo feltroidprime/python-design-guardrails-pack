@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+
 from scripts.proof_catalog import (
     CatalogOwnershipError,
     DuplicatePropertyIdError,
@@ -172,15 +173,10 @@ def test_namespaced_property_id_closes_a_complete_chain(tmp_path: Path) -> None:
 def test_public_facade_reexports_resolve_to_exact_proof_symbols(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
     (root / "src/demo/api.py").write_text(
-        "\n".join(
-            (
-                "from demo.domain.decisions import identity",
-                "from demo.domain.specifications import identity_matches",
-                "",
-                '__all__ = ["identity", "identity_matches"]',
-                "",
-            )
-        ),
+        "from demo.domain.decisions import identity\n"
+        "from demo.domain.specifications import identity_matches\n"
+        "\n"
+        '__all__ = ["identity", "identity_matches"]\n',
         encoding="utf-8",
     )
     evidence = EVIDENCE.replace(
@@ -204,15 +200,11 @@ def test_loader_rejects_duplicate_property_id_across_catalogs(tmp_path: Path) ->
     duplicate = root / "proof/modules/duplicate.toml"
     duplicate.parent.mkdir()
     duplicate.write_text(
-        PROOF_TOML.replace(
-            'ownership_zone = "foundation"', 'ownership_zone = "product"'
-        ),
+        PROOF_TOML.replace('ownership_zone = "foundation"', 'ownership_zone = "product"'),
         encoding="utf-8",
     )
 
-    with pytest.raises(
-        DuplicatePropertyIdError, match="Duplicate property IDs across catalogs"
-    ):
+    with pytest.raises(DuplicatePropertyIdError, match="Duplicate property IDs across catalogs"):
         load_catalog(root)
 
 
@@ -227,9 +219,7 @@ def test_loader_rejects_catalog_ownership_zone_that_disagrees_with_path(
         encoding="utf-8",
     )
 
-    with pytest.raises(
-        CatalogOwnershipError, match="declares ownership zone 'foundation'"
-    ):
+    with pytest.raises(CatalogOwnershipError, match="declares ownership zone 'foundation'"):
         load_catalog(root)
 
 
@@ -237,9 +227,7 @@ def test_one_policy_discovers_a_catalog_target_outside_src(tmp_path: Path) -> No
     root = proof_project(tmp_path)
     write_policy(
         root,
-        POLICY_TOML.replace(
-            'behavior_roots = ["demo.domain"]', 'behavior_roots = ["repoctl"]'
-        ),
+        POLICY_TOML.replace('behavior_roots = ["demo.domain"]', 'behavior_roots = ["repoctl"]'),
     )
     foundation_catalog(root).write_text(
         PROOF_TOML.replace("demo.domain", "repoctl"),
@@ -332,9 +320,7 @@ def test_example_only_evidence_cannot_replace_hypothesis(tmp_path: Path) -> None
 def test_property_without_falsifying_canary_is_rejected(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
     evidence = root / "verification/tests/test_properties.py"
-    evidence.write_text(
-        EVIDENCE.split("@pytest.mark.falsifies", maxsplit=1)[0], encoding="utf-8"
-    )
+    evidence.write_text(EVIDENCE.split("@pytest.mark.falsifies", maxsplit=1)[0], encoding="utf-8")
 
     assert "PROOF021" in violation_codes(root)
 
@@ -570,9 +556,7 @@ def test_state_machine_module_tracks_bound_callable_method(tmp_path: Path) -> No
     )
     target = root / "src/demo/core/callable_target.py"
     target.write_text(
-        "class CreateItem:\n"
-        "    def __call__(self, value: int) -> int:\n"
-        "        return value\n",
+        "class CreateItem:\n    def __call__(self, value: int) -> int:\n        return value\n",
         encoding="utf-8",
     )
     evidence = root / "verification/tests/test_callable.py"
@@ -614,8 +598,7 @@ def test_stateful_property() -> None:
 def test_same_named_oracle_from_another_module_is_not_accepted(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
     (root / "src/demo/other.py").write_text(
-        "def identity_matches(value: int, result: int) -> bool:\n"
-        "    return value == result\n",
+        "def identity_matches(value: int, result: int) -> bool:\n    return value == result\n",
         encoding="utf-8",
     )
     evidence = root / "verification/tests/test_properties.py"
@@ -660,9 +643,7 @@ def stateful_callable_project(tmp_path: Path, machine_source: str) -> Path:
         encoding="utf-8",
     )
     (root / "src/demo/core/callable_target.py").write_text(
-        "class CreateItem:\n"
-        "    def __call__(self, value: int) -> int:\n"
-        "        return value\n",
+        "class CreateItem:\n    def __call__(self, value: int) -> int:\n        return value\n",
         encoding="utf-8",
     )
     evidence = root / "verification/tests/test_callable.py"
@@ -912,8 +893,7 @@ def test_icontract_rejects_same_named_oracle_from_another_module(
 ) -> None:
     root = proof_project(tmp_path)
     (root / "src/demo/other.py").write_text(
-        "def identity_matches(value: int, result: int) -> bool:\n"
-        "    return value == result\n",
+        "def identity_matches(value: int, result: int) -> bool:\n    return value == result\n",
         encoding="utf-8",
     )
     decision = root / "src/demo/domain/decisions.py"

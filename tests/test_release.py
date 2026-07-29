@@ -6,7 +6,6 @@ import subprocess
 
 import instantiate
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -26,9 +25,7 @@ def test_release_refuses_version_missing_from_changelog(tmp_path: Path) -> None:
         env=git_env,
         check=True,
     )
-    subprocess.run(
-        ["git", "add", "--all"], cwd=repository, env=git_env, check=True
-    )
+    subprocess.run(["git", "add", "--all"], cwd=repository, env=git_env, check=True)
     subprocess.run(
         [
             "git",

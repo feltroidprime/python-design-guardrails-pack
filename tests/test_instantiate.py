@@ -13,8 +13,8 @@ import subprocess
 import sys
 import tomllib
 
-import pytest
 from copier import run_copy
+import pytest
 
 # Import paths are provided by tests/conftest.py.
 import instantiate
@@ -27,9 +27,7 @@ COPIER_CONFIG = REPO_ROOT / "copier.yml"
 
 PROJECT_NAME = "acme-orders"
 PACKAGE_NAME = "acme_orders"
-EXPECTED_TEMPLATE_SOURCE = (
-    "https://github.com/feltroidprime/python-design-guardrails-pack.git"
-)
+EXPECTED_TEMPLATE_SOURCE = "https://github.com/feltroidprime/python-design-guardrails-pack.git"
 SESSION_PROFILER_DEPENDENCY = (
     "session-profiler-optimizer @ "
     "git+https://github.com/feltroidprime/session-profiler-optimizer.git"
@@ -458,7 +456,7 @@ def test_generated_repository_can_preserve_complete_agent_sessions(
     assert not any(dependency.startswith("harbor") for dependency in dependencies)
     assert not any(dependency.startswith("litellm") for dependency in dependencies)
     assert justfile.count(SESSION_PROFILER_DEPENDENCY) == 1
-    assert "session-log input output=\".agent-sessions\" agent=\"auto\":" in justfile
+    assert 'session-log input output=".agent-sessions" agent="auto":' in justfile
     assert 'uv run --with "$SESSION_PROFILER_DEPENDENCY" session-profiler' in justfile
     assert "session-e2e:" in justfile
     assert 'uv run --with "$SESSION_PROFILER_DEPENDENCY" pytest' in justfile
@@ -477,9 +475,9 @@ def test_scaffold_update_does_not_create_an_invalid_project_venv(
     uvx.write_text(
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
-        "[[ -z \"${PYTHONPYCACHEPREFIX+x}\" ]]\n"
-        "[[ \"$*\" == \"--from copier==9.17.0 copier update --defaults "
-        "--conflict inline\" ]]\n",
+        '[[ -z "${PYTHONPYCACHEPREFIX+x}" ]]\n'
+        '[[ "$*" == "--from copier==9.17.0 copier update --defaults '
+        '--conflict inline" ]]\n',
         encoding="utf-8",
     )
     uvx.chmod(0o755)
@@ -551,15 +549,20 @@ def test_copier_migrations_are_wired() -> None:
 
 def test_fast_recipe_renders_default_template_and_runs_policy_checks() -> None:
     justfile = (REPO_ROOT / "justfile").read_text(encoding="utf-8")
-    recipe = re.search(r"(?ms)^test-fast:\n(?P<body>(?:    .+\n)+)", justfile)
+    recipe = re.search(
+        r"(?ms)^test-fast:(?P<dependencies>[^\n]*)\n(?P<body>(?:    .+\n)+)",
+        justfile,
+    )
 
     assert recipe is not None
+    assert recipe.group("dependencies").split() == ["check"]
     for required_test in (
         "tests/test_instantiate.py::test_expected_files_are_preserved",
         "tests/test_instantiate.py::test_no_unrendered_jinja_survives",
         "tests/test_instantiate.py::test_fast_recipe_renders_default_template_and_runs_policy_checks",
         "tests/test_pin_coherence.py",
         "tests/test_hook_policy.py",
+        "tests/test_root_ruff_policy.py",
     ):
         assert required_test in recipe.group("body")
 
@@ -617,9 +620,12 @@ def test_delta_or_identical_workspace_member_has_exact_file_delta(
 
     assert set(baseline) - set(variant) == {".python-version", "prek.toml"}
     assert set(variant) - set(baseline) == set()
-    assert {
-        path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
-    } == {".copier-answers.yml", "README.md", "justfile", "pyproject.toml"}
+    assert {path for path in set(baseline) & set(variant) if baseline[path] != variant[path]} == {
+        ".copier-answers.yml",
+        "README.md",
+        "justfile",
+        "pyproject.toml",
+    }
 
     pyproject = tomllib.loads(variant["pyproject.toml"].decode("utf-8"))
     # The workspace root owns the dev group and the shared tool config; a member
@@ -647,9 +653,11 @@ def test_delta_or_identical_no_agents_md_has_exact_file_delta(tmp_path: Path) ->
 
     assert set(baseline) - set(variant) == {"AGENTS.md", "CLAUDE.md"}
     assert set(variant) - set(baseline) == set()
-    assert {
-        path for path in set(baseline) & set(variant) if baseline[path] != variant[path]
-    } == {".copier-answers.yml", "README.md", "docs/README.md"}
+    assert {path for path in set(baseline) & set(variant) if baseline[path] != variant[path]} == {
+        ".copier-answers.yml",
+        "README.md",
+        "docs/README.md",
+    }
     for path in ("README.md", "docs/README.md"):
         assert b"AGENTS.md" not in variant[path]
         assert b"CLAUDE.md" not in variant[path]
@@ -665,9 +673,10 @@ def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> Non
     )
 
     assert set(baseline) == set(variant)
-    assert {
-        path for path in baseline if baseline[path] != variant[path]
-    } == {".copier-answers.yml", "AGENTS.md"}
+    assert {path for path in baseline if baseline[path] != variant[path]} == {
+        ".copier-answers.yml",
+        "AGENTS.md",
+    }
 
     expected_agents = baseline["AGENTS.md"].replace(
         b"6. Green means the unmodified gate exits zero. Then report the property IDs changed, "
@@ -810,9 +819,7 @@ def snapshot_working_tree(repository: Path) -> dict[str, bytes]:
 
 def test_init_bootstraps_before_first_commit_and_hooks_cover_worktrees(tmp_path: Path) -> None:
     environment, bootstrap_args = add_just_stub(tmp_path)
-    result = run_cli(
-        "init", PROJECT_NAME, str(tmp_path), "--no-github", env=environment
-    )
+    result = run_cli("init", PROJECT_NAME, str(tmp_path), "--no-github", env=environment)
     assert result.returncode == 0, result.stdout + result.stderr
     target = tmp_path / PROJECT_NAME
     assert (target / "src" / PACKAGE_NAME).is_dir(), "package name was not derived"
@@ -828,7 +835,8 @@ def test_init_bootstraps_before_first_commit_and_hooks_cover_worktrees(tmp_path:
         text=True,
         check=False,
     )
-    assert head.returncode == 0 and head.stdout.count("\n") == 1, "expected one initial commit"
+    assert head.returncode == 0, head.stderr
+    assert head.stdout.count("\n") == 1, "expected one initial commit"
 
     linked = tmp_path / "linked"
     subprocess.run(
@@ -865,9 +873,7 @@ def test_init_stops_before_commit_and_github_when_bootstrap_fails(tmp_path: Path
     environment, bootstrap_args = add_just_stub(tmp_path, environment)
     just = tmp_path / "stub-bin" / "just"
     just.write_text(
-        "#!/bin/sh\n"
-        f'printf "%s\\n" "$*" > "{bootstrap_args}"\n'
-        "exit 23\n",
+        f'#!/bin/sh\nprintf "%s\\n" "$*" > "{bootstrap_args}"\nexit 23\n',
         encoding="utf-8",
     )
     just.chmod(0o755)
@@ -880,18 +886,19 @@ def test_init_stops_before_commit_and_github_when_bootstrap_fails(tmp_path: Path
     assert not github_args.exists()
     target = tmp_path / PROJECT_NAME
     assert (target / ".git").is_dir()
-    assert subprocess.run(
-        ["git", "rev-parse", "--verify", "HEAD"],
-        cwd=target,
-        capture_output=True,
-        check=False,
-    ).returncode != 0
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            cwd=target,
+            capture_output=True,
+            check=False,
+        ).returncode
+        != 0
+    )
 
 
 def test_init_honors_explicit_package_name(tmp_path: Path) -> None:
-    result = run_cli(
-        "init", PROJECT_NAME, str(tmp_path), "--package", "customcore", "--no-git"
-    )
+    result = run_cli("init", PROJECT_NAME, str(tmp_path), "--package", "customcore", "--no-git")
     assert result.returncode == 0, result.stdout + result.stderr
     assert (tmp_path / PROJECT_NAME / "src" / "customcore").is_dir()
 
@@ -973,15 +980,11 @@ def test_no_unrendered_jinja_survives(generated: Path) -> None:
 def test_unrendered_scan_rejects_stray_jinja_suffix(tmp_path: Path) -> None:
     (tmp_path / "missed.txt.jinja").write_text("plain text\n", encoding="utf-8")
 
-    assert find_unrendered_jinja(tmp_path) == [
-        "missed.txt.jinja: stray .jinja template suffix"
-    ]
+    assert find_unrendered_jinja(tmp_path) == ["missed.txt.jinja: stray .jinja template suffix"]
 
 
 def test_unrendered_scan_detects_jinja_whitespace_control(tmp_path: Path) -> None:
-    (tmp_path / "missed.txt").write_text(
-        "{{- package }}\n{%- if package %}\n", encoding="utf-8"
-    )
+    (tmp_path / "missed.txt").write_text("{{- package }}\n{%- if package %}\n", encoding="utf-8")
 
     assert find_unrendered_jinja(tmp_path) == [
         "missed.txt:1: contains Jinja syntax",
@@ -1016,9 +1019,8 @@ def test_planted_cache_artifacts_never_reach_generated_repository(tmp_path: Path
 
     assert result.returncode == 0, result.stdout + result.stderr
     artifacts = find_forbidden_artifacts(output)
-    assert artifacts == [], (
-        "Cache artifacts leaked into the generated repository:\n"
-        + "\n".join(str(path) for path in artifacts)
+    assert artifacts == [], "Cache artifacts leaked into the generated repository:\n" + "\n".join(
+        str(path) for path in artifacts
     )
 
 
@@ -1063,12 +1065,8 @@ def test_generation_uses_current_dirty_worktree_instead_of_latest_tag(
         env=git_env,
         check=True,
     )
-    subprocess.run(
-        ["git", "tag", "v0.1.0"], cwd=pack_copy, env=git_env, check=True
-    )
-    (pack_copy / "template" / "current-worktree.txt").write_text(
-        "current\n", encoding="utf-8"
-    )
+    subprocess.run(["git", "tag", "v0.1.0"], cwd=pack_copy, env=git_env, check=True)
+    (pack_copy / "template" / "current-worktree.txt").write_text("current\n", encoding="utf-8")
     subprocess.run(["git", "add", "--all"], cwd=pack_copy, env=git_env, check=True)
 
     output = tmp_path / "out"
@@ -1150,19 +1148,20 @@ def test_generation_from_linked_worktree_does_not_modify_primary_checkout(
         check=True,
     )
     dirty_marker = "dirty-linked-worktree-only\n"
-    (linked / "template" / "dirty-linked-worktree.txt").write_text(
-        dirty_marker, encoding="utf-8"
-    )
+    (linked / "template" / "dirty-linked-worktree.txt").write_text(dirty_marker, encoding="utf-8")
 
     before = snapshot_working_tree(primary)
-    assert subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=primary,
-        env=git_env,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout == ""
+    assert (
+        subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=primary,
+            env=git_env,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        == ""
+    )
 
     output = tmp_path / "out"
     inherited_git_env = dict(git_env)
@@ -1181,18 +1180,19 @@ def test_generation_from_linked_worktree_does_not_modify_primary_checkout(
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert snapshot_working_tree(primary) == before
-    assert subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=primary,
-        env=git_env,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout == ""
+    assert (
+        subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=primary,
+            env=git_env,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        == ""
+    )
     assert (output / "linked-worktree.txt").read_text(encoding="utf-8") == marker
-    assert (output / "dirty-linked-worktree.txt").read_text(
-        encoding="utf-8"
-    ) == dirty_marker
+    assert (output / "dirty-linked-worktree.txt").read_text(encoding="utf-8") == dirty_marker
 
 
 def test_packaged_template_records_distribution_version_without_git_metadata(
@@ -1265,7 +1265,7 @@ def declared_runtime_environment(generated: Path) -> list[str]:
     command = ["uv", "run", "--no-project", "--python", interpreter]
     for dependency in metadata["project"]["dependencies"]:
         command += ["--with", dependency]
-    return command + ["python"]
+    return [*command, "python"]
 
 
 def test_generated_vertical_slice_executes(generated: Path) -> None:

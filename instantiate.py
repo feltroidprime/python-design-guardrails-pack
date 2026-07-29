@@ -49,9 +49,7 @@ LOCAL_GIT_ENVIRONMENT = (
 
 def is_local_git_environment(key: str) -> bool:
     """Return whether *key* can bind Git commands to a caller's repository."""
-    return key in LOCAL_GIT_ENVIRONMENT or key.startswith(
-        ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
-    )
+    return key in LOCAL_GIT_ENVIRONMENT or key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))
 
 
 def derive_package_name(project_name: str) -> str:
@@ -69,11 +67,7 @@ def packaged_template_version() -> str | None:
 
 def environment_without_local_git_context() -> dict[str, str]:
     """Copy the process environment without a calling repository's Git context."""
-    return {
-        key: value
-        for key, value in os.environ.items()
-        if not is_local_git_environment(key)
-    }
+    return {key: value for key, value in os.environ.items() if not is_local_git_environment(key)}
 
 
 @contextmanager
@@ -81,9 +75,7 @@ def without_local_git_context() -> Iterator[None]:
     """Prevent Copier's temporary git operations from mutating a caller's index."""
     with GIT_CONTEXT_LOCK:
         inherited = {
-            key: os.environ.pop(key)
-            for key in tuple(os.environ)
-            if is_local_git_environment(key)
+            key: os.environ.pop(key) for key in tuple(os.environ) if is_local_git_environment(key)
         }
         try:
             with local.env():

@@ -132,8 +132,7 @@ def test_arch024_allows_unrelated_dynamic_lookup_in_the_cli(policy: Policy) -> N
     codes = run_check(
         policy,
         "src/pkg/adapters/inbound/cli.py",
-        "def value(request: object) -> object:\n"
-        "    return getattr(request, 'value')\n",
+        "def value(request: object) -> object:\n    return getattr(request, 'value')\n",
     )
     assert codes == []
 

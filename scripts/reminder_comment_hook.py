@@ -55,7 +55,7 @@ def main() -> int:
         return 0
     try:
         offending = reminder_comments(path)
-    except (OSError, SyntaxError, tokenize.TokenError):
+    except OSError, SyntaxError, tokenize.TokenError:
         return 0
     if not offending:
         return 0

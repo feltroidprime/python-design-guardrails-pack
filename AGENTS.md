@@ -46,7 +46,7 @@ repository, not this one.
 | Everything a generated repository contains | `template/**` |
 | Copier questions, rendering policy, and artifact exclusion | `copier.yml` |
 | Stable generation and CLI behavior | `instantiate.py` |
-| `python-repo` CLI packaging (console script, wheel contents) | `pyproject.toml` (root) |
+| `python-repo` CLI packaging and root Ruff policy | `pyproject.toml` (root) |
 | Downstream architecture policy | `template/architecture.toml.jinja` + `template/scripts/architecture_rules.py` |
 | Downstream agent contract | `template/{% if agents_contract != 'none' %}AGENTS.md{% endif %}.jinja` |
 | Downstream quality gate | `template/scripts/quality_gate.py.jinja` (mirrored by `template/.github/workflows/quality.yml.jinja` and the pre-push hook) |
@@ -121,12 +121,12 @@ loop, not a completion criterion for template changes.
 
 Prerequisites: `python3` (3.14), `uv`, `just`, and network access for the first
 dependency resolution. `uv run --no-project --with` supplies Copier, pytest,
-pytest-xdist, and the icontract floor needed by the domain-owned repository
-path classifier;
-the root `pyproject.toml` is packaging-only (Copier is its sole runtime
-dependency; it has no dev tooling) and the
-root intentionally has no virtualenv or lock file, so IDE warnings about
-unresolved `pytest`/`validate_pack` imports are expected. If you
+pytest-xdist, Ruff, and the icontract floor needed by the domain-owned
+repository path classifier. The root `pyproject.toml` keeps packaging metadata
+and the Ruff policy, while Copier remains its sole runtime dependency; root
+development tools are provisioned ephemerally, with no root virtualenv or lock
+file. IDE warnings about unresolved `pytest`/`validate_pack` imports are
+therefore expected. If you
 change what a wheel must ship (new top-level template asset, renamed
 generator), update the hatchling include/force-include sections in the root
 `pyproject.toml` in the same change.

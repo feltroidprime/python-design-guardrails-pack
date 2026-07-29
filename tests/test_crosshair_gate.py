@@ -2,9 +2,9 @@
 
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 from tests.test_proof_guard import POLICY_TOML, PROOF_TOML
 
@@ -250,7 +250,4 @@ def test_reported_counterexample_names_the_owning_property(tmp_path: Path) -> No
     completed = run_gate(root, "fast", "DEMO-PRESERVES-VALUE")
 
     assert completed.returncode == 1
-    assert (
-        "PROPERTY[DEMO-PRESERVES-VALUE] demo.domain.decisions:identity"
-        in completed.stderr
-    )
+    assert "PROPERTY[DEMO-PRESERVES-VALUE] demo.domain.decisions:identity" in completed.stderr

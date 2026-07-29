@@ -9,7 +9,6 @@ from copier import run_copy, run_update
 
 import instantiate
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS_RELEASE = "v0.1.0"
 RELEASE_TAG_PATTERN = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
@@ -66,9 +65,7 @@ def candidate_release_tag(template: Path, environment: dict[str, str]) -> str:
 
 
 def check_update(repository: Path, environment: dict[str, str]) -> int:
-    return run(
-        ["copier", "check-update", "--quiet"], repository, environment
-    ).returncode
+    return run(["copier", "check-update", "--quiet"], repository, environment).returncode
 
 
 def test_previous_release_updates_cleanly_to_current_ref(tmp_path: Path) -> None:
@@ -80,9 +77,10 @@ def test_previous_release_updates_cleanly_to_current_ref(tmp_path: Path) -> None
         environment,
     )
     assert cloned.returncode == 0, cloned.stdout + cloned.stderr
-    assert run(
-        ["git", "rev-parse", "--verify", PREVIOUS_RELEASE], template, environment
-    ).returncode == 0
+    assert (
+        run(["git", "rev-parse", "--verify", PREVIOUS_RELEASE], template, environment).returncode
+        == 0
+    )
     candidate = candidate_release_tag(template, environment)
     tagged = run(
         [
@@ -112,9 +110,7 @@ def test_previous_release_updates_cleanly_to_current_ref(tmp_path: Path) -> None
             quiet=True,
             skip_tasks=True,
         )
-    initialized = run(
-        ["git", "init", "--quiet", "--initial-branch=main"], project, environment
-    )
+    initialized = run(["git", "init", "--quiet", "--initial-branch=main"], project, environment)
     assert initialized.returncode == 0, initialized.stdout + initialized.stderr
     commit_all(project, "Generate from previous release", environment)
     answers_before = (project / ".copier-answers.yml").read_text(encoding="utf-8")
@@ -131,10 +127,9 @@ def test_previous_release_updates_cleanly_to_current_ref(tmp_path: Path) -> None
             skip_tasks=True,
         )
 
-    unmerged = run(
-        ["git", "diff", "--name-only", "--diff-filter=U"], project, environment
-    )
-    assert unmerged.returncode == 0 and unmerged.stdout == ""
+    unmerged = run(["git", "diff", "--name-only", "--diff-filter=U"], project, environment)
+    assert unmerged.returncode == 0
+    assert unmerged.stdout == ""
     assert "<<<<<<< " not in (project / "README.md").read_text(encoding="utf-8")
     diff_check = run(["git", "diff", "--check"], project, environment)
     assert diff_check.returncode == 0, diff_check.stdout + diff_check.stderr
@@ -145,9 +140,7 @@ def test_previous_release_updates_cleanly_to_current_ref(tmp_path: Path) -> None
         assert answer in answers_after
     assert f"_commit: {PREVIOUS_RELEASE}" in answers_before
     assert f"_commit: {candidate}" in answers_after
-    assert "copier check-update --quiet" in (project / "README.md").read_text(
-        encoding="utf-8"
-    )
+    assert "copier check-update --quiet" in (project / "README.md").read_text(encoding="utf-8")
 
     commit_all(project, "Update to current template ref", environment)
     assert run(["git", "status", "--porcelain"], project, environment).stdout == ""
@@ -203,9 +196,7 @@ def test_generated_recipe_updates_from_its_recorded_git_source(tmp_path: Path) -
             quiet=True,
             skip_tasks=True,
         )
-    initialized = run(
-        ["git", "init", "--quiet", "--initial-branch=main"], project, environment
-    )
+    initialized = run(["git", "init", "--quiet", "--initial-branch=main"], project, environment)
     assert initialized.returncode == 0, initialized.stdout + initialized.stderr
     commit_all(project, "Generate recipe update project", environment)
 

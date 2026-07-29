@@ -6,9 +6,9 @@ needs to enumerate the locations and no location list can go stale. Moving a
 pin means updating every copy until this test passes.
 """
 
+from pathlib import Path
 import re
 import subprocess
-from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HISTORICAL_RECORDS = ("CHANGELOG.md", "VALIDATION.md")
@@ -77,6 +77,10 @@ def test_prek_floor_is_coherent() -> None:
         occurrences(rf"minimum_prek_version = \"{VERSION}\"", rf"prek>={VERSION}"),
         3,
     )
+
+
+def test_ruff_floor_is_coherent() -> None:
+    assert_coherent(occurrences(rf"ruff>={VERSION}"), 2)
 
 
 def test_uv_pin_is_coherent() -> None:
