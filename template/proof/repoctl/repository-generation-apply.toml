@@ -42,3 +42,20 @@ oracles = ["repoctl.modules.repository_generation.application.specifications:pro
 evidence = ["hypothesis-stateful", "falsifier"]
 counterexample = "An apply attempt replaces an existing product file even when its compare-and-swap precondition matches."
 failure_modes = ["existing product overwritten", "product write attempted", "preservation outcome omitted"]
+
+[[properties]]
+id = "REPOCTL::INDEPENDENT-CAPABILITIES-COMMUTE"
+title = "Independent capability application order is irrelevant"
+statement = "Applying either of two non-conflicting intents, replanning, and applying the other produces the same canonical final repository state."
+scope = "Two distinct capability intents applied through the planner and repository port in both orders."
+assumptions = ["The intents have distinct valid names and therefore disjoint PRODUCT and DECLARATION targets."]
+kind = "state_machine"
+strength = "normative"
+targets = [
+  "repoctl.modules.repository_generation.application.use_cases:apply",
+  "repoctl.modules.repository_generation.domain.decisions:plan",
+]
+oracles = ["verification.repoctl.specifications:canonical_states_match"]
+evidence = ["hypothesis-stateful", "falsifier"]
+counterexample = "The two application orders produce different declarations, product bytes, derived bytes, or ownership facts after journal artifacts are excluded."
+failure_modes = ["order-dependent declaration", "order-dependent product seed", "order-dependent derived index", "order-dependent snapshot"]

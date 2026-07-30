@@ -172,6 +172,8 @@ EXPECTED_FILES = (
     "verification/harness/symbolic_canary.py",
     "verification/repoctl/test_apply_state_machine.py",
     "verification/repoctl/test_derived_index_properties.py",
+    "verification/repoctl/specifications.py",
+    "verification/repoctl/test_independent_capabilities_commute.py",
     "verification/repoctl/test_lifecycle_state_machine.py",
     "verification/repoctl/test_path_closed_properties.py",
     "verification/repoctl/test_plan_deterministic_properties.py",

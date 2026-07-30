@@ -6,19 +6,22 @@ and prek 0.4.11.
 
 ## Change validated
 
-Issue #64 adds the reusable recursive N0 → N1 → N2 acceptance harness.
+Issue #65 proves that independent capability order commutes and records the
+100-capability command budgets.
 
-- One real-command test executes the specification's nineteen steps through
-  `repoctl`, from a freshly rendered N0 through alpha and beta lifecycle changes.
-- The test-only fixture injects alpha implementation and proof evidence through
-  one documented seam; product evidence stays under `verification/modules/`.
-- Alpha's product hashes are checked after beta creation and activation and
-  after alpha retirement; the final runtime index contains beta only.
-- Generated N1/N2 tests now derive their expected indexes from active
-  declarations instead of assuming every repository remains N0.
-- The full pre-push suite has an explicit ten-minute warm-cache budget because
-  it includes the recursive acceptance walk; `just test-fast` remains the
-  sub-minute feedback lane.
+- Generated proof evidence applies two distinct intents in both orders through
+  the real planner and repository port, then compares canonical state digests
+  that exclude plan and journal artifacts.
+- The proof catalog exposes
+  `REPOCTL::INDEPENDENT-CAPABILITIES-COMMUTE`; its focused proof and falsifier
+  pass through `just prove-one`.
+- A socket-blocked in-process probe builds 100 DRAFT capabilities and measures
+  warm median `status`, capability-plan, capability-apply, and generation
+  latency without including interpreter or dependency-startup time.
+- The committed Linux x86_64/Python 3.14.6 record is within every explicit
+  budget: 0.040029s status, 0.056325s plan, 0.236318s apply, and 0.042006s
+  generation. Live misses are recorded and warned, not converted into flaky
+  timing failures.
 
 ## Commands and actual results
 
@@ -28,14 +31,14 @@ PYTHONDONTWRITEBYTECODE=1 just validate
 
 The canonical command passed end to end:
 
-- root Ruff repair/check was stable across 143 files, and the root suite passed
-  **222 tests** with 15 dirty-template warnings in 186.26 seconds;
+- root Ruff repair/check was stable across 147 files, and the root suite passed
+  **223 tests** with 16 dirty-template warnings in 231.23 seconds;
 - template cleanliness, fresh generation, complete Jinja rendering, generated
   bootstrap, and the downstream repair probe passed;
 - the generated gate reported **0 errors, 0 warnings** from BasedPyright;
   ownership, architecture, documentation, proof-contract, symbolic-core, and
   Import Linter checks passed;
-- generated tests passed **125 passed, 1 skipped, 3 deselected** with **95.65%
+- generated tests passed **127 passed, 1 skipped, 3 deselected** with **95.65%
   coverage** (90% required);
 - missing-hook repair, tracked syntax rejection, clean and dirty doctor probes,
   and linked-worktree pre-commit/pre-push probes passed.
@@ -46,7 +49,9 @@ fault-injection probes.
 ## Remaining risks and portability notes
 
 - Full validation ran on Linux x86_64 only. macOS and Windows remain
-  unexercised; their subprocess and filesystem behavior can differ.
-- The recursive harness currently certifies one minimal proof-carrying alpha
-  fixture. The remaining application-shape, mutation, scale, composition, and
-  update-preservation cases are owned by issues #65–#73.
+  unexercised; their subprocess, filesystem, and timing behavior can differ.
+- The committed medians describe this machine and Python build rather than a
+  portable performance guarantee. Budget misses on other hosts remain visible
+  as recorded regressions without failing correctness checks.
+- The remaining application-shape, mutation, composition, and
+  update-preservation cases are owned by issues #66–#73.
