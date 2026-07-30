@@ -2,6 +2,7 @@ from pathlib import Path
 
 from jinja2 import Environment, StrictUndefined
 
+import instantiate
 from scripts.ownership import OwnershipZone, classify_path
 from scripts.ownership_policy import OwnershipPolicy, load_ownership_policy
 
@@ -22,6 +23,20 @@ PRODUCT_ROOT_PROBES = (
     TEMPLATE_ROOT / "tests/modules/placeholder.py",
     TEMPLATE_ROOT / "verification/modules/placeholder.py",
 )
+EXAMPLE_MODULES = (
+    f"{PACKAGE}.adapters.outbound.audit_log",
+    f"{PACKAGE}.adapters.outbound.in_process_events",
+    f"{PACKAGE}.adapters.outbound.memory_repository",
+    f"{PACKAGE}.adapters.outbound.sqlite_repository",
+    f"{PACKAGE}.adapters.outbound.system_clock",
+    f"{PACKAGE}.adapters.outbound.uuid_ids",
+    f"{PACKAGE}.application.idempotency",
+    f"{PACKAGE}.application.query_models",
+)
+
+
+def _generated_module_path(module: str) -> Path:
+    return Path(*module.split(".")).with_suffix(".py")
 
 
 def render_template_path(source: Path) -> Path | None:
@@ -75,3 +90,15 @@ def test_template_never_renders_product_owned_files(tmp_path: Path) -> None:
     assert detected_probes == tuple(
         sorted(probe.relative_to(REPOSITORY_ROOT) for probe in PRODUCT_ROOT_PROBES)
     )
+
+
+def test_generated_tree_has_no_example_adapter_or_brick_modules(tmp_path: Path) -> None:
+    generated = tmp_path / "generated"
+    assert instantiate.generate("ownership-zone-removal", PACKAGE, generated) is None
+
+    present_modules = [
+        module
+        for module in EXAMPLE_MODULES
+        if (generated / "src" / _generated_module_path(module)).exists()
+    ]
+    assert present_modules == []
