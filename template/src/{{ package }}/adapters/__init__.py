@@ -1,1 +1,1 @@
-"""Inbound and outbound technology adapters."""
+"""Compatibility adapters retained for repository control."""

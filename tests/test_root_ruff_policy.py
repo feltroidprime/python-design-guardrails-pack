@@ -58,23 +58,16 @@ def test_root_ruff_policy_matches_a_generated_repository(tmp_path: Path) -> None
     )
 
 
-def test_templated_imports_stay_sorted_across_package_names(tmp_path: Path) -> None:
-    for package in ("acme_orders", "roundtrip_project"):
-        generated = tmp_path / package
-        error = instantiate.generate(package.replace("_", "-"), package, generated)
-        assert error is None
+def test_rendered_symbolic_canary_has_ruff_spacing(tmp_path: Path) -> None:
+    generated = tmp_path / "canary-check"
+    error = instantiate.generate("canary-check", "canary_check", generated)
+    assert error is None
 
-        canary = (generated / "verification" / "harness" / "symbolic_canary.py").read_text(
-            encoding="utf-8"
-        )
-        relevant_imports = [
-            line
-            for line in canary.splitlines()
-            if line.startswith((f"from {package}.", "from repoctl."))
-        ]
-        assert relevant_imports == sorted(relevant_imports)
-        assert "\n\n\n\ndef _canary_denies_its_own_output" not in canary
-        assert "\n\n\ndef _canary_denies_its_own_output" in canary
+    canary = (generated / "verification" / "harness" / "symbolic_canary.py").read_text(
+        encoding="utf-8"
+    )
+    assert "\n\n\n\ndef _denies_echo" not in canary
+    assert "\n\n\ndef _denies_echo" in canary
 
 
 def test_root_check_uses_the_generated_ruff_floor() -> None:

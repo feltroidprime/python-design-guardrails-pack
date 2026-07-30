@@ -1,4 +1,4 @@
-"""Versioned machine protocol for the command-line adapter."""
+"""Stable machine envelopes and continuation tokens for repository control."""
 
 import base64
 import binascii
@@ -6,48 +6,17 @@ from dataclasses import dataclass
 import json
 from typing import TYPE_CHECKING, cast
 
-from {{ package }}.adapters.inbound.cli_contract import (
-    BulkPolicy,
-    ChoiceOption,
-    CommandPolicy,
-    CommandSpec,
-    DestructiveSafety,
-    FlagOption,
-    InteractivePolicy,
-    MutationPolicy,
-    NonDestructiveSafety,
-    OutputMode,
-    OutputOption,
-    PageLimitOption,
-    PositionalText,
-    QueryPolicy,
-    QuietOption,
-    StreamingPolicy,
-    TextOption,
-)
 from {{ package }}.adapters.inbound.cli_outcomes import (
-    SHARED_OUTCOMES,
-    ArgumentDetail,
-    ArgumentFailureDetail,
-    ComputedDetail,
     ComputedFailureDetail,
-    ConstantDetail,
-    FailureDetail,
     OutcomeSpec,
     PublicDetailValue,
 )
-from {{ package }}.application.query_models import AfterItem, NoMoreItems
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Mapping
     from typing import TextIO
 
-    from {{ package }}.application.query_models import ItemPage, PageContinuation
-    from {{ package }}.application.use_cases import CreateItemResult
-
 SCHEMA_VERSION = "1.0"
-PROTOCOL_DECISION = "ADR-0002"
-PROTOCOL_DECISIONS = (PROTOCOL_DECISION, "ADR-0004")
 
 
 class InvalidContinuationError(ValueError):
@@ -62,7 +31,7 @@ class InvalidContinuationError(ValueError):
 class FailureBody:
     outcome: OutcomeSpec
     message: str
-    details: tuple[FailureDetail, ...] = ()
+    details: tuple[ComputedFailureDetail, ...] = ()
     hint: str = ""
 
     def __post_init__(self) -> None:
@@ -74,174 +43,13 @@ class FailureBody:
             raise ValueError("Failure details must be unique.")
         for declaration in self.outcome.details:
             supplied = provided.get(declaration.key)
-            match declaration:
-                case ConstantDetail():
-                    if supplied is not None:
-                        raise ValueError("Constant failure details cannot be overridden.")
-                case ComputedDetail():
-                    if not isinstance(supplied, ComputedFailureDetail):
-                        raise TypeError("Computed failure details require computed provenance.")
-                case ArgumentDetail():
-                    if not isinstance(supplied, ArgumentFailureDetail) or (
-                        supplied.argument_source != declaration.argument_source
-                    ):
-                        raise TypeError("Argument failure details require exact provenance.")
+            if not isinstance(supplied, ComputedFailureDetail):
+                raise TypeError("Failure details require computed provenance.")
 
     @property
     def public_details(self) -> dict[str, PublicDetailValue]:
         supplied = {detail.key: detail.value for detail in self.details}
-        return {
-            declaration.key: (
-                declaration.value
-                if isinstance(declaration, ConstantDetail)
-                else supplied[declaration.key]
-            )
-            for declaration in self.outcome.details
-        }
-
-
-def _policy_document(policy: CommandPolicy) -> dict[str, object]:
-    match policy:
-        case QueryPolicy():
-            return {
-                "bounds": {
-                    "default_limit": policy.default_limit,
-                    "maximum_limit": policy.maximum_limit,
-                    "stable_order": policy.stable_order,
-                    "continuation": policy.continuation,
-                },
-                "query": {
-                    "filters": list(policy.filters),
-                    "selectable_fields": list(policy.selectable_fields),
-                    "quiet": policy.quiet,
-                },
-            }
-        case MutationPolicy():
-            return {
-                "mutation": {
-                    "retry": policy.retry.value,
-                    "retry_control": policy.retry_control,
-                    "unsafe_without_control": policy.unsafe_without_control,
-                }
-            }
-        case StreamingPolicy():
-            return {
-                "streaming": {
-                    "filters": list(policy.filters),
-                    "termination_controls": list(policy.termination_controls),
-                }
-            }
-        case InteractivePolicy():
-            return {"automation": {"required_inputs": list(policy.automation_inputs)}}
-        case BulkPolicy():
-            return {
-                "bulk": {
-                    "required_scope": list(policy.required_scope),
-                    "destination_required": policy.destination_required,
-                }
-            }
-
-
-def _safety_document(spec: CommandSpec) -> dict[str, object]:
-    match spec.safety:
-        case NonDestructiveSafety():
-            return {"kind": "non-destructive"}
-        case DestructiveSafety():
-            return {
-                "kind": "destructive",
-                "preview_control": spec.safety.preview_control,
-                "confirmation_control": spec.safety.confirmation_control,
-                "plan_fields": list(spec.safety.plan_fields),
-            }
-
-
-def _outcome_document(outcome: OutcomeSpec) -> dict[str, object]:
-    return {
-        "code": outcome.code.value,
-        "exit_status": int(outcome.exit_code),
-        "retryable": outcome.retryable,
-        "detail_keys": list(outcome.safe_detail_keys),
-        "hint": outcome.hint,
-    }
-
-
-def capability_document(spec: CommandSpec) -> dict[str, object]:
-    """Expose one catalog entry without leaking parser implementation details."""
-    document: dict[str, object] = {
-        "name": spec.name.value,
-        "kind": spec.kind.value,
-        "purpose": spec.purpose,
-        "automation_example": spec.automation_example,
-        "output_modes": [mode.value for mode in spec.output_modes],
-        "default_output_mode": spec.default_output_mode.value,
-        "input": {
-            "primary": spec.input_policy.primary.value,
-            "stdin": spec.input_policy.stdin.value,
-            "stdin_marker": spec.input_policy.stdin_marker,
-        },
-        "arguments": [_argument_document(argument, spec=spec) for argument in spec.arguments],
-        "safety": _safety_document(spec),
-        "outcomes": [_outcome_document(outcome) for outcome in (*SHARED_OUTCOMES, *spec.outcomes)],
-    }
-    document.update(_policy_document(spec.policy))
-    return document
-
-
-def _argument_document(argument: object, *, spec: CommandSpec) -> dict[str, object]:
-    document: dict[str, object]
-    match argument:
-        case PositionalText():
-            document = _argument_shape(argument.name, "text", required=True)
-            document["sensitive"] = argument.sensitive
-        case TextOption():
-            document = _argument_shape(argument.flag, "text", default=argument.default)
-            document["sensitive"] = argument.sensitive
-        case PageLimitOption():
-            policy = spec.policy
-            if not isinstance(policy, QueryPolicy):
-                raise TypeError("Page-limit capability metadata requires a query policy.")
-            document = _argument_shape(argument.flag, "integer", default=policy.default_limit)
-        case OutputOption():
-            choices = tuple(mode.value for mode in spec.output_modes if mode != OutputMode.QUIET)
-            document = _argument_shape(
-                "--format", "choice", default=spec.default_output_mode.value, choices=choices
-            )
-        case FlagOption():
-            document = _argument_shape(argument.flag, "boolean", default=False)
-        case ChoiceOption():
-            document = _argument_shape(
-                argument.flag,
-                "choice",
-                default=argument.default,
-                choices=argument.choices,
-                repeatable=argument.repeatable,
-            )
-            document["sensitive"] = argument.sensitive
-        case QuietOption():
-            document = _argument_shape("--quiet", "boolean", default=False)
-        case _:
-            raise TypeError("Unknown public argument declaration.")
-    return document
-
-
-def _argument_shape(
-    name: str,
-    value_type: str,
-    *,
-    required: bool = False,
-    default: object = None,
-    choices: tuple[str, ...] = (),
-    repeatable: bool = False,
-) -> dict[str, object]:
-    return {
-        "name": name,
-        "value_type": value_type,
-        "required": required,
-        "default": default,
-        "choices": list(choices),
-        "repeatable": repeatable,
-        "sensitive": False,
-    }
+        return {declaration.key: supplied[declaration.key] for declaration in self.outcome.details}
 
 
 def write_success(
@@ -282,65 +90,6 @@ def write_failure(
     _ = err.write(json.dumps(document, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
-def write_capabilities(
-    catalog: Sequence[CommandSpec],
-    *,
-    fields: tuple[str, ...],
-    truncated: bool,
-    continuation: str,
-    out: TextIO,
-) -> None:
-    """Write the public command inventory in stable catalog order."""
-    write_success(
-        command="capabilities",
-        data={
-            "protocol": {
-                "schema_version": SCHEMA_VERSION,
-                "decisions": list(PROTOCOL_DECISIONS),
-            },
-            "commands": [
-                _select_capability_fields(capability_document(spec), fields=fields)
-                for spec in catalog
-            ],
-        },
-        metadata={"truncated": truncated, "continuation": continuation},
-        out=out,
-    )
-
-
-def _select_capability_fields(
-    document: dict[str, object], *, fields: tuple[str, ...]
-) -> dict[str, object]:
-    if not fields:
-        return document
-    return {field: document[field] for field in fields}
-
-
-def write_item_page(page: ItemPage, *, selection: Mapping[str, object], out: TextIO) -> None:
-    """Write one bounded item query result."""
-    write_success(
-        command="list",
-        data={
-            "items": [
-                {value.field.value: value.value for value in item.values} for item in page.items
-            ]
-        },
-        metadata={
-            "truncated": page.truncated,
-            "continuation": _continuation_token(page.continuation, selection=selection),
-        },
-        out=out,
-    )
-
-
-def _continuation_token(continuation: PageContinuation, *, selection: Mapping[str, object]) -> str:
-    match continuation:
-        case AfterItem(item_id=item_id):
-            return encode_continuation(item_id.value, selection=selection)
-        case NoMoreItems():
-            return ""
-
-
 def encode_continuation(position: str, *, selection: Mapping[str, object]) -> str:
     """Encode an opaque continuation bound to normalized query selection."""
     payload = json.dumps(
@@ -379,17 +128,3 @@ def decode_continuation(token: str, *, selection: Mapping[str, object]) -> str:
             "The continuation token belongs to another query.", reason="selection_mismatch"
         )
     return position
-
-
-def write_created(result: CreateItemResult, *, out: TextIO) -> None:
-    """Write a create result with its actual invocation replay behavior."""
-    write_success(
-        command="add",
-        data={"item": {"id": result.item.item_id.value, "name": result.item.name.value}},
-        metadata={
-            "operation_id": result.item.item_id.value,
-            "retry_safe": result.retry_safe,
-            "replayed": result.replayed,
-        },
-        out=out,
-    )

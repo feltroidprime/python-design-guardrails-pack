@@ -275,20 +275,9 @@ exclude_type_checking_imports = true
 
 [[tool.importlinter.contracts]]
 id = "layers"
-name = "Dependencies point inward"
+name = "Foundation and generated indexes remain independent"
 type = "layers"
 layers = [
-  "{{ package }}.bootstrap",
-  "{{ package }}.adapters",
-  "{{ package }}.application",
-  "{{ package }}.domain",
-]
-
-[[tool.importlinter.contracts]]
-id = "adapter-independence"
-name = "Inbound and outbound adapters are independent"
-type = "independence"
-modules = [
-  "{{ package }}.adapters.inbound",
-  "{{ package }}.adapters.outbound",
+  "{{ package }}._foundation",
+  "{{ package }}._generated",
 ]

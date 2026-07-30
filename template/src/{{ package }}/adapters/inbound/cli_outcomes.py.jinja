@@ -1,4 +1,4 @@
-"""Closed public outcome vocabulary shared by the CLI catalog and runtime."""
+"""Closed public outcome vocabulary used by repository control."""
 
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum
@@ -16,9 +16,6 @@ class ExitCode(IntEnum):
 
 class OutcomeCode(StrEnum):
     INVALID_SYNTAX = "invalid_syntax"
-    INVALID_ITEM_NAME = "invalid_item_name"
-    INVALID_IDEMPOTENCY_KEY = "invalid_idempotency_key"
-    IDEMPOTENCY_CONFLICT = "idempotency_conflict"
     INVALID_CONTINUATION = "invalid_continuation"
     DEPENDENCY_UNAVAILABLE = "dependency_unavailable"
     UNEXPECTED_FAILURE = "unexpected_failure"
@@ -28,23 +25,8 @@ type PublicDetailValue = str | int | bool | None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class ConstantDetail:
-    key: str
-    value: PublicDetailValue
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
 class ComputedDetail:
     key: str
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class ArgumentDetail:
-    key: str
-    argument_source: str
-
-
-type OutcomeDetail = ConstantDetail | ComputedDetail | ArgumentDetail
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -54,21 +36,11 @@ class ComputedFailureDetail:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class ArgumentFailureDetail:
-    key: str
-    argument_source: str
-    value: PublicDetailValue
-
-
-type FailureDetail = ComputedFailureDetail | ArgumentFailureDetail
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
 class OutcomeSpec:
     code: OutcomeCode
     exit_code: ExitCode
     retryable: bool
-    details: tuple[OutcomeDetail, ...]
+    details: tuple[ComputedDetail, ...]
     hint: str
 
     def __post_init__(self) -> None:
@@ -103,30 +75,6 @@ UNEXPECTED_FAILURE = OutcomeSpec(
 )
 SHARED_OUTCOMES = (INVALID_SYNTAX, UNEXPECTED_FAILURE)
 
-INVALID_ITEM_NAME = OutcomeSpec(
-    code=OutcomeCode.INVALID_ITEM_NAME,
-    exit_code=ExitCode.PERMANENT_REJECTION,
-    retryable=False,
-    details=(
-        ConstantDetail(key="field", value="name"),
-        ArgumentDetail(key="rejected_value", argument_source="name"),
-    ),
-    hint="Provide a non-blank name no longer than 80 characters.",
-)
-INVALID_IDEMPOTENCY_KEY = OutcomeSpec(
-    code=OutcomeCode.INVALID_IDEMPOTENCY_KEY,
-    exit_code=ExitCode.PERMANENT_REJECTION,
-    retryable=False,
-    details=(ConstantDetail(key="field", value="idempotency_key"),),
-    hint="Provide a non-blank --idempotency-key of at most 200 characters.",
-)
-IDEMPOTENCY_CONFLICT = OutcomeSpec(
-    code=OutcomeCode.IDEMPOTENCY_CONFLICT,
-    exit_code=ExitCode.PERMANENT_REJECTION,
-    retryable=False,
-    details=(ConstantDetail(key="conflicting_field", value="idempotency_key"),),
-    hint="Retry the different request with a new --idempotency-key.",
-)
 INVALID_CONTINUATION = OutcomeSpec(
     code=OutcomeCode.INVALID_CONTINUATION,
     exit_code=ExitCode.PERMANENT_REJECTION,
@@ -142,11 +90,4 @@ DEPENDENCY_UNAVAILABLE = OutcomeSpec(
     hint="Retry after the local dependency is available.",
 )
 
-ADD_OUTCOMES = (
-    INVALID_ITEM_NAME,
-    INVALID_IDEMPOTENCY_KEY,
-    IDEMPOTENCY_CONFLICT,
-    DEPENDENCY_UNAVAILABLE,
-)
 CAPABILITIES_OUTCOMES = (INVALID_CONTINUATION,)
-LIST_OUTCOMES = (INVALID_CONTINUATION, DEPENDENCY_UNAVAILABLE)

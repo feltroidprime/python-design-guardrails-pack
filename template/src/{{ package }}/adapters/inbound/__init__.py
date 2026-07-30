@@ -1,1 +1,1 @@
-"""Inbound adapters translating external input into application calls."""
+"""Compatibility declarations shared with repository control."""

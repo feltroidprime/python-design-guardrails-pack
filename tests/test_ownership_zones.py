@@ -1,4 +1,6 @@
 from pathlib import Path
+import subprocess
+import sys
 import tomllib
 
 from jinja2 import Environment, StrictUndefined
@@ -38,6 +40,19 @@ ITEM_CORE_PATHS = (
     Path("src") / PACKAGE / "application",
     Path("src") / PACKAGE / "domain",
 )
+PRODUCT_ROOTS = (
+    Path("src") / PACKAGE / "modules",
+    Path("proof/modules"),
+    Path("tests/modules"),
+    Path("verification/modules"),
+    Path("docs/product"),
+)
+QUALITY_LIMITS = {
+    "max_module_lines": 650,
+    "max_test_module_lines": 500,
+    "max_function_lines": 60,
+    "max_class_lines": 250,
+}
 
 
 def _generated_module_path(module: str) -> Path:
@@ -120,3 +135,42 @@ def test_generated_tree_has_no_item_core_or_foundation_properties(tmp_path: Path
         (generated / "proof" / "foundation.toml").read_text(encoding="utf-8")
     )
     assert "properties" not in foundation_catalog
+
+
+def test_generated_n0_has_no_product_directories_or_relaxed_quality_limits(
+    tmp_path: Path,
+) -> None:
+    generated = tmp_path / "generated"
+    assert instantiate.generate("n0-policy", PACKAGE, generated) is None
+
+    present_product_roots = [path for path in PRODUCT_ROOTS if (generated / path).exists()]
+    assert present_product_roots == []
+
+    control_roots = tuple(
+        sorted(
+            path.relative_to(generated)
+            for path in (generated / "repoctl" / "modules").iterdir()
+            if path.is_dir() and not path.name.startswith(".")
+        )
+    )
+    assert control_roots == (Path("repoctl/modules/repository_generation"),)
+    validation = subprocess.run(  # static generated-repository validator
+        [
+            sys.executable,
+            "-m",
+            "scripts.capability_validator",
+            "--root",
+            "repoctl/modules/repository_generation",
+        ],
+        cwd=generated,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    assert validation.returncode == 0, validation.stdout + validation.stderr
+
+    architecture = tomllib.loads((generated / "architecture.toml").read_text(encoding="utf-8"))
+    assert architecture["limits"] == QUALITY_LIMITS
+
+    pyproject = tomllib.loads((generated / "pyproject.toml").read_text(encoding="utf-8"))
+    assert "--cov-fail-under=90" in pyproject["tool"]["pytest"]["ini_options"]["addopts"]

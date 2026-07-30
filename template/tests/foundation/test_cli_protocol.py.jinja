@@ -1,0 +1,120 @@
+"""N0 coverage for the small compatibility protocol retained by repository control."""
+
+from io import StringIO
+import json
+
+import pytest
+
+from {{ package }}._generated.active_capabilities import ACTIVE_CAPABILITIES
+from {{ package }}._generated.cli_catalog import CLI_CATALOGS
+from {{ package }}._generated.composition import COMPOSITION
+from {{ package }}.adapters.inbound.cli_outcomes import (
+    ComputedFailureDetail,
+    INVALID_CONTINUATION,
+)
+from {{ package }}.adapters.inbound.cli_protocol import (
+    FailureBody,
+    InvalidContinuationError,
+    decode_continuation,
+    encode_continuation,
+    write_failure,
+    write_success,
+)
+from repoctl.modules.repository_generation.api import COMMAND_CATALOG
+
+
+def test_n0_has_empty_indexes_and_only_repository_control_commands() -> None:
+    assert ACTIVE_CAPABILITIES == CLI_CATALOGS == COMPOSITION == ()
+    assert {spec.name.value for spec in COMMAND_CATALOG} == {
+        "capabilities",
+        "status",
+        "capability plan",
+        "capability apply",
+        "capability activate",
+        "capability retire",
+        "generate",
+        "proof-report",
+    }
+
+
+def test_machine_envelopes_preserve_the_declared_failure_detail() -> None:
+    out = StringIO()
+    err = StringIO()
+
+    write_success(command="status", data={"state": "n0"}, metadata={}, out=out)
+    write_failure(
+        command="capabilities",
+        failure=FailureBody(
+            outcome=INVALID_CONTINUATION,
+            message="start again",
+            details=(ComputedFailureDetail(key="reason", value="malformed"),),
+        ),
+        err=err,
+    )
+
+    assert json.loads(out.getvalue()) == {
+        "schema_version": "1.0",
+        "command": "status",
+        "data": {"state": "n0"},
+        "metadata": {},
+    }
+    assert json.loads(err.getvalue())["error"] == {
+        "code": "invalid_continuation",
+        "message": "start again",
+        "retryable": False,
+        "hint": "Start a new query without --continuation.",
+        "details": {"reason": "malformed"},
+    }
+
+
+@pytest.mark.parametrize(
+    ("details", "error"),
+    [
+        ((), TypeError),
+        ((ComputedFailureDetail(key="unexpected", value="value"),), ValueError),
+        (
+            (
+                ComputedFailureDetail(key="reason", value="first"),
+                ComputedFailureDetail(key="reason", value="second"),
+            ),
+            ValueError,
+        ),
+    ],
+)
+def test_failure_details_must_match_the_declared_outcome(
+    details: tuple[ComputedFailureDetail, ...],
+    error: type[Exception],
+) -> None:
+    with pytest.raises(error):
+        _ = FailureBody(outcome=INVALID_CONTINUATION, message="start again", details=details)
+
+
+@pytest.mark.parametrize(
+    ("token", "selection", "reason"),
+    [
+        ("not-a-token", {"scope": "n0"}, "malformed"),
+        (encode_continuation("", selection={"scope": "n0"}), {"scope": "n0"}, "missing_position"),
+        (encode_continuation(" \t", selection={"scope": "n0"}), {"scope": "n0"}, "invalid_position"),
+        (
+            encode_continuation("position", selection={"scope": "other"}),
+            {"scope": "n0"},
+            "selection_mismatch",
+        ),
+    ],
+)
+def test_continuations_are_bound_to_their_query_selection(
+    token: str,
+    selection: dict[str, object],
+    reason: str,
+) -> None:
+    with pytest.raises(InvalidContinuationError) as raised:
+        _ = decode_continuation(token, selection=selection)
+
+    assert raised.value.reason == reason
+
+
+def test_continuation_round_trip() -> None:
+    selection = {"scope": "n0"}
+    token = encode_continuation("capability-name", selection=selection)
+
+    assert decode_continuation(token, selection=selection) == "capability-name"
