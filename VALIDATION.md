@@ -8,8 +8,8 @@ uv 0.12.0, just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist
 
 The pack now uses the current uv 0.12.0 release consistently.
 
-- The root and generated-repository GitHub workflows use `astral-sh/setup-uv@v9`
-  and install uv 0.12.0 explicitly.
+- The root and generated-repository GitHub workflows use the latest published
+  `astral-sh/setup-uv@v9.0.0` action and install uv 0.12.0 explicitly.
 - Generated repositories use `uv_build==0.12.0`, require uv `>=0.12.0,<0.13`,
   and use the matching 0.12.0 `uv-pre-commit` hook.
 - The pin-coherence test now covers the generated build backend and the root
@@ -32,7 +32,7 @@ The final canonical `just validate` passed end to end (directly observed exit
 code 0):
 
 - root Ruff repair/check was stable across 139 files; root tests: **215
-  passed** in 33.70s;
+  passed** in 27.69s;
 - template cleanliness, fresh instantiation, generated bootstrap, downstream
   repair probes, missing-hook repair, tracked-syntax and dirty-doctor fault
   probes, and linked-worktree pre-commit/pre-push checks all passed;
@@ -42,7 +42,7 @@ code 0):
 - each generated full quality run reported **252 passed, 8 skipped, 3
   deselected** with **93.94%** coverage;
 - the committed Copier update round trip and offline downstream gate completed
-  **2 passed in 65.55s**.
+  **2 passed in 65.74s**.
 
 The syntax and dirty-doctor failures printed during validation are deliberate
 fault-injection probes.

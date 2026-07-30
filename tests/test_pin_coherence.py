@@ -88,7 +88,7 @@ def test_uv_pin_is_coherent() -> None:
         occurrences(
             rf"uv_build=={VERSION}",
             rf"required-version = \">={VERSION},",
-            rf"setup-uv@v\d+\s+with:\s+version: \"{VERSION}\"",
+            rf"setup-uv@v\d+(?:\.\d+)*\s+with:\s+version: \"{VERSION}\"",
             rf"uv-pre-commit\"\s*rev = \"{VERSION}\"",
         ),
         5,
