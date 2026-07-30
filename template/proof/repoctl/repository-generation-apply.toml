@@ -1,0 +1,44 @@
+schema_version = 1
+ownership_zone = "foundation"
+
+[[properties]]
+id = "REPOCTL::APPLY-IDEMPOTENT"
+title = "A completed capability plan replays without another effect"
+statement = "After one successful application, every replay reports already-applied and preserves the complete repository state."
+scope = "Sequential application attempts for one immutable capability plan through one repository port."
+assumptions = ["The repository port preserves compare-and-swap and durable transaction semantics."]
+kind = "state_machine"
+strength = "normative"
+targets = ["repoctl.modules.repository_generation.application.use_cases:apply"]
+oracles = ["repoctl.modules.repository_generation.application.specifications:apply_is_idempotent"]
+evidence = ["hypothesis-stateful", "falsifier"]
+counterexample = "A replay writes another product, declaration, or derived file, or reports a fresh application."
+failure_modes = ["duplicate write", "duplicate journal entry", "replay reported as applied", "replay changes state"]
+
+[[properties]]
+id = "REPOCTL::STALE-PLAN-REJECTED"
+title = "A stale plan fails closed with recovery guidance"
+statement = "If repository state changes after planning, application returns a stale-plan outcome, states the prescribed recovery action, and makes no further change."
+scope = "A capability plan whose base snapshot no longer matches the repository port's current snapshot."
+assumptions = ["The intervening mutation is visible through RepositoryPort.snapshot()."]
+kind = "state_machine"
+strength = "normative"
+targets = ["repoctl.modules.repository_generation.application.use_cases:apply"]
+oracles = ["repoctl.modules.repository_generation.application.specifications:stale_plan_is_rejected"]
+evidence = ["hypothesis-stateful", "falsifier"]
+counterexample = "A stale plan writes a target, silently replans, or omits the recovery instruction."
+failure_modes = ["stale write", "silent replan", "missing recovery guidance", "stale state mutation"]
+
+[[properties]]
+id = "REPOCTL::PRODUCT-BYTES-PRESERVED"
+title = "Apply never overwrites an existing product file"
+statement = "A create-product-seed operation targeting an existing product path is refused before its bytes can change."
+scope = "An otherwise valid plan whose product seed target exists when application begins."
+assumptions = ["The product target is visible through RepositoryPort.read_bytes()."]
+kind = "state_machine"
+strength = "normative"
+targets = ["repoctl.modules.repository_generation.application.use_cases:apply"]
+oracles = ["repoctl.modules.repository_generation.application.specifications:product_bytes_are_preserved"]
+evidence = ["hypothesis-stateful", "falsifier"]
+counterexample = "An apply attempt replaces an existing product file even when its compare-and-swap precondition matches."
+failure_modes = ["existing product overwritten", "product write attempted", "preservation outcome omitted"]

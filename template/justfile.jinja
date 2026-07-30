@@ -20,19 +20,19 @@ check:
 # Fast local proof loop: structural closure, bounded generators, symbolic core.
 prove:
     uv run python -m scripts.proof_guard
-    HYPOTHESIS_PROFILE=fast uv run pytest -q -m proof verification/tests -o addopts="--strict-config --strict-markers --disable-socket"
+    HYPOTHESIS_PROFILE=fast uv run pytest -q -m proof verification -o addopts="--strict-config --strict-markers --disable-socket"
     uv run python -m scripts.crosshair_gate fast
 
 # Sub-second-to-seconds feedback on one changed law; the structural catalog still closes globally.
 prove-one property_id:
     uv run python -m scripts.proof_guard
-    HYPOTHESIS_PROFILE=fast uv run pytest -q -m proof verification/tests --property-id "$1" -o addopts="--strict-config --strict-markers --disable-socket"
+    HYPOTHESIS_PROFILE=fast uv run pytest -q -m proof verification --property-id "$1" -o addopts="--strict-config --strict-markers --disable-socket"
     uv run python -m scripts.crosshair_gate fast "$1"
 
 # Larger search budget for release candidates, risky concurrency changes, or nightly CI.
 prove-deep:
     uv run python -m scripts.proof_guard
-    HYPOTHESIS_PROFILE=deep uv run pytest -q -m proof verification/tests -o addopts="--strict-config --strict-markers --disable-socket"
+    HYPOTHESIS_PROFILE=deep uv run pytest -q -m proof verification -o addopts="--strict-config --strict-markers --disable-socket"
     uv run python -m scripts.crosshair_gate deep
 
 proof-report:

@@ -9,6 +9,9 @@ from repoctl.modules.repository_generation.adapters.outbound.local_repository im
 from repoctl.modules.repository_generation.adapters.outbound.memory_repository import (
     MemoryRepository,
 )
+from repoctl.modules.repository_generation.application.commands import (
+    ApplyOutcome,
+)
 from repoctl.modules.repository_generation.application.journal import (
     JournalProgress,
     JournalProtocolError,
@@ -31,6 +34,17 @@ from repoctl.modules.repository_generation.application.ports import (
     TransactionState,
     TransactionStateError,
 )
+from repoctl.modules.repository_generation.application.specifications import (
+    RECOVERY_INSTRUCTION,
+    ApplyIdempotenceObservation,
+    ApplyProductPreservationObservation,
+    ApplyStalePlanObservation,
+    ApplyStatus,
+    apply_is_idempotent,
+    product_bytes_are_preserved,
+    stale_plan_is_rejected,
+)
+from repoctl.modules.repository_generation.application.use_cases import apply
 from repoctl.modules.repository_generation.domain.decisions import plan
 from repoctl.modules.repository_generation.domain.indexes import (
     DerivedCapability,
@@ -131,8 +145,14 @@ def __getattr__(name: str) -> object:
 
 __all__ = [
     "COMMAND_CATALOG",
+    "RECOVERY_INSTRUCTION",
     "AbsolutePathError",
     "AmbiguousOwnershipError",
+    "ApplyIdempotenceObservation",
+    "ApplyOutcome",
+    "ApplyProductPreservationObservation",
+    "ApplyStalePlanObservation",
+    "ApplyStatus",
     "CapabilityDeclaration",
     "CapabilityIntent",
     "CapabilityPlan",
@@ -173,6 +193,8 @@ __all__ = [
     "TransactionStateError",
     "UnclassifiedPathError",
     "UnicodeNormalizationPathError",
+    "apply",
+    "apply_is_idempotent",
     "begin_journal",
     "canonical_index_bytes",
     "canonical_plan_bytes",
@@ -188,9 +210,11 @@ __all__ = [
     "matching_zones",
     "plan",
     "plan_repetition_is_identical",
+    "product_bytes_are_preserved",
     "record_operation",
     "recover_journal",
     "run",
+    "stale_plan_is_rejected",
     "transaction_id_for",
     "validated_segments",
 ]

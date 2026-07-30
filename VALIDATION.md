@@ -6,22 +6,21 @@ uv 0.11.28, just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist
 
 ## Change validated
 
-Issue #49 of epic #44 adds the application-owned
-`transaction-journal-v1` contract over the repository port.
+Issue #50 of epic #44 adds the application-owned, stale-safe capability-plan
+apply protocol.
 
-- Each exact capability plan receives the stable `apply:<plan-id>` transaction
-  identifier and a canonical JSON header containing its plan ID and base-state
-  digest.
-- Operation records carry a deterministic sequence, kind, path, precondition,
-  and content digest. The terminal record binds the plan's result-state digest
-  before the transaction is marked complete.
-- Inspection rejects mismatched or out-of-order records, reports incomplete
-  progress with the last recorded target, and preserves recovery classification
-  through `RepositoryPort.recover_transaction()`.
-- Replaying a completed plan is a no-op. The unit suite compares the complete
-  stored in-memory snapshot and transaction bytes before and after replay.
-- The journal module has no direct filesystem dependency; its AST evidence
-  permits only the transaction methods on `RepositoryPort`.
+- `apply(plan, repository)` validates immutable plan identity and generator
+  version, observes the current snapshot and journal before writing, rejects
+  stale plans with the required recovery instruction, and records each write
+  through the #49 transaction journal.
+- Reapplying a completed plan returns `already_applied` without another write.
+  Interrupted or result-mismatched work is recovered and reported as requiring
+  a fresh plan rather than silently replanned.
+- A present path classified as product is refused before compare-and-swap can
+  write it, even when a forged plan's precondition matches its current bytes.
+- The proof catalog owns state-machine evidence for idempotence, stale-plan
+  rejection, and product-byte preservation. The generated proof recipes now
+  discover the complete `verification/` tree, including the `repoctl` capsule.
 
 ## Commands and actual results
 
@@ -29,19 +28,36 @@ Issue #49 of epic #44 adds the application-owned
 just validate
 ```
 
-The final canonical `just validate` passed end to end:
+The final canonical `just validate` passed end to end (directly observed exit
+code 0):
 
-- root Ruff repair/check was stable across 131 files; root tests: **215
-  passed** in 23.61s;
-- generated repository bootstrap, formatting, linting, BasedPyright (**0
-  errors, 0 warnings**), ownership (**183 paths**), architecture, docs, proof,
-  symbolic, and import-contract gates all passed;
-- generated tests completed **238 passed, 8 skipped, 3 deselected** in 21.52s
-  with **93.94%** coverage;
-- the missing-hook repair, tracked-syntax fault injection, clean/dirty doctor
-  probes, and linked-worktree pre-commit/pre-push checks passed;
+- root Ruff repair/check was stable across 135 files; root tests: **215
+  passed** in 27.99s;
+- template cleanliness, fresh instantiation, generated bootstrap and quality
+  gates, tracked-syntax and dirty-doctor fault probes, and linked-worktree
+  pre-commit/pre-push checks all passed;
+- the generated type gate reported **0 errors, 0 warnings**; ownership,
+  architecture, documentation, proof-contract, symbolic-core, and import
+  contracts all passed;
 - the committed Copier update round trip and offline downstream gate completed
-  **2 passed in 60.23s**.
+  **2 passed in 62.33s**.
+
+Additional downstream checks run against a freshly rendered repository:
+
+```bash
+just prove
+just prove-one REPOCTL::APPLY-IDEMPOTENT
+just prove-one REPOCTL::STALE-PLAN-REJECTED
+just prove-one REPOCTL::PRODUCT-BYTES-PRESERVED
+uv run pytest -q
+```
+
+- `just prove` passed **37** proof tests (24 deselected); each new property
+  appears in `proof_guard --report` with `hypothesis-stateful` evidence.
+- Each `prove-one` command passed its selected property test plus falsifier
+  (**2 passed**, 59 deselected).
+- The direct generated test suite completed **238 passed, 8 skipped, 3
+  deselected** in 19.57s with **93.94%** coverage.
 
 The syntax and dirty-doctor failures printed during validation are deliberate
 fault-injection probes.
@@ -50,6 +66,6 @@ fault-injection probes.
 
 - Full validation ran on Linux x86_64 only. macOS and Windows remain
   unexercised; their symlink permissions and directory fsync behavior differ.
-- This leaf journals protocol state only. The #50 apply use case must call it
-  around real writes and enforce the stale-plan and existing-product-file
-  policies from the frozen specification.
+- The apply protocol is deliberately fail-closed after an interrupted journal:
+  it preserves the durable evidence and tells the caller to re-plan instead of
+  attempting an implicit rollback or regeneration.
