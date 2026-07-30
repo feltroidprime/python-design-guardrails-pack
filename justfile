@@ -20,7 +20,7 @@ check:
     {{ruff}} format --check {{ruff_sources}}
     {{ruff}} check {{ruff_sources}}
 
-# Unit tests for the generator (instantiate.py). Fast; no downstream install.
+# Pack tests, including the recursive generated-repository acceptance walk.
 # Keep Copier coherent with pyproject.toml and copier.yml.
 test: check
     uv run --no-project --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 --with copier==9.17.0 --with "icontract>=2.7.3" pytest -q -n 4 --dist worksteal tests

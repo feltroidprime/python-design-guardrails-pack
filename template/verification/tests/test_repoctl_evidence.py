@@ -31,7 +31,7 @@ from verification.repoctl.test_plan_deterministic_properties import (
     test_same_snapshot_and_intent_produce_identical_plan_bytes,
 )
 from verification.repoctl.test_proof_policy import (
-    test_proof_policy_declares_multiroot_discovery_as_data,
+    test_proof_policy_declares_discovery_roots_as_data,
 )
 
 __all__ = [
@@ -48,7 +48,7 @@ __all__ = [
     "test_empty_segments_raise_a_named_error",
     "test_named_path_errors_share_one_boundary_type",
     "test_parent_escapes_raise_a_named_error",
-    "test_proof_policy_declares_multiroot_discovery_as_data",
+    "test_proof_policy_declares_discovery_roots_as_data",
     "test_reactivating_a_retired_capability_requires_current_evidence",
     "test_retirement_preserves_product_files",
     "test_same_snapshot_and_intent_produce_identical_plan_bytes",

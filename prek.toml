@@ -18,12 +18,12 @@ pass_filenames = false
 always_run = true
 stages = ["pre-commit"]
 
-# The complete root suite stays below the one-minute interaction budget.
-# Canonical downstream validation remains mandatory through `just validate`
-# and runs in CI rather than recursively inside every push.
+# The complete root suite includes one real N0 -> N1 -> N2 acceptance walk and
+# stays below a ten-minute warm-cache budget. Canonical downstream validation
+# remains mandatory through `just validate`.
 [[repos.hooks]]
 id = "pack-push"
-name = "pack push checks (full root suite, <60s)"
+name = "pack push checks (full root suite, <10m warm)"
 entry = "just test"
 language = "system"
 pass_filenames = false

@@ -27,6 +27,7 @@ def test_pre_commit_is_fast_pre_push_is_bounded_and_ci_is_comprehensive() -> Non
     assert hooks["pack-fast"]["entry"] == "just test-fast"
     assert hooks["pack-fast"]["stages"] == ["pre-commit"]
     assert hooks["pack-push"]["entry"] == "just test"
+    assert hooks["pack-push"]["name"] == "pack push checks (full root suite, <10m warm)"
     assert hooks["pack-push"]["stages"] == ["pre-push"]
     assert "-n 4 --dist worksteal tests" in justfile
     assert "run: just validate" in workflow

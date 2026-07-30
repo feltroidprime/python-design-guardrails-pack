@@ -117,8 +117,9 @@ Required before claiming completion:
 - docs-only change at the root → no run required, but commands quoted in docs
   must match the justfile and scripts.
 
-`just test` alone (generator tests, no downstream install) is a fast inner
-loop, not a completion criterion for template changes.
+`just test` includes the real N0 → N1 → N2 recursive acceptance walk and has a
+ten-minute warm-cache budget; `just test-fast` is the sub-minute inner loop.
+Neither is a completion criterion for template changes.
 
 Prerequisites: `python3` (3.14), `uv`, `just`, and network access for the first
 dependency resolution. `uv run --no-project --with` supplies Copier, pytest,

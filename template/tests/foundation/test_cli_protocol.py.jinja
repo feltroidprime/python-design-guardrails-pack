@@ -23,8 +23,10 @@ from {{ package }}.adapters.inbound.cli_protocol import (
 from repoctl.modules.repository_generation.api import COMMAND_CATALOG
 
 
-def test_n0_has_empty_indexes_and_only_repository_control_commands() -> None:
-    assert ACTIVE_CAPABILITIES == CLI_CATALOGS == COMPOSITION == ()
+def test_control_catalog_remains_stable_as_product_indexes_evolve() -> None:
+    assert all(
+        isinstance(index, tuple) for index in (ACTIVE_CAPABILITIES, CLI_CATALOGS, COMPOSITION)
+    )
     assert {spec.name.value for spec in COMMAND_CATALOG} == {
         "capabilities",
         "status",
