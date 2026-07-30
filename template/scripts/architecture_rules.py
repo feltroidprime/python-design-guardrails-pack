@@ -24,6 +24,7 @@ REPOSITORY_GENERATION_DOMAIN_IMPORT_ROOTS = frozenset(
         "hashlib",
         "icontract",
         "json",
+        "keyword",
         "re",
         "repoctl",
         "typing",

@@ -76,6 +76,7 @@ def test_default_snapshot_roots_follow_the_configured_package() -> None:
 
     assert "src/catalog_service/modules" in roots_by_zone["PRODUCT"]
     assert "src/catalog_service/_generated" in roots_by_zone["DERIVED"]
+    assert "proof/repoctl" in roots_by_zone["FOUNDATION"]
 
 
 def test_snapshot_excludes_saved_control_plans_but_keeps_them_readable() -> None:

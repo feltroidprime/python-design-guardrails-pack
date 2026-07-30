@@ -12,6 +12,11 @@ from repoctl.modules.repository_generation.adapters.outbound.memory_repository i
 from repoctl.modules.repository_generation.application.commands import (
     ApplyOutcome,
 )
+from repoctl.modules.repository_generation.application.compilation import (
+    GenerationOutcome,
+    compile_derived_indexes,
+    generate,
+)
 from repoctl.modules.repository_generation.application.journal import (
     JournalProgress,
     JournalProtocolError,
@@ -48,9 +53,12 @@ from repoctl.modules.repository_generation.application.use_cases import apply
 from repoctl.modules.repository_generation.domain.decisions import plan
 from repoctl.modules.repository_generation.domain.indexes import (
     DerivedCapability,
+    DerivedCompilation,
     DerivedIndexes,
+    DerivedIndexRenderingError,
     canonical_index_bytes,
     compile_indexes,
+    render_derived_indexes,
 )
 from repoctl.modules.repository_generation.domain.intents import (
     CapabilityDeclaration,
@@ -75,6 +83,7 @@ from repoctl.modules.repository_generation.domain.ownership import (
     UnclassifiedPathError,
     UnicodeNormalizationPathError,
     classify_path,
+    default_ownership_zones,
     matching_zones,
     validated_segments,
 )
@@ -90,6 +99,7 @@ from repoctl.modules.repository_generation.domain.plans_planner import (
     intended_target_paths,
 )
 from repoctl.modules.repository_generation.domain.specifications import (
+    SYSTEM_CAPABILITY_MODULES,
     DeclarationIndexFacts,
     DerivedIndexFacts,
     OwnershipRootFacts,
@@ -146,6 +156,7 @@ def __getattr__(name: str) -> object:
 __all__ = [
     "COMMAND_CATALOG",
     "RECOVERY_INSTRUCTION",
+    "SYSTEM_CAPABILITY_MODULES",
     "AbsolutePathError",
     "AmbiguousOwnershipError",
     "ApplyIdempotenceObservation",
@@ -160,10 +171,13 @@ __all__ = [
     "ControlCommandName",
     "DeclarationIndexFacts",
     "DerivedCapability",
+    "DerivedCompilation",
     "DerivedIndexFacts",
+    "DerivedIndexRenderingError",
     "DerivedIndexes",
     "DotPathSegmentError",
     "EmptyPathSegmentError",
+    "GenerationOutcome",
     "JournalProgress",
     "JournalProtocolError",
     "LocalRepository",
@@ -200,10 +214,13 @@ __all__ = [
     "canonical_plan_bytes",
     "classified_path_is_closed",
     "classify_path",
+    "compile_derived_indexes",
     "compile_indexes",
     "complete_journal",
     "content_digest",
+    "default_ownership_zones",
     "derived_indexes_are_exact",
+    "generate",
     "inspect_journal",
     "intended_target_paths",
     "make_plan",
@@ -213,6 +230,7 @@ __all__ = [
     "product_bytes_are_preserved",
     "record_operation",
     "recover_journal",
+    "render_derived_indexes",
     "run",
     "stale_plan_is_rejected",
     "transaction_id_for",

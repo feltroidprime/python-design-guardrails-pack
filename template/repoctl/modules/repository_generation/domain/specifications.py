@@ -4,6 +4,9 @@ import re
 from unicodedata import normalize
 
 SCHEMA_VERSION = 1
+SYSTEM_CAPABILITY_MODULES: tuple[tuple[str, str], ...] = (
+    ("repository_generation", "repoctl.modules.repository_generation"),
+)
 CAPABILITY_NAME = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 LIFECYCLE_STATUSES = frozenset({"draft", "active", "retired"})

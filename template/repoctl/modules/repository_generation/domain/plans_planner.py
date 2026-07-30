@@ -3,7 +3,9 @@
 from hashlib import sha256
 import json
 
-from repoctl.modules.repository_generation.domain.indexes import compile_indexes
+from repoctl.modules.repository_generation.domain.indexes import (
+    render_derived_indexes,
+)
 from repoctl.modules.repository_generation.domain.intents import (
     CapabilityDeclaration,
     CapabilityIntent,
@@ -22,6 +24,9 @@ from repoctl.modules.repository_generation.domain.plans import (
     OperationKind,
     content_digest,
     make_plan,
+)
+from repoctl.modules.repository_generation.domain.specifications import (
+    SYSTEM_CAPABILITY_MODULES,
 )
 
 GENERATOR_VERSION = "1.0.0"
@@ -43,22 +48,6 @@ def _canonical_json_bytes(value: object) -> bytes:
     ).encode("utf-8")
 
 
-def _declaration_payload(
-    declaration: CapabilityDeclaration,
-) -> dict[str, object]:
-    return {
-        "name": declaration.name,
-        "python_module": declaration.python_module,
-        "status": declaration.status,
-        "proof_catalog": declaration.proof_catalog,
-        "inbound": list(declaration.inbound),
-        "outbound": list(declaration.outbound),
-        "api": declaration.api,
-        "factory": declaration.factory,
-        "cli_catalog": declaration.cli_catalog,
-    }
-
-
 def _state_digest(
     snapshot: RepositorySnapshot,
     declarations: tuple[CapabilityDeclaration, ...],
@@ -67,7 +56,7 @@ def _state_digest(
     payload = {
         "schema_version": snapshot.schema_version,
         "package": snapshot.package,
-        "declarations": [_declaration_payload(declaration) for declaration in declarations],
+        "declarations": [declaration.canonical_payload() for declaration in declarations],
         "files": [{"target": target, "digest": digest} for target, digest in files],
         "ownership": [
             {
@@ -113,41 +102,6 @@ def _desired_declarations(
     return tuple(sorted((*remaining, desired), key=lambda item: item.name))
 
 
-def _source_digest(declarations: tuple[CapabilityDeclaration, ...]) -> str:
-    payload = [_declaration_payload(item) for item in declarations]
-    return sha256(_canonical_json_bytes(payload)).hexdigest()
-
-
-def _toml_string(value: str) -> str:
-    return json.dumps(value, ensure_ascii=False)
-
-
-def _toml_array(values: tuple[str, ...]) -> str:
-    return "[" + ", ".join(_toml_string(value) for value in values) + "]"
-
-
-def _declaration_content(declaration: CapabilityDeclaration) -> str:
-    return "\n".join(
-        (
-            "schema_version = 1",
-            f"name = {_toml_string(declaration.name)}",
-            f"python_module = {_toml_string(declaration.python_module)}",
-            f"status = {_toml_string(declaration.status)}",
-            f"proof_catalog = {_toml_string(declaration.proof_catalog)}",
-            "",
-            "[boundaries]",
-            f"inbound = {_toml_array(declaration.inbound)}",
-            f"outbound = {_toml_array(declaration.outbound)}",
-            "",
-            "[activation]",
-            f"api = {_toml_string(declaration.api)}",
-            f"factory = {_toml_string(declaration.factory)}",
-            f"cli_catalog = {_toml_string(declaration.cli_catalog)}",
-            "",
-        )
-    )
-
-
 def _product_seed_writes(
     snapshot: RepositorySnapshot,
     intent: CapabilityIntent,
@@ -179,69 +133,16 @@ def _product_seed_writes(
     )
 
 
-def _python_index_content(
-    *,
-    source_digest: str,
-    variable: str,
-    values: tuple[str, ...],
-) -> str:
-    rendered_values = "".join(f"    {_toml_string(value)},\n" for value in values)
-    tuple_value = f"(\n{rendered_values})" if values else "()"
-    return (
-        "# Generated from repository declarations. DO NOT EDIT.\n"
-        f"# source-state-sha256: {source_digest}\n\n"
-        f"{variable}: tuple[str, ...] = {tuple_value}\n"
-    )
-
-
 def _derived_writes(
     snapshot: RepositorySnapshot,
     declarations: tuple[CapabilityDeclaration, ...],
 ) -> tuple[IntendedWrite, ...]:
-    digest = _source_digest(declarations)
-    active = compile_indexes(declarations).active
-    prefix = f"src/{snapshot.package}/_generated"
-    proof_index = json.dumps(
-        {
-            "_generated": "Generated from repository declarations. DO NOT EDIT.",
-            "source_state_sha256": digest,
-            "schema_version": 1,
-            "catalogs": [entry.proof_catalog for entry in active],
-        },
-        ensure_ascii=False,
-        allow_nan=False,
-        indent=2,
-    )
-    return (
-        (
-            RepositoryPath(value=f"{prefix}/active_capabilities.py"),
-            _python_index_content(
-                source_digest=digest,
-                variable="ACTIVE_CAPABILITIES",
-                values=tuple(entry.api for entry in active),
-            ),
-        ),
-        (
-            RepositoryPath(value=f"{prefix}/composition.py"),
-            _python_index_content(
-                source_digest=digest,
-                variable="COMPOSITION",
-                values=tuple(entry.factory for entry in active if entry.factory),
-            ),
-        ),
-        (
-            RepositoryPath(value=f"{prefix}/cli_catalog.py"),
-            _python_index_content(
-                source_digest=digest,
-                variable="CLI_CATALOGS",
-                values=tuple(entry.cli_catalog for entry in active if entry.cli_catalog),
-            ),
-        ),
-        (
-            RepositoryPath(value="proof/_generated/index.json"),
-            proof_index + "\n",
-        ),
-    )
+    return render_derived_indexes(
+        package=snapshot.package,
+        declarations=declarations,
+        ownership_zones=snapshot.ownership_zones,
+        approved_system_modules=SYSTEM_CAPABILITY_MODULES,
+    ).writes
 
 
 def _all_intended_writes(
@@ -254,7 +155,7 @@ def _all_intended_writes(
         *_product_seed_writes(snapshot, intent),
         (
             RepositoryPath(value=f".repo/capabilities/{intent.name}.toml"),
-            _declaration_content(declaration),
+            declaration.canonical_document(),
         ),
         *_derived_writes(snapshot, declarations),
     )

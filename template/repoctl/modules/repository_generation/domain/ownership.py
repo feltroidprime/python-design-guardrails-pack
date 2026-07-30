@@ -72,6 +72,43 @@ class OwnershipZoneRoots:
     roots: tuple[OwnershipRoot, ...]
 
 
+def default_ownership_zones(package: str) -> tuple[OwnershipZoneRoots, ...]:
+    """Return the fixed ownership policy used by repository filesystem adapters."""
+    return (
+        OwnershipZoneRoots(
+            name=OwnershipZone("FOUNDATION"),
+            roots=(
+                OwnershipRoot(value="repoctl"),
+                OwnershipRoot(value="proof/foundation.toml"),
+                OwnershipRoot(value="proof/policy.toml"),
+                OwnershipRoot(value="proof/repoctl"),
+            ),
+        ),
+        OwnershipZoneRoots(
+            name=OwnershipZone("PRODUCT"),
+            roots=(
+                OwnershipRoot(value=f"src/{package}/modules"),
+                OwnershipRoot(value="proof/modules"),
+                OwnershipRoot(value="tests/modules"),
+                OwnershipRoot(value="verification/modules"),
+                OwnershipRoot(value="docs/product"),
+            ),
+        ),
+        OwnershipZoneRoots(
+            name=OwnershipZone("DERIVED"),
+            roots=(
+                OwnershipRoot(value=f"src/{package}/_generated"),
+                OwnershipRoot(value="proof/_generated"),
+                OwnershipRoot(value="docs/architecture/generated"),
+            ),
+        ),
+        OwnershipZoneRoots(
+            name=OwnershipZone("DECLARATION"),
+            roots=(OwnershipRoot(value=".repo"),),
+        ),
+    )
+
+
 def _is_absolute(value: str) -> bool:
     drive_absolute = (
         len(value) >= 3 and value[0].isalpha() and value[1] == ":" and value[2] in "/\\"

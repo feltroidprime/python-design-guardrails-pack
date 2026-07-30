@@ -9,9 +9,11 @@ import os
 from pathlib import Path
 import tempfile
 from threading import RLock
-import tomllib
 from typing import Literal, cast, final
 
+from repoctl.modules.repository_generation.adapters.outbound.declaration_decoder import (
+    decode_capability_declaration,
+)
 from repoctl.modules.repository_generation.application.ports import (
     RepositoryConflictError,
     RepositoryPathEscapeError,
@@ -23,19 +25,15 @@ from repoctl.modules.repository_generation.application.ports import (
     TransactionStateError,
 )
 from repoctl.modules.repository_generation.domain.intents import (
-    CapabilityDeclaration,
     RepositoryFile,
     RepositoryPath,
     RepositorySnapshot,
 )
 from repoctl.modules.repository_generation.domain.ownership import (
-    OwnershipRoot,
-    OwnershipZone,
     OwnershipZoneRoots,
     RepositoryPathCandidate,
+    default_ownership_zones,
 )
-
-type CapabilityStatus = Literal["draft", "active", "retired"]
 
 _IGNORED_DIRECTORY_NAMES = frozenset(
     {".git", ".pytest_cache", ".ruff_cache", ".venv", "__pycache__"}
@@ -59,37 +57,6 @@ class _JournalEvent:
     entry: bytes | None = None
 
 
-def _default_ownership_zones(package: str) -> tuple[OwnershipZoneRoots, ...]:
-    return (
-        OwnershipZoneRoots(
-            name=OwnershipZone("FOUNDATION"),
-            roots=(OwnershipRoot(value="repoctl"),),
-        ),
-        OwnershipZoneRoots(
-            name=OwnershipZone("PRODUCT"),
-            roots=(
-                OwnershipRoot(value=f"src/{package}/modules"),
-                OwnershipRoot(value="proof/modules"),
-                OwnershipRoot(value="tests/modules"),
-                OwnershipRoot(value="verification/modules"),
-                OwnershipRoot(value="docs/product"),
-            ),
-        ),
-        OwnershipZoneRoots(
-            name=OwnershipZone("DERIVED"),
-            roots=(
-                OwnershipRoot(value=f"src/{package}/_generated"),
-                OwnershipRoot(value="proof/_generated"),
-                OwnershipRoot(value="docs/architecture/generated"),
-            ),
-        ),
-        OwnershipZoneRoots(
-            name=OwnershipZone("DECLARATION"),
-            roots=(OwnershipRoot(value=".repo"),),
-        ),
-    )
-
-
 def _normalized_location(candidate: RepositoryPathCandidate) -> str:
     value = candidate.value
     drive_absolute = len(value) >= 3 and value[0].isalpha() and value[1] == ":" and value[2] == "/"
@@ -103,55 +70,6 @@ def _normalized_location(candidate: RepositoryPathCandidate) -> str:
 
 def _digest(content: bytes) -> str:
     return f"sha256:{sha256(content).hexdigest()}"
-
-
-def _mapping(value: object, label: str) -> dict[str, object]:
-    if not isinstance(value, dict):
-        raise RepositoryPortError(f"{label} must be a TOML table")
-    return cast("dict[str, object]", value)
-
-
-def _text(value: object, label: str) -> str:
-    if not isinstance(value, str):
-        raise RepositoryPortError(f"{label} must be a string")
-    return value
-
-
-def _texts(value: object, label: str) -> tuple[str, ...]:
-    if not isinstance(value, list):
-        raise RepositoryPortError(f"{label} must be an array of strings")
-    items = cast("list[object]", value)
-    if not all(isinstance(item, str) for item in items):
-        raise RepositoryPortError(f"{label} must be an array of strings")
-    return tuple(_text(item, label) for item in items)
-
-
-def _status(value: object) -> CapabilityStatus:
-    status = _text(value, "status")
-    if status not in {"draft", "active", "retired"}:
-        raise RepositoryPortError(f"status is not a known capability state: {status}")
-    return cast("CapabilityStatus", status)
-
-
-def _declaration(content: bytes, location: str) -> CapabilityDeclaration:
-    try:
-        raw: object = tomllib.loads(content.decode("utf-8"))
-    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
-        raise RepositoryPortError(f"Cannot read capability declaration {location}") from error
-    values = _mapping(raw, location)
-    boundaries = _mapping(values.get("boundaries"), f"{location}.boundaries")
-    activation = _mapping(values.get("activation"), f"{location}.activation")
-    return CapabilityDeclaration(
-        name=_text(values.get("name"), f"{location}.name"),
-        python_module=_text(values.get("python_module"), f"{location}.python_module"),
-        status=_status(values.get("status")),
-        proof_catalog=_text(values.get("proof_catalog"), f"{location}.proof_catalog"),
-        inbound=_texts(boundaries.get("inbound"), f"{location}.boundaries.inbound"),
-        outbound=_texts(boundaries.get("outbound"), f"{location}.boundaries.outbound"),
-        api=_text(activation.get("api"), f"{location}.activation.api"),
-        factory=_text(activation.get("factory"), f"{location}.activation.factory"),
-        cli_catalog=_text(activation.get("cli_catalog"), f"{location}.activation.cli_catalog"),
-    )
 
 
 def _journal_line(values: dict[str, str]) -> bytes:
@@ -296,6 +214,25 @@ def _inspection(transaction_id: str, journal: _JournalState) -> TransactionInspe
     )
 
 
+def _read_existing_bytes(path: Path) -> bytes | None:
+    if not path.exists():
+        return None
+    if not path.is_file():
+        raise RepositoryPortError(f"Repository path is not a file: {path}")
+    try:
+        return path.read_bytes()
+    except OSError as error:
+        raise RepositoryPortError(f"Cannot read repository path: {path}") from error
+
+
+def _ensure_parent_directory(root: Path, path: Path) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise RepositoryPortError(f"Cannot create repository directory: {path.parent}") from error
+    _assert_inside_root(root, path.parent)
+
+
 @final
 class LocalRepository:
     """A root-confined, fsyncing implementation backed by a real local filesystem."""
@@ -316,31 +253,12 @@ class LocalRepository:
             raise RepositoryPortError(f"Repository root is not a directory: {self._root}")
         self._package = package
         self._ownership_zones = (
-            _default_ownership_zones(package) if ownership_zones is None else ownership_zones
+            default_ownership_zones(package) if ownership_zones is None else ownership_zones
         )
         self._lock = RLock()
 
-    def _ensure_parent_directory(self, path: Path) -> None:
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-        except OSError as error:
-            raise RepositoryPortError(
-                f"Cannot create repository directory: {path.parent}"
-            ) from error
-        _assert_inside_root(self._root, path.parent)
-
-    def _read_existing_bytes(self, path: Path) -> bytes | None:
-        if not path.exists():
-            return None
-        if not path.is_file():
-            raise RepositoryPortError(f"Repository path is not a file: {path}")
-        try:
-            return path.read_bytes()
-        except OSError as error:
-            raise RepositoryPortError(f"Cannot read repository path: {path}") from error
-
     def _write_atomically(self, path: Path, content: bytes) -> None:
-        self._ensure_parent_directory(path)
+        _ensure_parent_directory(self._root, path)
         try:
             descriptor, temporary_name = tempfile.mkstemp(
                 dir=path.parent,
@@ -397,7 +315,7 @@ class LocalRepository:
                 except OSError as error:
                     raise RepositoryPortError(f"Cannot snapshot repository path: {path}") from error
             declarations = tuple(
-                _declaration(content, location)
+                decode_capability_declaration(content, location)
                 for location, content in contents_by_location.items()
                 if location.startswith(".repo/capabilities/") and location.endswith(".toml")
             )
@@ -419,7 +337,7 @@ class LocalRepository:
     def read_bytes(self, repository_path: RepositoryPathCandidate) -> bytes | None:
         """Return current bytes for a normalized path confined to the repository root."""
         with self._lock:
-            return self._read_existing_bytes(_path_for(self._root, repository_path))
+            return _read_existing_bytes(_path_for(self._root, repository_path))
 
     def ensure_directory(self, repository_path: RepositoryPathCandidate) -> None:
         """Create a normalized repository-relative directory without following escapes."""
@@ -442,7 +360,7 @@ class LocalRepository:
         """Atomically replace one path only when its current digest matches the precondition."""
         with self._lock:
             path = _path_for(self._root, repository_path)
-            current = self._read_existing_bytes(path)
+            current = _read_existing_bytes(path)
             current_digest = "absent" if current is None else _digest(current)
             if current_digest != expected_digest:
                 raise RepositoryConflictError(

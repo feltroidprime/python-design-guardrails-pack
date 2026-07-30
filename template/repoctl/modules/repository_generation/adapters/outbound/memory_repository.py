@@ -4,13 +4,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from threading import RLock
-import tomllib
-from typing import Literal, cast, final
+from typing import final
 
+from repoctl.modules.repository_generation.adapters.outbound.declaration_decoder import (
+    decode_capability_declaration,
+)
 from repoctl.modules.repository_generation.application.ports import (
     RepositoryConflictError,
     RepositoryPathEscapeError,
-    RepositoryPortError,
     TransactionAlreadyExistsError,
     TransactionInspection,
     TransactionMissingError,
@@ -18,52 +19,17 @@ from repoctl.modules.repository_generation.application.ports import (
     TransactionStateError,
 )
 from repoctl.modules.repository_generation.domain.intents import (
-    CapabilityDeclaration,
     RepositoryFile,
     RepositoryPath,
     RepositorySnapshot,
 )
 from repoctl.modules.repository_generation.domain.ownership import (
-    OwnershipRoot,
-    OwnershipZone,
     OwnershipZoneRoots,
     RepositoryPathCandidate,
+    default_ownership_zones,
 )
 
-type CapabilityStatus = Literal["draft", "active", "retired"]
-
 _SNAPSHOT_CONTROL_ARTIFACT_PREFIXES = (".repo/plans/",)
-
-
-def _default_ownership_zones(package: str) -> tuple[OwnershipZoneRoots, ...]:
-    return (
-        OwnershipZoneRoots(
-            name=OwnershipZone("FOUNDATION"),
-            roots=(OwnershipRoot(value="repoctl"),),
-        ),
-        OwnershipZoneRoots(
-            name=OwnershipZone("PRODUCT"),
-            roots=(
-                OwnershipRoot(value=f"src/{package}/modules"),
-                OwnershipRoot(value="proof/modules"),
-                OwnershipRoot(value="tests/modules"),
-                OwnershipRoot(value="verification/modules"),
-                OwnershipRoot(value="docs/product"),
-            ),
-        ),
-        OwnershipZoneRoots(
-            name=OwnershipZone("DERIVED"),
-            roots=(
-                OwnershipRoot(value=f"src/{package}/_generated"),
-                OwnershipRoot(value="proof/_generated"),
-                OwnershipRoot(value="docs/architecture/generated"),
-            ),
-        ),
-        OwnershipZoneRoots(
-            name=OwnershipZone("DECLARATION"),
-            roots=(OwnershipRoot(value=".repo"),),
-        ),
-    )
 
 
 @dataclass(slots=True)
@@ -98,55 +64,6 @@ def _parent_locations(location: str) -> tuple[str, ...]:
     return tuple("/".join(segments[:index]) for index in range(1, len(segments)))
 
 
-def _mapping(value: object, label: str) -> dict[str, object]:
-    if not isinstance(value, dict):
-        raise RepositoryPortError(f"{label} must be a TOML table")
-    return cast("dict[str, object]", value)
-
-
-def _text(value: object, label: str) -> str:
-    if not isinstance(value, str):
-        raise RepositoryPortError(f"{label} must be a string")
-    return value
-
-
-def _texts(value: object, label: str) -> tuple[str, ...]:
-    if not isinstance(value, list):
-        raise RepositoryPortError(f"{label} must be an array of strings")
-    items = cast("list[object]", value)
-    if not all(isinstance(item, str) for item in items):
-        raise RepositoryPortError(f"{label} must be an array of strings")
-    return tuple(_text(item, label) for item in items)
-
-
-def _status(value: object) -> CapabilityStatus:
-    status = _text(value, "status")
-    if status not in {"draft", "active", "retired"}:
-        raise RepositoryPortError(f"status is not a known capability state: {status}")
-    return cast("CapabilityStatus", status)
-
-
-def _declaration(content: bytes, location: str) -> CapabilityDeclaration:
-    try:
-        raw: object = tomllib.loads(content.decode("utf-8"))
-    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
-        raise RepositoryPortError(f"Cannot read capability declaration {location}") from error
-    values = _mapping(raw, location)
-    boundaries = _mapping(values.get("boundaries"), f"{location}.boundaries")
-    activation = _mapping(values.get("activation"), f"{location}.activation")
-    return CapabilityDeclaration(
-        name=_text(values.get("name"), f"{location}.name"),
-        python_module=_text(values.get("python_module"), f"{location}.python_module"),
-        status=_status(values.get("status")),
-        proof_catalog=_text(values.get("proof_catalog"), f"{location}.proof_catalog"),
-        inbound=_texts(boundaries.get("inbound"), f"{location}.boundaries.inbound"),
-        outbound=_texts(boundaries.get("outbound"), f"{location}.boundaries.outbound"),
-        api=_text(activation.get("api"), f"{location}.activation.api"),
-        factory=_text(activation.get("factory"), f"{location}.activation.factory"),
-        cli_catalog=_text(activation.get("cli_catalog"), f"{location}.activation.cli_catalog"),
-    )
-
-
 @final
 class MemoryRepository:
     """A lock-protected fake that preserves the local adapter's observable semantics."""
@@ -161,7 +78,7 @@ class MemoryRepository:
     ) -> None:
         self._package = package
         self._ownership_zones = (
-            _default_ownership_zones(package) if ownership_zones is None else ownership_zones
+            default_ownership_zones(package) if ownership_zones is None else ownership_zones
         )
         self._lock = RLock()
         self._contents_by_location: dict[str, bytes] = {}
@@ -191,7 +108,7 @@ class MemoryRepository:
         """Return a canonical immutable view excluding repository-control plan artifacts."""
         with self._lock:
             declarations = tuple(
-                _declaration(content, location)
+                decode_capability_declaration(content, location)
                 for location, content in self._contents_by_location.items()
                 if location.startswith(".repo/capabilities/") and location.endswith(".toml")
             )

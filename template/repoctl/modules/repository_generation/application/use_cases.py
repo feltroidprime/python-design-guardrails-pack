@@ -24,7 +24,6 @@ from repoctl.modules.repository_generation.application.specifications import (
     ApplyStatus,
 )
 from repoctl.modules.repository_generation.domain.intents import (
-    CapabilityDeclaration,
     RepositoryPath,
     RepositorySnapshot,
 )
@@ -50,26 +49,12 @@ def _canonical_json_bytes(value: object) -> bytes:
     ).encode("utf-8")
 
 
-def _declaration_payload(declaration: CapabilityDeclaration) -> dict[str, object]:
-    return {
-        "name": declaration.name,
-        "python_module": declaration.python_module,
-        "status": declaration.status,
-        "proof_catalog": declaration.proof_catalog,
-        "inbound": list(declaration.inbound),
-        "outbound": list(declaration.outbound),
-        "api": declaration.api,
-        "factory": declaration.factory,
-        "cli_catalog": declaration.cli_catalog,
-    }
-
-
 def _snapshot_digest(snapshot: RepositorySnapshot) -> str:
     """Return the planning-compatible digest of one explicit repository snapshot."""
     payload = {
         "schema_version": snapshot.schema_version,
         "package": snapshot.package,
-        "declarations": [_declaration_payload(item) for item in snapshot.declarations],
+        "declarations": [item.canonical_payload() for item in snapshot.declarations],
         "files": [
             {"target": repository_file.path.value, "digest": repository_file.digest}
             for repository_file in snapshot.files
