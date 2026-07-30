@@ -1,13 +1,18 @@
 """A real Copier update must never rewrite seeded product bytes."""
 
+import errno
 from hashlib import sha256
 from pathlib import Path
 import shutil
 import subprocess
+from tempfile import TemporaryDirectory
+import time
 import tomllib
 from typing import cast
+from unittest.mock import patch
 
-from copier import run_copy, run_update
+from copier import _main as copier_main, run_copy, run_update
+import pytest
 
 import instantiate
 from scripts.ownership import classify_path
@@ -37,6 +42,23 @@ DERIVED_TEMPLATE_PATHS = (
     Path("proof/_generated/index.json"),
 )
 MUTATED_PRODUCT_PATH = Path(f"src/{PACKAGE}/modules/billing/api.py")
+COPIER_CLEANUP_ATTEMPTS = 3
+COPIER_CLEANUP_RETRY_SECONDS = 0.01
+
+
+class RetryingTemporaryDirectory(TemporaryDirectory):
+    """Retry Copier cleanup when the filesystem transiently reports ENOTEMPTY."""
+
+    def cleanup(self) -> None:
+        for attempt in range(COPIER_CLEANUP_ATTEMPTS):
+            try:
+                super().cleanup()
+            except OSError as error:
+                if error.errno != errno.ENOTEMPTY or attempt == COPIER_CLEANUP_ATTEMPTS - 1:
+                    raise
+                time.sleep(COPIER_CLEANUP_RETRY_SECONDS)
+            else:
+                return
 
 
 def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -72,6 +94,45 @@ def commit_all(repository: Path, message: str) -> None:
 def tag(repository: Path, version: str) -> None:
     tagged = run(["git", "tag", version], repository)
     assert tagged.returncode == 0, tagged.stderr
+
+
+def test_retrying_temporary_directory_retries_transient_cleanup_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_cleanup = TemporaryDirectory.cleanup
+    cleanup_attempts = 0
+
+    def flaky_cleanup(directory: TemporaryDirectory) -> None:
+        nonlocal cleanup_attempts
+        cleanup_attempts += 1
+        if cleanup_attempts == 1:
+            raise OSError(errno.ENOTEMPTY, "Directory not empty")
+        original_cleanup(directory)
+
+    monkeypatch.setattr(TemporaryDirectory, "cleanup", flaky_cleanup)
+    directory = RetryingTemporaryDirectory(dir=tmp_path)
+
+    directory.cleanup()
+
+    assert cleanup_attempts == 2
+
+
+def test_retrying_temporary_directory_preserves_non_transient_cleanup_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_cleanup = TemporaryDirectory.cleanup
+
+    def inaccessible_cleanup(_directory: TemporaryDirectory) -> None:
+        raise OSError(errno.EACCES, "Permission denied")
+
+    monkeypatch.setattr(TemporaryDirectory, "cleanup", inaccessible_cleanup)
+    directory = RetryingTemporaryDirectory(dir=tmp_path)
+
+    try:
+        with pytest.raises(OSError, match="Permission denied"):
+            directory.cleanup()
+    finally:
+        original_cleanup(directory)
 
 
 def prepare_template(root: Path) -> Path:
@@ -185,16 +246,17 @@ def publish_overwrite_mutant(template: Path) -> None:
 
 
 def update_project(project: Path, version: str) -> None:
-    with instantiate.without_local_git_context():
-        run_update(
-            project,
-            vcs_ref=version,
-            defaults=True,
-            quiet=True,
-            overwrite=True,
-            conflict="inline",
-            skip_tasks=True,
-        )
+    with patch.object(copier_main, "TemporaryDirectory", RetryingTemporaryDirectory):
+        with instantiate.without_local_git_context():
+            run_update(
+                project,
+                vcs_ref=version,
+                defaults=True,
+                quiet=True,
+                overwrite=True,
+                conflict="inline",
+                skip_tasks=True,
+            )
 
 
 def test_foundation_update_preserves_every_seeded_product_byte(tmp_path: Path) -> None:
