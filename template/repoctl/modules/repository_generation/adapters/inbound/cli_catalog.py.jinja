@@ -35,6 +35,10 @@ class ControlCommandName(StrEnum):
     STATUS = "status"
     CAPABILITY_PLAN = "capability plan"
     CAPABILITY_APPLY = "capability apply"
+    CAPABILITY_ACTIVATE = "capability activate"
+    CAPABILITY_RETIRE = "capability retire"
+    GENERATE = "generate"
+    PROOF_REPORT = "proof-report"
 
 
 DEBUG_OPTION = FlagOption(
@@ -150,5 +154,94 @@ COMMAND_CATALOG: tuple[CommandSpec, ...] = (
             OutputOption(),
             DEBUG_OPTION,
         ),
+    ),
+    CommandSpec(
+        name=cast(CommandName, cast(object, ControlCommandName.CAPABILITY_ACTIVATE)),
+        kind=CommandKind.MUTATION,
+        purpose="Activate one capability after every current evidence check is confirmed.",
+        automation_example=(
+            "python -m repoctl capability activate NAME --architecture-contract "
+            "--stable-surface --normative-property-evidence --port-contract "
+            "--cli-process-evidence"
+        ),
+        output_modes=(OutputMode.JSON, OutputMode.HUMAN),
+        default_output_mode=OutputMode.JSON,
+        policy=MutationPolicy(retry=RetryPolicy.UNCONDITIONAL),
+        input_policy=InputPolicy(primary=InputMode.ARGUMENTS, stdin=StdinMode.FORBIDDEN),
+        safety=NonDestructiveSafety(),
+        outcomes=(DEPENDENCY_UNAVAILABLE,),
+        arguments=(
+            PositionalText(name="name", help="capability name"),
+            FlagOption(
+                flag="--architecture-contract",
+                destination="architecture_contract",
+                help="confirm the current architecture contract",
+            ),
+            FlagOption(
+                flag="--stable-surface",
+                destination="stable_surface",
+                help="confirm the stable public surface",
+            ),
+            FlagOption(
+                flag="--normative-property-evidence",
+                destination="normative_property_evidence",
+                help="confirm normative property evidence",
+            ),
+            FlagOption(
+                flag="--port-contract",
+                destination="port_contract",
+                help="confirm the port contract",
+            ),
+            FlagOption(
+                flag="--cli-process-evidence",
+                destination="cli_process_evidence",
+                help="confirm detached CLI process evidence",
+            ),
+            OutputOption(),
+            DEBUG_OPTION,
+        ),
+    ),
+    CommandSpec(
+        name=cast(CommandName, cast(object, ControlCommandName.CAPABILITY_RETIRE)),
+        kind=CommandKind.MUTATION,
+        purpose="Retire one active capability without changing product files.",
+        automation_example="python -m repoctl capability retire NAME",
+        output_modes=(OutputMode.JSON, OutputMode.HUMAN),
+        default_output_mode=OutputMode.JSON,
+        policy=MutationPolicy(retry=RetryPolicy.UNCONDITIONAL),
+        input_policy=InputPolicy(primary=InputMode.ARGUMENTS, stdin=StdinMode.FORBIDDEN),
+        safety=NonDestructiveSafety(),
+        outcomes=(DEPENDENCY_UNAVAILABLE,),
+        arguments=(
+            PositionalText(name="name", help="capability name"),
+            OutputOption(),
+            DEBUG_OPTION,
+        ),
+    ),
+    CommandSpec(
+        name=cast(CommandName, cast(object, ControlCommandName.GENERATE)),
+        kind=CommandKind.MUTATION,
+        purpose="Regenerate every declaration-derived repository index.",
+        automation_example="python -m repoctl generate",
+        output_modes=(OutputMode.JSON, OutputMode.HUMAN),
+        default_output_mode=OutputMode.JSON,
+        policy=MutationPolicy(retry=RetryPolicy.UNCONDITIONAL),
+        input_policy=InputPolicy(primary=InputMode.ARGUMENTS, stdin=StdinMode.FORBIDDEN),
+        safety=NonDestructiveSafety(),
+        outcomes=(DEPENDENCY_UNAVAILABLE,),
+        arguments=(OutputOption(), DEBUG_OPTION),
+    ),
+    CommandSpec(
+        name=cast(CommandName, cast(object, ControlCommandName.PROOF_REPORT)),
+        kind=CommandKind.MUTATION,
+        purpose="Report the validated property and evidence matrix.",
+        automation_example="python -m repoctl proof-report",
+        output_modes=(OutputMode.JSON, OutputMode.HUMAN),
+        default_output_mode=OutputMode.JSON,
+        policy=MutationPolicy(retry=RetryPolicy.UNCONDITIONAL),
+        input_policy=InputPolicy(primary=InputMode.ARGUMENTS, stdin=StdinMode.FORBIDDEN),
+        safety=NonDestructiveSafety(),
+        outcomes=(DEPENDENCY_UNAVAILABLE,),
+        arguments=(OutputOption(), DEBUG_OPTION),
     ),
 )

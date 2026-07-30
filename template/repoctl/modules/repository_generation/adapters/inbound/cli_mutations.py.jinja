@@ -1,23 +1,43 @@
-"""Argparse boundary for inspectable capability planning and application."""
+"""Argparse boundary for repository-control mutations."""
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
+from pathlib import Path
 import sys
 import traceback
 from typing import TYPE_CHECKING, NoReturn, cast, override
 
 import icontract
 
+from repoctl.modules.repository_generation.adapters.inbound.cli_catalog import (
+    ControlCommandName,
+)
 from repoctl.modules.repository_generation.adapters.inbound.cli_outcomes import (
     MutationFailure,
     apply_failure,
     invalid_plan_failure,
+    lifecycle_failure,
     plan_output_failure,
+    proof_contract_failure,
     repository_failure,
     write_mutation_failure,
 )
-from repoctl.modules.repository_generation.application.commands import ApplyOutcome
+from repoctl.modules.repository_generation.adapters.inbound.cli_plan_document import (
+    PlanDocumentError,
+    is_plan_destination,
+    plan_from_bytes,
+)
+from repoctl.modules.repository_generation.adapters.inbound.cli_plan_output import (
+    write_apply_success,
+    write_plan_success,
+)
+from repoctl.modules.repository_generation.application.compilation import generate
+from repoctl.modules.repository_generation.application.lifecycle import (
+    ActivationEvidence,
+    activate,
+    retire,
+)
 from repoctl.modules.repository_generation.application.ports import (
     RepositoryConflictError,
     RepositoryPort,
@@ -25,14 +45,11 @@ from repoctl.modules.repository_generation.application.ports import (
 )
 from repoctl.modules.repository_generation.application.use_cases import apply
 from repoctl.modules.repository_generation.domain.decisions import plan
-from repoctl.modules.repository_generation.domain.intents import CapabilityIntent, RepositoryPath
+from repoctl.modules.repository_generation.domain.intents import CapabilityIntent
 from repoctl.modules.repository_generation.domain.ownership import RepositoryPathCandidate
-from repoctl.modules.repository_generation.domain.plans import (
-    CapabilityPlan,
-    Operation,
-    OperationKind,
-    canonical_plan_bytes,
-)
+from repoctl.modules.repository_generation.domain.plans import canonical_plan_bytes
+from scripts.proof_catalog_model import ProofCatalog
+from scripts.proof_guard import check
 
 # isort: split
 from {{ package }}.adapters.inbound.cli_contract import OutputMode, shared_outcome
@@ -53,10 +70,6 @@ if TYPE_CHECKING:
         def add_parser(self, name: str, **kwargs: object) -> _MutationParser: ...
 
 
-_COMMAND_PLAN = "capability plan"
-_COMMAND_APPLY = "capability apply"
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class _PlanRequest:
     name: str
@@ -74,30 +87,49 @@ class _ApplyRequest:
     debug: bool
 
 
-type _MutationRequest = _PlanRequest | _ApplyRequest
-
-
-class _RawArguments:
-    group: str
-    action: str
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _ActivateRequest:
     name: str
-    inbound: list[str]
-    outbound: list[str]
-    output: str
-    plan_reference: str
-    output_format: str
+    evidence: ActivationEvidence
+    output_mode: OutputMode
     debug: bool
 
-    def __init__(self) -> None:
-        self.group = ""
-        self.action = ""
-        self.name = ""
-        self.inbound = []
-        self.outbound = []
-        self.output = ""
-        self.plan_reference = ""
-        self.output_format = OutputMode.JSON.value
-        self.debug = False
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _RetireRequest:
+    name: str
+    output_mode: OutputMode
+    debug: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _DirectRequest:
+    command: ControlCommandName
+    output_mode: OutputMode
+    debug: bool
+
+
+type _MutationRequest = (
+    _PlanRequest | _ApplyRequest | _ActivateRequest | _RetireRequest | _DirectRequest
+)
+
+
+@dataclass
+class _RawArguments:
+    command: str = ""
+    action: str = ""
+    name: str = ""
+    inbound: list[str] = field(default_factory=list)
+    outbound: list[str] = field(default_factory=list)
+    output: str = ""
+    plan_reference: str = ""
+    architecture_contract: bool = False
+    stable_surface: bool = False
+    normative_property_evidence: bool = False
+    port_contract: bool = False
+    cli_process_evidence: bool = False
+    output_format: str = OutputMode.JSON.value
+    debug: bool = False
 
 
 class _ParserExitError(Exception):
@@ -132,44 +164,65 @@ class _MutationParser(argparse.ArgumentParser):
         raise _ParserExitError(status=ExitCode.SYNTAX, message=message)
 
 
-def _parser(*, out: TextIO) -> _MutationParser:
-    parser = _MutationParser(
-        prog="python -m repoctl",
-        description="Repository control plane capability mutations.",
+def _subparser(
+    factory: _SubparserFactory,
+    name: str,
+    help_text: str,
+    *,
+    out: TextIO,
+) -> _MutationParser:
+    parser = factory.add_parser(
+        name,
+        help=help_text,
         allow_abbrev=False,
         suggest_on_error=True,
         color=False,
     )
     parser.bind_output(out)
-    groups = parser.add_subparsers(dest="group", required=True, parser_class=_MutationParser)
-    capability = groups.add_parser(
-        "capability",
-        help="plan or apply one product capability",
+    return parser
+
+
+def _parser(*, out: TextIO) -> _MutationParser:
+    parser = _MutationParser(
+        prog="python -m repoctl",
+        description="Repository control plane mutations.",
         allow_abbrev=False,
         suggest_on_error=True,
         color=False,
     )
-    capability.bind_output(out)
+    parser.bind_output(out)
+    commands = parser.add_subparsers(dest="command", required=True, parser_class=_MutationParser)
+    command_parsers = cast("_SubparserFactory", cast("object", commands))
+    capability = _subparser(
+        command_parsers,
+        "capability",
+        "plan, apply, activate, or retire one product capability",
+        out=out,
+    )
     actions = capability.add_subparsers(
         dest="action",
         required=True,
         parser_class=_MutationParser,
     )
-    mutation_actions = cast("_SubparserFactory", cast("object", actions))
-    _add_plan_parser(mutation_actions, out=out)
-    _add_apply_parser(mutation_actions, out=out)
+    action_parsers = cast("_SubparserFactory", cast("object", actions))
+    _add_plan_parser(action_parsers, out=out)
+    _add_apply_parser(action_parsers, out=out)
+    _add_lifecycle_parsers(action_parsers, out=out)
+    for command, help_text in (
+        (ControlCommandName.GENERATE, "regenerate declaration-derived indexes"),
+        (ControlCommandName.PROOF_REPORT, "report the validated property and evidence matrix"),
+    ):
+        _add_common_options(_subparser(command_parsers, command.value, help_text, out=out))
     return parser
 
 
 def _add_plan_parser(actions: _SubparserFactory, *, out: TextIO) -> None:
-    parser = actions.add_parser(
+    parser = _subparser(
+        actions,
         "plan",
-        help="write an inspectable immutable plan without applying it",
-        allow_abbrev=False,
-        suggest_on_error=True,
-        color=False,
+        "write an inspectable immutable plan without applying it",
+        out=out,
     )
-    parser.bind_output(out)
     _ = parser.add_argument("name", help="capability name (type: text; required)")
     _ = parser.add_argument(
         "--inbound",
@@ -194,16 +247,45 @@ def _add_plan_parser(actions: _SubparserFactory, *, out: TextIO) -> None:
 
 
 def _add_apply_parser(actions: _SubparserFactory, *, out: TextIO) -> None:
-    parser = actions.add_parser(
+    parser = _subparser(
+        actions,
         "apply",
-        help="apply one previously inspected immutable plan",
-        allow_abbrev=False,
-        suggest_on_error=True,
-        color=False,
+        "apply one previously inspected immutable plan",
+        out=out,
     )
-    parser.bind_output(out)
     _ = parser.add_argument("plan_reference", help="saved plan path (type: text; required)")
     _add_common_options(parser)
+
+
+def _add_lifecycle_parsers(actions: _SubparserFactory, *, out: TextIO) -> None:
+    activate_parser = _subparser(
+        actions,
+        "activate",
+        "activate one capability after explicit evidence confirmation",
+        out=out,
+    )
+    _ = activate_parser.add_argument("name", help="capability name (type: text; required)")
+    for flag, help_text in (
+        ("--architecture-contract", "confirm the current architecture contract"),
+        ("--stable-surface", "confirm the stable public surface"),
+        ("--normative-property-evidence", "confirm normative property evidence"),
+        ("--port-contract", "confirm the port contract"),
+        ("--cli-process-evidence", "confirm detached CLI process evidence"),
+    ):
+        _ = activate_parser.add_argument(
+            flag,
+            action="store_true",
+            help=f"{help_text} (type: boolean; default: false)",
+        )
+    _add_common_options(activate_parser)
+    retire_parser = _subparser(
+        actions,
+        "retire",
+        "retire one active capability without changing product files",
+        out=out,
+    )
+    _ = retire_parser.add_argument("name", help="capability name (type: text; required)")
+    _add_common_options(retire_parser)
 
 
 def _add_common_options(parser: _MutationParser) -> None:
@@ -225,8 +307,17 @@ def _parse(argv: Sequence[str], *, parser: _MutationParser) -> _MutationRequest:
     raw = _RawArguments()
     _ = parser.parse_args(list(argv), namespace=raw)
     output_mode = OutputMode(raw.output_format)
-    if raw.group != "capability":
-        raise ValueError("Only the capability command group belongs to this mutation boundary.")
+    if raw.command in {
+        ControlCommandName.GENERATE.value,
+        ControlCommandName.PROOF_REPORT.value,
+    }:
+        return _DirectRequest(
+            command=ControlCommandName(raw.command),
+            output_mode=output_mode,
+            debug=raw.debug,
+        )
+    if raw.command != "capability":
+        raise ValueError("Only control-plane mutations belong to this mutation boundary.")
     if raw.action == "plan":
         return _PlanRequest(
             name=raw.name,
@@ -242,61 +333,30 @@ def _parse(argv: Sequence[str], *, parser: _MutationParser) -> _MutationRequest:
             output_mode=output_mode,
             debug=raw.debug,
         )
+    if raw.action == "activate":
+        return _ActivateRequest(
+            name=raw.name,
+            evidence=ActivationEvidence(
+                architecture_contract=raw.architecture_contract,
+                stable_surface=raw.stable_surface,
+                normative_property_evidence=raw.normative_property_evidence,
+                port_contract=raw.port_contract,
+                cli_process_evidence=raw.cli_process_evidence,
+            ),
+            output_mode=output_mode,
+            debug=raw.debug,
+        )
+    if raw.action == "retire":
+        return _RetireRequest(name=raw.name, output_mode=output_mode, debug=raw.debug)
     raise ValueError(f"Unknown capability mutation action: {raw.action}")
-
-
-def _is_plan_destination(location: str) -> bool:
-    parts = tuple(location.split("/"))
-    return (
-        len(parts) >= 3
-        and parts[:2] == (".repo", "plans")
-        and location.endswith(".json")
-        and all(part not in {"", ".", ".."} for part in parts)
-        and not location.startswith(("/", "\\"))
-        and "\\" not in location
-    )
-
-
-def _write_plan_success(
-    request: _PlanRequest, capability_plan: CapabilityPlan, *, out: TextIO
-) -> None:
-    if request.output_mode == OutputMode.HUMAN:
-        _ = out.write(f"{capability_plan.plan_id}\t{request.output}\n")
-        return
-    write_success(
-        command=_COMMAND_PLAN,
-        data={
-            "plan": cast("object", json.loads(canonical_plan_bytes(capability_plan))),
-            "output": request.output,
-        },
-        metadata={"operation_count": len(capability_plan.operations)},
-        out=out,
-    )
-
-
-def _write_apply_success(request: _ApplyRequest, outcome: ApplyOutcome, *, out: TextIO) -> None:
-    if request.output_mode == OutputMode.HUMAN:
-        _ = out.write(f"{outcome.status}\t{outcome.plan_id}\n")
-        return
-    write_success(
-        command=_COMMAND_APPLY,
-        data={
-            "plan_id": outcome.plan_id,
-            "status": outcome.status,
-            "written_targets": list(outcome.written_targets),
-            "recovery_instruction": outcome.recovery_instruction,
-        },
-        metadata={},
-        out=out,
-    )
 
 
 def _write_plan(
     request: _PlanRequest, repository: RepositoryPort, *, out: TextIO, err: TextIO
 ) -> int:
-    if not _is_plan_destination(request.output):
+    if not is_plan_destination(request.output):
         return write_mutation_failure(
-            command=_COMMAND_PLAN,
+            command=ControlCommandName.CAPABILITY_PLAN.value,
             failure=plan_output_failure("Plan output must be a relative .repo/plans/*.json path."),
             output_mode=request.output_mode,
             err=err,
@@ -313,7 +373,7 @@ def _write_plan(
         )
     except icontract.ViolationError:
         return write_mutation_failure(
-            command=_COMMAND_PLAN,
+            command=ControlCommandName.CAPABILITY_PLAN.value,
             failure=invalid_plan_failure("Capability name or boundaries are invalid."),
             output_mode=request.output_mode,
             err=err,
@@ -326,123 +386,21 @@ def _write_plan(
         )
     except RepositoryConflictError:
         return write_mutation_failure(
-            command=_COMMAND_PLAN,
+            command=ControlCommandName.CAPABILITY_PLAN.value,
             failure=plan_output_failure("The requested plan output already exists."),
             output_mode=request.output_mode,
             err=err,
         )
-    _write_plan_success(request, capability_plan, out=out)
+    write_plan_success(capability_plan, request.output, request.output_mode, out=out)
     return ExitCode.SUCCESS
-
-
-class _PlanDocumentError(ValueError):
-    """Raised when saved JSON cannot become one validated immutable plan."""
-
-
-def _mapping(value: object, label: str) -> dict[str, object]:
-    if not isinstance(value, dict):
-        raise _PlanDocumentError(f"{label} must be a JSON object")
-    return cast("dict[str, object]", value)
-
-
-def _exact_mapping(value: object, label: str, keys: frozenset[str]) -> dict[str, object]:
-    document = _mapping(value, label)
-    if frozenset(document) != keys:
-        raise _PlanDocumentError(f"{label} has an unsupported shape")
-    return document
-
-
-def _text(value: object, label: str) -> str:
-    if not isinstance(value, str):
-        raise _PlanDocumentError(f"{label} must be a string")
-    return value
-
-
-def _integer(value: object, label: str) -> int:
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise _PlanDocumentError(f"{label} must be an integer")
-    return value
-
-
-def _texts(value: object, label: str) -> tuple[str, ...]:
-    if not isinstance(value, list):
-        raise _PlanDocumentError(f"{label} must be an array of strings")
-    items = cast("list[object]", value)
-    if not all(isinstance(item, str) for item in items):
-        raise _PlanDocumentError(f"{label} must be an array of strings")
-    return tuple(cast("str", item) for item in items)
-
-
-def _operation(value: object, index: int) -> Operation:
-    document = _exact_mapping(
-        value,
-        f"operations[{index}]",
-        frozenset({"kind", "path", "precondition", "content", "content_digest"}),
-    )
-    return Operation(
-        kind=cast("OperationKind", _text(document["kind"], f"operations[{index}].kind")),
-        path=RepositoryPath(value=_text(document["path"], f"operations[{index}].path")),
-        precondition=_text(document["precondition"], f"operations[{index}].precondition"),
-        content=_text(document["content"], f"operations[{index}].content"),
-        content_digest=_text(document["content_digest"], f"operations[{index}].content_digest"),
-    )
-
-
-def _plan_from_bytes(content: bytes) -> CapabilityPlan:
-    try:
-        raw = cast("object", json.loads(content))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise _PlanDocumentError("Plan file is not valid UTF-8 JSON.") from error
-    document = _exact_mapping(
-        raw,
-        "plan",
-        frozenset(
-            {
-                "schema_version",
-                "plan_id",
-                "generator_version",
-                "base_state_digest",
-                "intent",
-                "operations",
-                "result_state_digest",
-            }
-        ),
-    )
-    intent_document = _exact_mapping(
-        document["intent"],
-        "plan.intent",
-        frozenset({"schema_version", "name", "inbound", "outbound"}),
-    )
-    raw_operations = document["operations"]
-    if not isinstance(raw_operations, list):
-        raise _PlanDocumentError("plan.operations must be an array")
-    return CapabilityPlan(
-        schema_version=_integer(document["schema_version"], "plan.schema_version"),
-        plan_id=_text(document["plan_id"], "plan.plan_id"),
-        generator_version=_text(document["generator_version"], "plan.generator_version"),
-        base_state_digest=_text(document["base_state_digest"], "plan.base_state_digest"),
-        intent=CapabilityIntent(
-            schema_version=_integer(
-                intent_document["schema_version"], "plan.intent.schema_version"
-            ),
-            name=_text(intent_document["name"], "plan.intent.name"),
-            inbound=_texts(intent_document["inbound"], "plan.intent.inbound"),
-            outbound=_texts(intent_document["outbound"], "plan.intent.outbound"),
-        ),
-        operations=tuple(
-            _operation(item, index)
-            for index, item in enumerate(cast("list[object]", raw_operations))
-        ),
-        result_state_digest=_text(document["result_state_digest"], "plan.result_state_digest"),
-    )
 
 
 def _write_apply(
     request: _ApplyRequest, repository: RepositoryPort, *, out: TextIO, err: TextIO
 ) -> int:
-    if not _is_plan_destination(request.plan_reference):
+    if not is_plan_destination(request.plan_reference):
         return write_mutation_failure(
-            command=_COMMAND_APPLY,
+            command=ControlCommandName.CAPABILITY_APPLY.value,
             failure=invalid_plan_failure("Plan input must be a relative .repo/plans/*.json path."),
             output_mode=request.output_mode,
             err=err,
@@ -450,26 +408,26 @@ def _write_apply(
     content = repository.read_bytes(RepositoryPathCandidate(value=request.plan_reference))
     if content is None:
         return write_mutation_failure(
-            command=_COMMAND_APPLY,
+            command=ControlCommandName.CAPABILITY_APPLY.value,
             failure=invalid_plan_failure("The requested plan file does not exist."),
             output_mode=request.output_mode,
             err=err,
         )
     try:
-        capability_plan = _plan_from_bytes(content)
-    except icontract.ViolationError, _PlanDocumentError, TypeError, ValueError:
+        capability_plan = plan_from_bytes(content)
+    except icontract.ViolationError, PlanDocumentError, TypeError, ValueError:
         return write_mutation_failure(
-            command=_COMMAND_APPLY,
+            command=ControlCommandName.CAPABILITY_APPLY.value,
             failure=invalid_plan_failure("The requested plan file is invalid."),
             output_mode=request.output_mode,
             err=err,
         )
     outcome = apply(capability_plan, repository)
     if outcome.status in {"applied", "already_applied"}:
-        _write_apply_success(request, outcome, out=out)
+        write_apply_success(outcome, request.output_mode, out=out)
         return ExitCode.SUCCESS
     return write_mutation_failure(
-        command=_COMMAND_APPLY,
+        command=ControlCommandName.CAPABILITY_APPLY.value,
         failure=apply_failure(
             status=outcome.status,
             recovery_instruction=outcome.recovery_instruction,
@@ -479,13 +437,127 @@ def _write_apply(
     )
 
 
-def _syntax_error(error: _ParserExitError, *, err: TextIO) -> int:
+def _write_control_success(
+    command: ControlCommandName,
+    data: dict[str, object],
+    output_mode: OutputMode,
+    *,
+    out: TextIO,
+) -> None:
+    if output_mode == OutputMode.HUMAN:
+        _ = out.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+        return
+    write_success(command=command.value, data=data, metadata={}, out=out)
+
+
+def _write_lifecycle(
+    request: _ActivateRequest | _RetireRequest,
+    repository: RepositoryPort,
+    *,
+    out: TextIO,
+    err: TextIO,
+) -> int:
+    if isinstance(request, _ActivateRequest):
+        command = ControlCommandName.CAPABILITY_ACTIVATE
+        outcome = activate(request.name, request.evidence, repository)
+    else:
+        command = ControlCommandName.CAPABILITY_RETIRE
+        outcome = retire(request.name, repository)
+    if outcome.status == "refused":
+        return write_mutation_failure(
+            command=command.value,
+            failure=lifecycle_failure(outcome),
+            output_mode=request.output_mode,
+            err=err,
+        )
+    _write_control_success(
+        command,
+        {"capability": outcome.capability_name, "status": outcome.status},
+        request.output_mode,
+        out=out,
+    )
+    return ExitCode.SUCCESS
+
+
+def _proof_report_document(catalog: ProofCatalog) -> dict[str, object]:
+    return {
+        "properties": [
+            {
+                "id": property_spec.property_id,
+                "kind": property_spec.kind,
+                "assumptions": len(property_spec.assumptions),
+                "evidence": sorted(property_spec.evidence),
+                "targets": list(property_spec.targets),
+            }
+            for property_spec in catalog.properties
+        ],
+        "exemptions": len(catalog.exemptions),
+    }
+
+
+def _write_direct(
+    request: _DirectRequest,
+    repository: RepositoryPort,
+    *,
+    out: TextIO,
+    err: TextIO,
+) -> int:
+    data: dict[str, object]
+    if request.command == ControlCommandName.GENERATE:
+        outcome = generate(repository.snapshot(), repository)
+        data = {
+            "source_state_sha256": outcome.source_state_sha256,
+            "written_targets": list(outcome.written_targets),
+        }
+    elif request.command == ControlCommandName.PROOF_REPORT:
+        catalog, violations = check(Path.cwd())
+        if violations:
+            return write_mutation_failure(
+                command=request.command.value,
+                failure=proof_contract_failure(len(violations)),
+                output_mode=request.output_mode,
+                err=err,
+            )
+        if catalog is None:
+            raise RuntimeError("A successful proof check must return its catalog.")
+        data = _proof_report_document(catalog)
+    else:
+        raise ValueError("Only direct control-plane mutations belong to this boundary.")
+    _write_control_success(request.command, data, request.output_mode, out=out)
+    return ExitCode.SUCCESS
+
+
+def _request_command(request: _MutationRequest) -> str:
+    if isinstance(request, _PlanRequest):
+        return ControlCommandName.CAPABILITY_PLAN.value
+    if isinstance(request, _ApplyRequest):
+        return ControlCommandName.CAPABILITY_APPLY.value
+    if isinstance(request, _ActivateRequest):
+        return ControlCommandName.CAPABILITY_ACTIVATE.value
+    if isinstance(request, _RetireRequest):
+        return ControlCommandName.CAPABILITY_RETIRE.value
+    return request.command.value
+
+
+def _syntax_command(argv: Sequence[str]) -> str:
+    if tuple(argv[:2]) in (("capability", "activate"), ("capability", "retire")):
+        return " ".join(argv[:2])
+    if argv and argv[0] in {
+        ControlCommandName.GENERATE.value,
+        ControlCommandName.PROOF_REPORT.value,
+    }:
+        return argv[0]
+    return "capability" if argv and argv[0] == "capability" else "cli"
+
+
+def _syntax_error(argv: Sequence[str], error: _ParserExitError, *, err: TextIO) -> int:
+    command = _syntax_command(argv)
     write_failure(
-        command="capability",
+        command=command,
         failure=FailureBody(
             outcome=shared_outcome(OutcomeCode.INVALID_SYNTAX),
             message=error.message,
-            hint="Run 'python -m repoctl capability --help' and correct the invocation.",
+            hint=f"Run 'python -m repoctl {command} --help' and correct the invocation.",
         ),
         err=err,
     )
@@ -498,7 +570,7 @@ def _unexpected_error(
     *,
     err: TextIO,
 ) -> int:
-    command = _COMMAND_PLAN if isinstance(request, _PlanRequest) else _COMMAND_APPLY
+    command = _request_command(request)
     if request.debug:
         traceback.print_exception(error, file=err)
         return ExitCode.UNEXPECTED_FAILURE
@@ -515,6 +587,22 @@ def _unexpected_error(
     )
 
 
+def _dispatch(
+    request: _MutationRequest,
+    repository: RepositoryPort,
+    *,
+    out: TextIO,
+    err: TextIO,
+) -> int:
+    if isinstance(request, _PlanRequest):
+        return _write_plan(request, repository, out=out, err=err)
+    if isinstance(request, _ApplyRequest):
+        return _write_apply(request, repository, out=out, err=err)
+    if isinstance(request, _ActivateRequest | _RetireRequest):
+        return _write_lifecycle(request, repository, out=out, err=err)
+    return _write_direct(request, repository, out=out, err=err)
+
+
 def run_mutation(
     argv: Sequence[str],
     *,
@@ -522,23 +610,26 @@ def run_mutation(
     out: TextIO,
     err: TextIO,
 ) -> int | None:
-    """Handle the nested capability mutation grammar or defer to read-only commands."""
-    if not argv or argv[0] != "capability":
+    """Handle every control-plane mutation or defer to read-only commands."""
+    if not argv or argv[0] not in {
+        "capability",
+        ControlCommandName.GENERATE.value,
+        ControlCommandName.PROOF_REPORT.value,
+    }:
         return None
     try:
         request = _parse(argv, parser=_parser(out=out))
     except _ParserExitError as error:
         return (
-            ExitCode.SUCCESS if error.status == ExitCode.SUCCESS else _syntax_error(error, err=err)
+            ExitCode.SUCCESS
+            if error.status == ExitCode.SUCCESS
+            else _syntax_error(argv, error, err=err)
         )
     try:
-        if isinstance(request, _PlanRequest):
-            return _write_plan(request, repository, out=out, err=err)
-        return _write_apply(request, repository, out=out, err=err)
+        return _dispatch(request, repository, out=out, err=err)
     except RepositoryPortError:
-        command = _COMMAND_PLAN if isinstance(request, _PlanRequest) else _COMMAND_APPLY
         return write_mutation_failure(
-            command=command,
+            command=_request_command(request),
             failure=repository_failure("The local repository is unavailable."),
             output_mode=request.output_mode,
             err=err,

@@ -8,6 +8,9 @@ from {{ package }}.adapters.inbound.cli_contract import OutputMode
 from {{ package }}.adapters.inbound.cli_outcomes import ExitCode
 from {{ package }}.adapters.inbound.cli_protocol import SCHEMA_VERSION
 
+# isort: split
+from repoctl.modules.repository_generation.application.lifecycle import LifecycleOutcome
+
 if TYPE_CHECKING:
     from typing import TextIO
 
@@ -66,6 +69,53 @@ def apply_failure(*, status: str, recovery_instruction: str) -> MutationFailure:
         exit_code=ExitCode.PERMANENT_REJECTION,
         message=messages.get(status, "Capability application was refused."),
         hint=recovery_instruction or "Inspect the plan and repository state before retrying.",
+    )
+
+
+def lifecycle_failure(outcome: LifecycleOutcome) -> MutationFailure:
+    """Translate one refused lifecycle transition to the CLI protocol."""
+    if outcome.reason is None:
+        raise RuntimeError("A refused lifecycle outcome must name its reason.")
+    messages = {
+        "capability_not_found": (
+            "The requested capability declaration does not exist.",
+            "Create and apply a capability plan before changing its lifecycle state.",
+        ),
+        "invalid_transition": (
+            "The requested lifecycle transition is not valid for the current state.",
+            "Inspect 'python -m repoctl capabilities' before retrying the transition.",
+        ),
+        "missing_evidence": (
+            "Activation requires every current evidence confirmation.",
+            "Pass each evidence flag only after its corresponding check has passed.",
+        ),
+        "stale_declaration": (
+            "The capability declaration changed during the lifecycle transition.",
+            "Retry from the current declaration state.",
+        ),
+        "declaration_path_not_owned": (
+            "The capability declaration is outside the configured declaration zone.",
+            "Restore the declaration under .repo/capabilities before retrying.",
+        ),
+    }
+    message, hint = messages[outcome.reason]
+    if outcome.missing_evidence:
+        message = f"{message} Missing: {', '.join(outcome.missing_evidence)}."
+    return MutationFailure(
+        code=outcome.reason,
+        exit_code=ExitCode.PERMANENT_REJECTION,
+        message=message,
+        hint=hint,
+    )
+
+
+def proof_contract_failure(violation_count: int) -> MutationFailure:
+    """Describe a proof contract that fails its local validation."""
+    return MutationFailure(
+        code="proof_contract_failed",
+        exit_code=ExitCode.PERMANENT_REJECTION,
+        message=f"The proof contract has {violation_count} violation(s).",
+        hint="Run 'just proof-report' after correcting the reported proof contract violations.",
     )
 
 

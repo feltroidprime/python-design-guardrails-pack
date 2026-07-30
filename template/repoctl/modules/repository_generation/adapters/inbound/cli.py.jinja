@@ -360,7 +360,10 @@ def _write_capabilities(
         return
     write_success(
         command=ControlCommandName.CAPABILITIES.value,
-        data={"capabilities": [_capability_document(declaration) for declaration in visible]},
+        data={
+            "capabilities": [_capability_document(declaration) for declaration in visible],
+            "control_commands": [spec.name.value for spec in COMMAND_CATALOG],
+        },
         metadata={
             "limit": request.limit,
             "truncated": truncated,

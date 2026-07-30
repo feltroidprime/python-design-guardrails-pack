@@ -42,6 +42,10 @@ def test_process_case_catalog_covers_every_control_plane_command() -> None:
         ControlCommandName.STATUS,
         ControlCommandName.CAPABILITY_PLAN,
         ControlCommandName.CAPABILITY_APPLY,
+        ControlCommandName.CAPABILITY_ACTIVATE,
+        ControlCommandName.CAPABILITY_RETIRE,
+        ControlCommandName.GENERATE,
+        ControlCommandName.PROOF_REPORT,
     }
     assert {spec.name for spec in COMMAND_CATALOG} == process_case_command_names()
     assert_process_cases_cover_control_catalog()

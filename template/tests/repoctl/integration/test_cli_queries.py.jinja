@@ -151,6 +151,10 @@ def test_control_catalog_uses_the_product_command_protocol_types() -> None:
         ControlCommandName.STATUS.value,
         ControlCommandName.CAPABILITY_PLAN.value,
         ControlCommandName.CAPABILITY_APPLY.value,
+        ControlCommandName.CAPABILITY_ACTIVATE.value,
+        ControlCommandName.CAPABILITY_RETIRE.value,
+        ControlCommandName.GENERATE.value,
+        ControlCommandName.PROOF_REPORT.value,
     }
     assert all(type(spec) is CommandSpec for spec in COMMAND_CATALOG)
     assert all(

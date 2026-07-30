@@ -1,0 +1,127 @@
+"""Safe paths and strict decoding for saved capability-plan documents."""
+
+import json
+from typing import cast
+
+from repoctl.modules.repository_generation.domain.intents import CapabilityIntent, RepositoryPath
+from repoctl.modules.repository_generation.domain.plans import (
+    CapabilityPlan,
+    Operation,
+    OperationKind,
+)
+
+
+class PlanDocumentError(ValueError):
+    """Raised when saved JSON cannot become one validated immutable plan."""
+
+
+def is_plan_destination(location: str) -> bool:
+    """Return whether a location is a safe inspectable-plan destination."""
+    parts = tuple(location.split("/"))
+    return (
+        len(parts) >= 3
+        and parts[:2] == (".repo", "plans")
+        and location.endswith(".json")
+        and all(part not in {"", ".", ".."} for part in parts)
+        and not location.startswith(("/", "\\"))
+        and "\\" not in location
+    )
+
+
+def _mapping(value: object, label: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise PlanDocumentError(f"{label} must be a JSON object")
+    return cast("dict[str, object]", value)
+
+
+def _exact_mapping(value: object, label: str, keys: frozenset[str]) -> dict[str, object]:
+    document = _mapping(value, label)
+    if frozenset(document) != keys:
+        raise PlanDocumentError(f"{label} has an unsupported shape")
+    return document
+
+
+def _text(value: object, label: str) -> str:
+    if not isinstance(value, str):
+        raise PlanDocumentError(f"{label} must be a string")
+    return value
+
+
+def _integer(value: object, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise PlanDocumentError(f"{label} must be an integer")
+    return value
+
+
+def _texts(value: object, label: str) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise PlanDocumentError(f"{label} must be an array of strings")
+    items = cast("list[object]", value)
+    if not all(isinstance(item, str) for item in items):
+        raise PlanDocumentError(f"{label} must be an array of strings")
+    return tuple(cast("str", item) for item in items)
+
+
+def _operation(value: object, index: int) -> Operation:
+    document = _exact_mapping(
+        value,
+        f"operations[{index}]",
+        frozenset({"kind", "path", "precondition", "content", "content_digest"}),
+    )
+    return Operation(
+        kind=cast("OperationKind", _text(document["kind"], f"operations[{index}].kind")),
+        path=RepositoryPath(value=_text(document["path"], f"operations[{index}].path")),
+        precondition=_text(document["precondition"], f"operations[{index}].precondition"),
+        content=_text(document["content"], f"operations[{index}].content"),
+        content_digest=_text(document["content_digest"], f"operations[{index}].content_digest"),
+    )
+
+
+def plan_from_bytes(content: bytes) -> CapabilityPlan:
+    """Decode one exact saved plan document through the domain's invariants."""
+    try:
+        raw = cast("object", json.loads(content))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PlanDocumentError("Plan file is not valid UTF-8 JSON.") from error
+    document = _exact_mapping(
+        raw,
+        "plan",
+        frozenset(
+            {
+                "schema_version",
+                "plan_id",
+                "generator_version",
+                "base_state_digest",
+                "intent",
+                "operations",
+                "result_state_digest",
+            }
+        ),
+    )
+    intent_document = _exact_mapping(
+        document["intent"],
+        "plan.intent",
+        frozenset({"schema_version", "name", "inbound", "outbound"}),
+    )
+    raw_operations = document["operations"]
+    if not isinstance(raw_operations, list):
+        raise PlanDocumentError("plan.operations must be an array")
+    return CapabilityPlan(
+        schema_version=_integer(document["schema_version"], "plan.schema_version"),
+        plan_id=_text(document["plan_id"], "plan.plan_id"),
+        generator_version=_text(document["generator_version"], "plan.generator_version"),
+        base_state_digest=_text(document["base_state_digest"], "plan.base_state_digest"),
+        intent=CapabilityIntent(
+            schema_version=_integer(
+                intent_document["schema_version"], "plan.intent.schema_version"
+            ),
+            name=_text(intent_document["name"], "plan.intent.name"),
+            inbound=_texts(intent_document["inbound"], "plan.intent.inbound"),
+            outbound=_texts(intent_document["outbound"], "plan.intent.outbound"),
+        ),
+        operations=tuple(
+            _operation(item, index)
+            for index, item in enumerate(cast("list[object]", raw_operations))
+        ),
+        result_state_digest=_text(document["result_state_digest"], "plan.result_state_digest"),
+    )

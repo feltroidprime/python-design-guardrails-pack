@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from typing import cast
@@ -146,7 +147,10 @@ def _nothing(_document: dict[str, object]) -> None:
 def _assert_empty_capabilities(document: dict[str, object]) -> None:
     data = _mapping(document["data"])
     metadata = _mapping(document["metadata"])
-    assert data == {"capabilities": []}
+    assert data["capabilities"] == []
+    assert set(cast("list[str]", data["control_commands"])) == {
+        command.value for command in ControlCommandName
+    }
     assert metadata == {"limit": 20, "truncated": False, "continuation": ""}
 
 
@@ -178,6 +182,24 @@ def _assert_bounded_capabilities(document: dict[str, object]) -> None:
     assert metadata["truncated"] is True
     assert isinstance(metadata["continuation"], str)
     assert metadata["continuation"]
+
+
+def _assert_lifecycle_document(document: dict[str, object]) -> None:
+    data = _mapping(document["data"])
+    assert data == {"capability": "alpha", "status": "retired"}
+
+
+def _assert_generate_document(document: dict[str, object]) -> None:
+    data = _mapping(document["data"])
+    assert isinstance(data["source_state_sha256"], str)
+    assert isinstance(data["written_targets"], list)
+
+
+def _assert_proof_report_document(document: dict[str, object]) -> None:
+    data = _mapping(document["data"])
+    properties = cast("list[object]", data["properties"])
+    assert properties
+    assert data["exemptions"] == 0
 
 
 def _no_setup(_context: ProcessContext) -> None:
@@ -215,6 +237,20 @@ def _already_applied(context: ProcessContext) -> None:
 def _bounded_capabilities(context: ProcessContext) -> None:
     context.write_declaration(name="alpha", status="draft")
     context.write_declaration(name="beta", status="active")
+
+
+def _draft_alpha(context: ProcessContext) -> None:
+    context.write_declaration(name="alpha", status="draft")
+
+
+def _active_alpha(context: ProcessContext) -> None:
+    context.write_declaration(name="alpha", status="active")
+
+
+def _proof_report_workspace(context: ProcessContext) -> None:
+    source = _project_root()
+    for relative in ("proof", "repoctl", "src", "verification"):
+        _ = shutil.copytree(source / relative, context.root / relative)
 
 
 CONTROL_PROCESS_CASES = (
@@ -323,6 +359,46 @@ CONTROL_PROCESS_CASES = (
         exit_code=0,
         error_code=None,
         assert_document=_assert_bounded_capabilities,
+    ),
+    ProcessCase(
+        identifier="capability-activate-refuses-missing-evidence",
+        command="capability activate",
+        catalog_command=ControlCommandName.CAPABILITY_ACTIVATE,
+        args=("capability", "activate", "alpha"),
+        setup=_draft_alpha,
+        exit_code=3,
+        error_code="missing_evidence",
+        assert_document=_nothing,
+    ),
+    ProcessCase(
+        identifier="capability-retire-default-json",
+        command="capability retire",
+        catalog_command=ControlCommandName.CAPABILITY_RETIRE,
+        args=("capability", "retire", "alpha"),
+        setup=_active_alpha,
+        exit_code=0,
+        error_code=None,
+        assert_document=_assert_lifecycle_document,
+    ),
+    ProcessCase(
+        identifier="generate-default-json",
+        command="generate",
+        catalog_command=ControlCommandName.GENERATE,
+        args=("generate",),
+        setup=_no_setup,
+        exit_code=0,
+        error_code=None,
+        assert_document=_assert_generate_document,
+    ),
+    ProcessCase(
+        identifier="proof-report-default-json",
+        command="proof-report",
+        catalog_command=ControlCommandName.PROOF_REPORT,
+        args=("proof-report",),
+        setup=_proof_report_workspace,
+        exit_code=0,
+        error_code=None,
+        assert_document=_assert_proof_report_document,
     ),
 )
 
