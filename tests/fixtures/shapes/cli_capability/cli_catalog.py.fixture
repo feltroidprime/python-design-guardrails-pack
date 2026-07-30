@@ -1,0 +1,4 @@
+"""Closed command catalog owned by this capability."""
+
+PROBE_COMMAND = "probe"
+COMMANDS = (PROBE_COMMAND,)

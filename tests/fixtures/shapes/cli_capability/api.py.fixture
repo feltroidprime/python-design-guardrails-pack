@@ -1,0 +1,6 @@
+"""Stable public surface of the CLI shape fixture."""
+
+from @MODULE@.domain.probe import probe
+from @MODULE@.domain.specifications import response_is_ready
+
+__all__ = ["probe", "response_is_ready"]

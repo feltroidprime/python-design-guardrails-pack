@@ -194,25 +194,31 @@ tasks:
     repo: feltroidprime/python-design-guardrails-pack
     issue: feltroidprime/python-design-guardrails-pack#66
     outcome: >-
-      A CLI capability created through the real CLI contributes its commands to
-      the generated product catalog when active and disappears from it when
-      retired.
+      A capability created through the real control-plane CLI with a cli inbound
+      seam owns and exercises a capability-local, noninteractive command boundary.
+      Activation and retirement are observed through repository control and
+      derived runtime membership; this fixture does not claim a package-root
+      product CLI or generated global command catalog.
     decision_boundary: >-
-      Owns this fixture's command catalog and its process cases. May not modify the
-      harness seam or the derived index format.
-    interfaces: [recursive-harness-v1, shape-fixture-v1, product-cli-v1]
+      Owns this fixture's capability-local command catalog and detached process
+      case. May not modify the harness seam, derived index format, declarations
+      outside the real control-plane CLI, or package-root command surface.
+    interfaces: [recursive-harness-v1, shape-fixture-v1]
     uncertainty: medium
     depends_on: [recursive_acceptance_harness]
     risk: novel
     lane:
+      - VALIDATION.md
+      - epics/epic-5.yaml
       - tests/fixtures/shapes/cli_capability/**
       - tests/recursive/test_shape_cli_capability.py
     forbidden_paths: [tests/recursive/harness.py]
     acceptance_criteria:
       - "`pytest -q tests/recursive/test_shape_cli_capability.py` passes."
-      - "After activation, `python -m <package> capabilities` lists the fixture's command; after retirement, the same invocation does not, and both are asserted from real detached-process output."
-      - "The fixture's command has an independent detached-process case with stdin closed, and activation is refused when that case is removed."
-      - "A test asserts the generated product CLI index changed only under the derived root across activation."
+      - "The capability is created and updated solely through detached `python -m repoctl capability plan` and `apply` invocations with the `cli` inbound seam; the fixture never patches its declaration."
+      - "With stdin closed, detached `python -m <package>.modules.<capability> probe` succeeds through a capability-local entry point and catalog."
+      - "Detached activation without `--cli-process-evidence` is refused; activation with complete evidence succeeds. Generated active membership includes the capability after activation and omits it after retirement."
+      - "Retirement preserves the fixture's PRODUCT bytes and capability-local process behavior. The generated global CLI catalog remains semantically empty because this issue does not provide a package-root product CLI."
     required_checks: [pack-tests, pack-validate]
     done_artifacts:
       - tests/recursive/test_shape_cli_capability.py

@@ -1,0 +1,19 @@
+"""Pure behavior exposed by the capability-local command."""
+
+import icontract
+
+from @MODULE@.domain.specifications import response_is_ready
+
+
+def _response_is_ready(result: str) -> bool:
+    return response_is_ready(result)
+
+
+@icontract.ensure(
+    _response_is_ready,
+    description="PROPERTY[@PROPERTY_ID@]: probe result is ready",
+)
+def probe(label: str) -> str:
+    """Return readiness for any caller label."""
+    _ = label
+    return "ready"

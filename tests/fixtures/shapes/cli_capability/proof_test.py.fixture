@@ -1,0 +1,28 @@
+"""Executable evidence for the CLI shape fixture's normative property."""
+
+from hypothesis import given, strategies as st
+import pytest
+
+from @MODULE@.api import probe, response_is_ready
+from verification.harness.assertions import assert_falsifies, assert_property
+
+
+@pytest.mark.proof
+@pytest.mark.proves("@PROPERTY_ID@")
+@given(st.text())
+def test_probe_result_is_ready(label: str) -> None:
+    result = probe(label)
+
+    assert_property(
+        condition=response_is_ready(result),
+        property_id="@PROPERTY_ID@",
+    )
+
+
+@pytest.mark.proof
+@pytest.mark.falsifies("@PROPERTY_ID@")
+def test_non_ready_result_is_a_real_counterexample() -> None:
+    assert_falsifies(
+        condition=response_is_ready("not-ready"),
+        property_id="@PROPERTY_ID@",
+    )

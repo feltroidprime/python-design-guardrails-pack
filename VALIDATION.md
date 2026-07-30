@@ -6,33 +6,42 @@ and prek 0.4.11.
 
 ## Change validated
 
-Issue #65 proves that independent capability order commutes and records the
-100-capability command budgets.
+Issue #66 certifies a capability-owned command boundary without reviving the
+deleted package-root product CLI.
 
-- Generated proof evidence applies two distinct intents in both orders through
-  the real planner and repository port, then compares canonical state digests
-  that exclude plan and journal artifacts.
-- The proof catalog exposes
-  `REPOCTL::INDEPENDENT-CAPABILITIES-COMMUTE`; its focused proof and falsifier
-  pass through `just prove-one`.
-- A socket-blocked in-process probe builds 100 DRAFT capabilities and measures
-  warm median `status`, capability-plan, capability-apply, and generation
-  latency without including interpreter or dependency-startup time.
-- The committed Linux x86_64/Python 3.14.6 record is within every explicit
-  budget: 0.040029s status, 0.056325s plan, 0.236318s apply, and 0.042006s
-  generation. Live misses are recorded and warned, not converted into flaky
-  timing failures.
+- The unchanged recursive harness creates the capability through the real
+  control plane; the fixture then uses another detached plan/apply pair to
+  declare its `cli` inbound seam without patching the declaration.
+- The capability owns a local command catalog and
+  `python -m recursive_project.modules.alpha probe` entry point. Its retained
+  process case closes stdin and passes after retirement.
+- Activation without `--cli-process-evidence` is refused with the structured
+  `missing_evidence` outcome; the harness's complete evidence activates it.
+- The generated repository's existing exactness check observes both ACTIVE and
+  RETIRED gates, including the intentionally empty global CLI catalog, while
+  the recursive harness proves PRODUCT bytes remain unchanged.
+- No package-root CLI, generated-index format, production template, or harness
+  behavior changed.
 
 ## Commands and actual results
 
 ```bash
+PYTHONDONTWRITEBYTECODE=1 uv run --no-project --python 3.14 \
+  --with pytest==9.1.1 --with copier==9.17.0 \
+  --with "icontract>=2.7.3" \
+  pytest -q tests/recursive/test_shape_cli_capability.py
+PYTHONDONTWRITEBYTECODE=1 just check
 PYTHONDONTWRITEBYTECODE=1 just validate
 ```
 
+The focused #66 test passed **1 test** with one dirty-template warning in
+189.69 seconds. Root Ruff reported **148 files already formatted** and no lint
+violations.
+
 The canonical command passed end to end:
 
-- root Ruff repair/check was stable across 147 files, and the root suite passed
-  **223 tests** with 16 dirty-template warnings in 231.23 seconds;
+- root Ruff repair/check was stable across 148 files, and the root suite passed
+  **224 tests** with 17 dirty-template warnings in 292.54 seconds;
 - template cleanliness, fresh generation, complete Jinja rendering, generated
   bootstrap, and the downstream repair probe passed;
 - the generated gate reported **0 errors, 0 warnings** from BasedPyright;
@@ -50,8 +59,8 @@ fault-injection probes.
 
 - Full validation ran on Linux x86_64 only. macOS and Windows remain
   unexercised; their subprocess, filesystem, and timing behavior can differ.
-- The committed medians describe this machine and Python build rather than a
-  portable performance guarantee. Budget misses on other hosts remain visible
-  as recorded regressions without failing correctness checks.
-- The remaining application-shape, mutation, composition, and
-  update-preservation cases are owned by issues #66–#73.
+- This fixture certifies its successful capability-local `probe` process and
+  required activation evidence. It deliberately makes no package-root command,
+  global product-catalog, or broader command error-protocol claim.
+- The remaining application-shape, mutation, composition, update-preservation,
+  and workflow-documentation cases are owned by issues #67–#73.

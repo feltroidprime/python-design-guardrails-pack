@@ -1,0 +1,6 @@
+"""Pure specifications for the CLI shape fixture."""
+
+
+def response_is_ready(result: str) -> bool:
+    """Return whether a probe result satisfies the public invariant."""
+    return result == "ready"
