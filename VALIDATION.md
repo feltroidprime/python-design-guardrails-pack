@@ -6,21 +6,22 @@ uv 0.11.28, just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist
 
 ## Change validated
 
-Issue #50 of epic #44 adds the application-owned, stale-safe capability-plan
-apply protocol.
+Issue #51 of epic #44 adds the repository-control capability plan/apply
+boundary.
 
-- `apply(plan, repository)` validates immutable plan identity and generator
-  version, observes the current snapshot and journal before writing, rejects
-  stale plans with the required recovery instruction, and records each write
-  through the #49 transaction journal.
-- Reapplying a completed plan returns `already_applied` without another write.
-  Interrupted or result-mismatched work is recovered and reported as requiring
-  a fresh plan rather than silently replanned.
-- A present path classified as product is refused before compare-and-swap can
-  write it, even when a forged plan's precondition matches its current bytes.
-- The proof catalog owns state-machine evidence for idempotence, stale-plan
-  rejection, and product-byte preservation. The generated proof recipes now
-  discover the complete `verification/` tree, including the `repoctl` capsule.
+- `python -m repoctl capability plan NAME --output .repo/plans/NAME.json`
+  writes one inspectable canonical plan through the repository port. Saved
+  plan-control artifacts stay readable but are excluded from planning
+  snapshots, so they do not make their own plan stale.
+- `capability apply PLAN` validates the saved immutable plan, delegates to the
+  #50 application protocol, and reports either `applied` or the idempotent
+  `already_applied` result without re-writing the repository.
+- The generated DRAFT capsule is structurally valid, contains only the seeded
+  capability structure, and does not introduce a placeholder entity,
+  `NotImplementedError`, or `assert True` test.
+- Template sources were aligned with the rendered Ruff result because Jinja
+  package imports are not parseable at the pack root; the downstream repair
+  probe now remains stable after bootstrap.
 
 ## Commands and actual results
 
@@ -32,32 +33,30 @@ The final canonical `just validate` passed end to end (directly observed exit
 code 0):
 
 - root Ruff repair/check was stable across 135 files; root tests: **215
-  passed** in 27.99s;
-- template cleanliness, fresh instantiation, generated bootstrap and quality
-  gates, tracked-syntax and dirty-doctor fault probes, and linked-worktree
-  pre-commit/pre-push checks all passed;
+  passed** in 34.82s;
+- template cleanliness, fresh instantiation, generated bootstrap, downstream
+  repair probes, missing-hook repair, tracked-syntax and dirty-doctor fault
+  probes, and linked-worktree pre-commit/pre-push checks all passed;
 - the generated type gate reported **0 errors, 0 warnings**; ownership,
   architecture, documentation, proof-contract, symbolic-core, and import
   contracts all passed;
+- each generated full quality run reported **241 passed, 8 skipped, 3
+  deselected** with **93.94%** coverage;
 - the committed Copier update round trip and offline downstream gate completed
-  **2 passed in 62.33s**.
+  **2 passed in 59.95s**.
 
-Additional downstream checks run against a freshly rendered repository:
+Additional downstream boundary check against a freshly rendered repository:
 
 ```bash
-just prove
-just prove-one REPOCTL::APPLY-IDEMPOTENT
-just prove-one REPOCTL::STALE-PLAN-REJECTED
-just prove-one REPOCTL::PRODUCT-BYTES-PRESERVED
-uv run pytest -q
+uv run python -m repoctl capability plan alpha --inbound python --output .repo/plans/alpha.json
+uv run python -m repoctl capability apply .repo/plans/alpha.json
+uv run python -m repoctl capability apply .repo/plans/alpha.json
+uv run python -m scripts.capability_validator --root src/orchard_billing/modules/alpha
 ```
 
-- `just prove` passed **37** proof tests (24 deselected); each new property
-  appears in `proof_guard --report` with `hypothesis-stateful` evidence.
-- Each `prove-one` command passed its selected property test plus falsifier
-  (**2 passed**, 59 deselected).
-- The direct generated test suite completed **238 passed, 8 skipped, 3
-  deselected** in 19.57s with **93.94%** coverage.
+All commands exited 0. The first command emitted a 13-operation plan; the two
+apply calls respectively returned `applied` and `already_applied`, and the
+capability validator passed.
 
 The syntax and dirty-doctor failures printed during validation are deliberate
 fault-injection probes.
@@ -66,6 +65,6 @@ fault-injection probes.
 
 - Full validation ran on Linux x86_64 only. macOS and Windows remain
   unexercised; their symlink permissions and directory fsync behavior differ.
-- The apply protocol is deliberately fail-closed after an interrupted journal:
-  it preserves the durable evidence and tells the caller to re-plan instead of
-  attempting an implicit rollback or regeneration.
+- The control CLI intentionally permits saved plans only under its reserved
+  plan-control directory; use the application protocol's recovery instruction
+  when a plan is stale or an interrupted journal requires recovery.

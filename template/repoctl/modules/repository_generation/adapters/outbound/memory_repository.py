@@ -32,6 +32,8 @@ from repoctl.modules.repository_generation.domain.ownership import (
 
 type CapabilityStatus = Literal["draft", "active", "retired"]
 
+_SNAPSHOT_CONTROL_ARTIFACT_PREFIXES = (".repo/plans/",)
+
 
 def _default_ownership_zones(package: str) -> tuple[OwnershipZoneRoots, ...]:
     return (
@@ -85,6 +87,10 @@ def _normalized_location(candidate: RepositoryPathCandidate) -> str:
 
 def _digest(content: bytes) -> str:
     return f"sha256:{sha256(content).hexdigest()}"
+
+
+def _is_snapshot_control_artifact(location: str) -> bool:
+    return location.startswith(_SNAPSHOT_CONTROL_ARTIFACT_PREFIXES)
 
 
 def _parent_locations(location: str) -> tuple[str, ...]:
@@ -182,7 +188,7 @@ class MemoryRepository:
             )
 
     def snapshot(self) -> RepositorySnapshot:
-        """Return a canonical immutable view of the current in-memory repository."""
+        """Return a canonical immutable view excluding repository-control plan artifacts."""
         with self._lock:
             declarations = tuple(
                 _declaration(content, location)
@@ -195,6 +201,7 @@ class MemoryRepository:
                     digest=_digest(content),
                 )
                 for location, content in self._contents_by_location.items()
+                if not _is_snapshot_control_artifact(location)
             )
             return RepositorySnapshot(
                 schema_version=1,

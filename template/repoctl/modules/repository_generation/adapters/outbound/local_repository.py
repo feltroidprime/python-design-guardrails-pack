@@ -253,6 +253,11 @@ def _transaction_directory(root: Path) -> Path:
     return _path_for(root, RepositoryPathCandidate(value=".repo/transactions"))
 
 
+def _plan_directory(root: Path) -> Path:
+    """Return the inspectable-plan artifact directory excluded from state snapshots."""
+    return _path_for(root, RepositoryPathCandidate(value=".repo/plans"))
+
+
 def _journal_path(root: Path, transaction_id: str) -> Path:
     digest = sha256(transaction_id.encode("utf-8")).hexdigest()
     return _transaction_directory(root) / f"{digest}.jsonl"
@@ -363,6 +368,7 @@ class LocalRepository:
     def _repository_files(self) -> tuple[Path, ...]:
         files: list[Path] = []
         transaction_directory = _transaction_directory(self._root)
+        plan_directory = _plan_directory(self._root)
         for current, directories, names in os.walk(self._root, followlinks=False):
             current_path = Path(current)
             directories[:] = [
@@ -371,6 +377,7 @@ class LocalRepository:
                 if not (current_path / name).is_symlink()
                 and name not in _IGNORED_DIRECTORY_NAMES
                 and (current_path / name) != transaction_directory
+                and (current_path / name) != plan_directory
             ]
             files.extend(
                 current_path / name
@@ -380,7 +387,7 @@ class LocalRepository:
         return tuple(files)
 
     def snapshot(self) -> RepositorySnapshot:
-        """Return a canonical immutable view of regular files rooted at this repository."""
+        """Return a canonical immutable view excluding repository-control plan artifacts."""
         with self._lock:
             contents_by_location: dict[str, bytes] = {}
             for path in self._repository_files():

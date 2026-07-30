@@ -40,7 +40,11 @@ filters exactly active declarations, emits canonical bytes, and carries
 receives ownership policy and prior file digests in the immutable snapshot,
 creates PRODUCT seeds only when absent, and emits exact-precondition
 declaration and derived writes under `REPOCTL::PLAN-DETERMINISTIC`. Planning
-performs no I/O, and effectful application remains absent at this stage.
+remains pure: the repository-control CLI stores an inspectable canonical plan
+under `.repo/plans/`, which is excluded from the planning snapshot.
+`capability apply` then uses the durable transaction protocol to materialize
+the requested DRAFT capsule exactly once; a replay reports `already_applied`
+without changing repository state.
 
 ## Ship Python faster without letting the codebase rot
 

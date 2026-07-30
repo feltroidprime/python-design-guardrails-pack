@@ -60,9 +60,12 @@ independent oracle, Hypothesis, and CrossHair. Its pure
 as explicit snapshot data, creates only absent PRODUCT seeds, and emits every
 declaration and derived write with an exact precondition. Canonical bytes and
 the plan ID are deterministic under `REPOCTL::PLAN-DETERMINISTIC`, independent
-of CWD, environment variables, and snapshot enumeration order. The capsule
-still has no placeholder product model, lifecycle transition, or effectful
-application behavior.
+of CWD, environment variables, and snapshot enumeration order. `python -m
+repoctl capability plan NAME --output .repo/plans/NAME.json` stores that
+inspectable plan without changing its snapshot digest; `capability apply` uses
+the durable transaction protocol to create the requested DRAFT capsule exactly
+once, with an `already_applied` replay outcome. The capsule still has no
+placeholder product model or lifecycle transition.
 
 The proof loop is intentionally narrower than the full gate. One
 `proof/policy.toml` sets the shared discovery policy and names the ownership-zone

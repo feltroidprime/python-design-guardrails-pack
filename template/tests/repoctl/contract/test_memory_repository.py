@@ -78,6 +78,16 @@ def test_default_snapshot_roots_follow_the_configured_package() -> None:
     assert "src/catalog_service/_generated" in roots_by_zone["DERIVED"]
 
 
+def test_snapshot_excludes_saved_control_plans_but_keeps_them_readable() -> None:
+    plan_path = RepositoryPathCandidate(value=".repo/plans/alpha.json")
+    repository = MemoryRepository(initial_contents={plan_path: b'{"plan_id":"alpha"}'})
+
+    snapshot = repository.snapshot()
+
+    assert snapshot.files == ()
+    assert repository.read_bytes(plan_path) == b'{"plan_id":"alpha"}'
+
+
 def test_snapshot_derives_a_capability_declaration_from_memory_contents() -> None:
     declaration = b"""schema_version = 1
 name = "alpha"

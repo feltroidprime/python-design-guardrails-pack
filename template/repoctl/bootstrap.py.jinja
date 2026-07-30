@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run read-only repository-control commands against the current repository."""
+    """Run repository-control commands against the current repository."""
     arguments = sys.argv[1:] if argv is None else list(argv)
     return run(
         arguments,

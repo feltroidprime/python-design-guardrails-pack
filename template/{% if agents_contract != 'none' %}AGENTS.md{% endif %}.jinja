@@ -92,7 +92,12 @@ adapter with no independent path-rule table, and preserve
 `REPOCTL::PLAN-PATH-CLOSED`. Keep `plan(snapshot, intent)` a pure total
 decision over explicit ownership roots and prior file digests, preserve
 `REPOCTL::PLAN-DETERMINISTIC`, and never emit an operation for an existing
-PRODUCT path. Do not invent product semantics merely to fill its layers.
+PRODUCT path. `capability plan` may persist only its inspectable canonical
+control artifact in the plans directory beneath the repository declaration,
+excluded from the planning snapshot;
+`capability apply` materializes the DRAFT capsule through the durable
+transaction protocol and must replay as `already_applied` without changing
+state. Do not invent product semantics merely to fill its layers.
 
 ## Proof-carrying core contract
 
@@ -207,6 +212,7 @@ The example application separates two kinds of code (see ADR-0001):
 | Change a derived capability index | keep `repoctl` compilation a pure projection of explicit declarations, preserve `REPOCTL::DERIVED-INDEX-EXACT`, and import the capability through its `api.py` facade in external evidence |
 | Change repository path ownership | edit the pure classifier behind the repository-generation `api.py`, preserve its named boundary errors and `REPOCTL::PLAN-PATH-CLOSED`, and leave `scripts/ownership.py` as an adapter without a second rule table |
 | Change capability planning | keep ownership roots and prior digests in `RepositorySnapshot`, preserve create-only PRODUCT seeds and exact preconditions, and prove `REPOCTL::PLAN-DETERMINISTIC` through the repository-generation `api.py` |
+| Expose capability plan/apply | use the repository port for plan-control artifacts and application `apply`; never give the control CLI direct filesystem access or let saved plans affect a planning digest |
 | Prove retries, ordering, leases, or legal transitions | write a small reference predicate and a Hypothesis `RuleBasedStateMachine`; keep external effects behind fakes/ports |
 | New port | single operation → callable `type` alias; multiple operations → `Protocol` (both in `application/ports.py`) |
 | Expose a CLI command | add one `CommandSpec` in `adapters/inbound/cli_catalog.py` and matching independent command/outcome process cases; preserve ADR-0002 and ADR-0004 |

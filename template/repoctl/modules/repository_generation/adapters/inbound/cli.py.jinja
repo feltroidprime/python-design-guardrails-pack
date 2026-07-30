@@ -1,4 +1,4 @@
-"""Argparse boundary for read-only repository-control commands."""
+"""Argparse boundary for repository-control queries and mutations."""
 
 import argparse
 from dataclasses import dataclass
@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, NoReturn, override
 
 from {{ package }}.adapters.inbound.cli_contract import (
     ArgumentSpec,
+    CommandKind,
     CommandPolicy,
     FlagOption,
     OutputMode,
@@ -38,6 +39,7 @@ from repoctl.modules.repository_generation.adapters.inbound.cli_catalog import (
     COMMAND_CATALOG,
     ControlCommandName,
 )
+from repoctl.modules.repository_generation.adapters.inbound.cli_mutations import run_mutation
 from repoctl.modules.repository_generation.application.ports import (
     RepositoryPort,
     RepositoryPortError,
@@ -125,6 +127,8 @@ def _parser(*, out: TextIO) -> _ContractParser:
     parser.bind_output(out)
     commands = parser.add_subparsers(dest="command", required=True)
     for spec in COMMAND_CATALOG:
+        if spec.kind != CommandKind.QUERY:
+            continue
         command = commands.add_parser(
             spec.name.value,
             help=spec.purpose,
@@ -446,6 +450,8 @@ def _dispatch(request: _QueryRequest, snapshot: RepositorySnapshot, *, out: Text
             _write_capabilities(request, snapshot, out=out)
         case ControlCommandName.STATUS:
             _write_status(request, snapshot, out=out)
+        case _:
+            raise ValueError("Mutation commands must use the capability mutation boundary.")
     return ExitCode.SUCCESS
 
 
@@ -456,7 +462,10 @@ def run(
     out: TextIO,
     err: TextIO,
 ) -> int:
-    """Translate argv into one read-only repository query and emit its declared result."""
+    """Translate argv into one declared repository-control result."""
+    mutation_result = run_mutation(argv, repository=repository, out=out, err=err)
+    if mutation_result is not None:
+        return mutation_result
     try:
         request = _parse(argv, parser=_parser(out=out))
     except _ParserExitError as error:

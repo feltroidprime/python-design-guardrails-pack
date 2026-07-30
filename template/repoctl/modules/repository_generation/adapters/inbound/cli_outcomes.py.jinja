@@ -1,0 +1,97 @@
+"""Structured mutation outcomes independent of the product command vocabulary."""
+
+from dataclasses import dataclass
+import json
+from typing import TYPE_CHECKING
+
+from {{ package }}.adapters.inbound.cli_contract import OutputMode
+from {{ package }}.adapters.inbound.cli_outcomes import ExitCode
+from {{ package }}.adapters.inbound.cli_protocol import SCHEMA_VERSION
+
+if TYPE_CHECKING:
+    from typing import TextIO
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MutationFailure:
+    """One public, non-success mutation result with recovery guidance."""
+
+    code: str
+    exit_code: ExitCode
+    message: str
+    hint: str
+
+
+def invalid_plan_failure(message: str) -> MutationFailure:
+    """Describe an unreadable or structurally invalid saved plan."""
+    return MutationFailure(
+        code="invalid_plan",
+        exit_code=ExitCode.PERMANENT_REJECTION,
+        message=message,
+        hint="Create a fresh plan with 'python -m repoctl capability plan NAME'.",
+    )
+
+
+def plan_output_failure(message: str) -> MutationFailure:
+    """Describe an unsafe or unavailable inspectable-plan destination."""
+    return MutationFailure(
+        code="plan_output_unavailable",
+        exit_code=ExitCode.PERMANENT_REJECTION,
+        message=message,
+        hint="Use an absent relative .repo/plans/<name>.json destination.",
+    )
+
+
+def repository_failure(message: str) -> MutationFailure:
+    """Describe a local repository dependency failure without leaking internals."""
+    return MutationFailure(
+        code="dependency_unavailable",
+        exit_code=ExitCode.TEMPORARY_UNAVAILABLE,
+        message=message,
+        hint="Retry after the local repository dependency is available.",
+    )
+
+
+def apply_failure(*, status: str, recovery_instruction: str) -> MutationFailure:
+    """Translate one non-success application outcome to the CLI protocol."""
+    messages = {
+        "invalid_plan": "The saved capability plan is invalid.",
+        "stale_plan": "The saved capability plan no longer matches repository state.",
+        "product_file_exists": "An existing product file prevents capability application.",
+        "recovery_required": "A previous capability application requires recovery.",
+        "result_mismatch": "Capability application did not reach its planned result state.",
+    }
+    return MutationFailure(
+        code=status,
+        exit_code=ExitCode.PERMANENT_REJECTION,
+        message=messages.get(status, "Capability application was refused."),
+        hint=recovery_instruction or "Inspect the plan and repository state before retrying.",
+    )
+
+
+def write_mutation_failure(
+    *,
+    command: str,
+    failure: MutationFailure,
+    output_mode: OutputMode,
+    err: TextIO,
+) -> int:
+    """Write one stable human or machine error without using product outcome codes."""
+    if output_mode == OutputMode.HUMAN:
+        _ = err.write(f"error: {failure.message}\n{failure.hint}\n")
+    else:
+        details: dict[str, object] = {}
+        error: dict[str, object] = {
+            "code": failure.code,
+            "message": failure.message,
+            "retryable": failure.exit_code == ExitCode.TEMPORARY_UNAVAILABLE,
+            "hint": failure.hint,
+            "details": details,
+        }
+        document: dict[str, object] = {
+            "schema_version": SCHEMA_VERSION,
+            "command": command,
+            "error": error,
+        }
+        _ = err.write(json.dumps(document, ensure_ascii=False, separators=(",", ":")) + "\n")
+    return int(failure.exit_code)

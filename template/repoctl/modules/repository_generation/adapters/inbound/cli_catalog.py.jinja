@@ -1,20 +1,24 @@
-"""Closed registration surface for repository-control query commands."""
+"""Closed registration surface for repository-control commands."""
 
 from enum import StrEnum
 from typing import cast
 
 from {{ package }}.adapters.inbound.cli_contract import (
+    ChoiceOption,
     CommandKind,
     CommandName,
     CommandSpec,
     FlagOption,
     InputMode,
     InputPolicy,
+    MutationPolicy,
     NonDestructiveSafety,
     OutputMode,
     OutputOption,
     PageLimitOption,
+    PositionalText,
     QueryPolicy,
+    RetryPolicy,
     StdinMode,
     TextOption,
 )
@@ -29,6 +33,8 @@ class ControlCommandName(StrEnum):
 
     CAPABILITIES = "capabilities"
     STATUS = "status"
+    CAPABILITY_PLAN = "capability plan"
+    CAPABILITY_APPLY = "capability apply"
 
 
 DEBUG_OPTION = FlagOption(
@@ -85,6 +91,62 @@ COMMAND_CATALOG: tuple[CommandSpec, ...] = (
         outcomes=(DEPENDENCY_UNAVAILABLE,),
         arguments=(
             PageLimitOption(flag="--limit", destination="limit", help="one status document"),
+            OutputOption(),
+            DEBUG_OPTION,
+        ),
+    ),
+    CommandSpec(
+        name=cast(CommandName, cast(object, ControlCommandName.CAPABILITY_PLAN)),
+        kind=CommandKind.MUTATION,
+        purpose="Write one inspectable immutable capability plan without applying it.",
+        automation_example=(
+            "python -m repoctl capability plan NAME --output .repo/plans/NAME.json"
+        ),
+        output_modes=(OutputMode.JSON, OutputMode.HUMAN),
+        default_output_mode=OutputMode.JSON,
+        policy=MutationPolicy(retry=RetryPolicy.UNCONDITIONAL),
+        input_policy=InputPolicy(primary=InputMode.ARGUMENTS, stdin=StdinMode.FORBIDDEN),
+        safety=NonDestructiveSafety(),
+        outcomes=(DEPENDENCY_UNAVAILABLE,),
+        arguments=(
+            PositionalText(name="name", help="capability name"),
+            ChoiceOption(
+                flag="--inbound",
+                destination="inbound",
+                help="repeatable inbound architectural seam",
+                choices=(),
+                repeatable=True,
+            ),
+            ChoiceOption(
+                flag="--outbound",
+                destination="outbound",
+                help="repeatable outbound architectural seam",
+                choices=(),
+                repeatable=True,
+            ),
+            TextOption(
+                flag="--output",
+                destination="output",
+                help="relative inspectable plan destination",
+                default="",
+            ),
+            OutputOption(),
+            DEBUG_OPTION,
+        ),
+    ),
+    CommandSpec(
+        name=cast(CommandName, cast(object, ControlCommandName.CAPABILITY_APPLY)),
+        kind=CommandKind.MUTATION,
+        purpose="Apply one previously inspected immutable capability plan exactly once.",
+        automation_example="python -m repoctl capability apply .repo/plans/NAME.json",
+        output_modes=(OutputMode.JSON, OutputMode.HUMAN),
+        default_output_mode=OutputMode.JSON,
+        policy=MutationPolicy(retry=RetryPolicy.UNCONDITIONAL),
+        input_policy=InputPolicy(primary=InputMode.ARGUMENTS, stdin=StdinMode.FORBIDDEN),
+        safety=NonDestructiveSafety(),
+        outcomes=(DEPENDENCY_UNAVAILABLE,),
+        arguments=(
+            PositionalText(name="plan_reference", help="saved inspectable plan path"),
             OutputOption(),
             DEBUG_OPTION,
         ),

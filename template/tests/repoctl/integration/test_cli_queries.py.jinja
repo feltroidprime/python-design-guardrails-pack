@@ -10,7 +10,12 @@ from typing import cast
 
 import pytest
 
-from {{ package }}.adapters.inbound.cli_contract import CommandSpec, QueryPolicy
+from {{ package }}.adapters.inbound.cli_contract import (
+    CommandKind,
+    CommandSpec,
+    MutationPolicy,
+    QueryPolicy,
+)
 
 # isort: split
 from repoctl.modules.repository_generation.api import (
@@ -144,6 +149,17 @@ def test_control_catalog_uses_the_product_command_protocol_types() -> None:
     assert {spec.name.value for spec in COMMAND_CATALOG} == {
         ControlCommandName.CAPABILITIES.value,
         ControlCommandName.STATUS.value,
+        ControlCommandName.CAPABILITY_PLAN.value,
+        ControlCommandName.CAPABILITY_APPLY.value,
     }
     assert all(type(spec) is CommandSpec for spec in COMMAND_CATALOG)
-    assert all(isinstance(spec.policy, QueryPolicy) for spec in COMMAND_CATALOG)
+    assert all(
+        isinstance(spec.policy, QueryPolicy)
+        for spec in COMMAND_CATALOG
+        if spec.kind == CommandKind.QUERY
+    )
+    assert all(
+        isinstance(spec.policy, MutationPolicy)
+        for spec in COMMAND_CATALOG
+        if spec.kind == CommandKind.MUTATION
+    )
