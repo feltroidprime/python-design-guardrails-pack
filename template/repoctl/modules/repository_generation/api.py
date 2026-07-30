@@ -1,5 +1,8 @@
 """Stable public surface of the repository-generation capability."""
 
+from repoctl.modules.repository_generation.adapters.outbound.local_repository import (
+    LocalRepository,
+)
 from repoctl.modules.repository_generation.adapters.outbound.memory_repository import (
     MemoryRepository,
 )
@@ -81,6 +84,7 @@ __all__ = [
     "DerivedIndexes",
     "DotPathSegmentError",
     "EmptyPathSegmentError",
+    "LocalRepository",
     "MemoryRepository",
     "NonCanonicalSeparatorError",
     "Operation",
