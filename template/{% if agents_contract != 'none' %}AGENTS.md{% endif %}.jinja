@@ -41,13 +41,6 @@ While editing:
 6. Green means the unmodified gate exits zero. Then report the property IDs changed, counterexamples considered, architecture impact, external assumptions, and remaining risks.
 {% if agents_contract == 'hooks-first' %}7. Commit and push. Publication is complete when the commit and pre-push hooks succeed and `just doctor` reports no failures.
 {% endif %}
-### Scaffold updates
-
-From a clean branch, use `just scaffold-update` to merge the newest tagged
-pack release; `just update` remains dependency-only. Resolve Copier conflicts,
-then complete the same `just check` loop before committing the update. Never
-edit `.copier-answers.yml` by hand.
-
 ### Session evidence
 
 When this coding session must be retained for harness analysis, run

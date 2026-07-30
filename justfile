@@ -35,7 +35,6 @@ test-fast: check
 # temporary directory that must pass the generated repository's full quality gate.
 validate: test
     uv run --no-project --python 3.14 --with copier==9.17.0 python scripts/validate_pack.py
-    PACK_RUN_DOWNSTREAM_GATE=1 uv run --no-project --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 --with copier==9.17.0 --with "icontract>=2.7.3" pytest -q -n 2 tests/test_update_roundtrip.py
 
 # Create an annotated PEP 440 template tag after verifying its changelog entry
 # and a clean working tree. Tags are pushed separately by the release operator.

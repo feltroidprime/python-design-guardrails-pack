@@ -32,7 +32,6 @@ just prove-deep # larger generated/stateful/symbolic search for risky changes
 just proof-report  # print the property/evidence matrix
 just doctor     # fast deployment and publication readiness verdict
 just session-log <transcript> [output] [agent]  # preserve Claude/Codex evidence
-just scaffold-update  # merge the newest tagged scaffold release
 just update     # update dependencies and hook revisions intentionally
 ```
 
@@ -96,33 +95,6 @@ synchronization with `origin`, GitHub CLI authentication, dependency
 synchronization, and Python version, followed by a verdict. Missing remotes,
 an absent or offline GitHub CLI, and policy intentionally omitted by the
 selected configuration are warnings; any failed check exits non-zero.
-
-## Scaffold updates
-
-Copier owns `.copier-answers.yml`; do not edit that provenance file by hand.
-From a clean branch, check whether the scaffold source has a newer tagged release:
-
-```bash
-uvx --from copier==9.17.0 copier check-update --quiet
-```
-
-Exit status `0` means the repository is current, while exit status `2` means
-an update is available. Any other status is an error. Apply the update
-non-interactively from the recorded answers with Copier's three-way merge and
-explicit inline conflicts:
-
-```bash
-just scaffold-update
-```
-
-If Copier cannot merge a local customization automatically, it leaves standard
-inline conflict markers. Resolve every marker, then run the generated
-repository's existing guard and full gate before committing:
-
-```bash
-uv run prek run check-merge-conflict --all-files
-just check
-```
 
 ## Coding-agent session evidence
 

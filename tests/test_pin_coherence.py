@@ -60,16 +60,12 @@ def assert_coherent(found: list[tuple[str, str]], minimum: int) -> None:
 def test_copier_pin_is_coherent() -> None:
     assert_coherent(
         occurrences(rf"copier=={VERSION}", rf"_min_copier_version: \"{VERSION}\""),
-        8,
+        5,
     )
 
 
-def test_pytest_xdist_pin_is_coherent() -> None:
-    assert_coherent(occurrences(rf"pytest-xdist=={VERSION}"), 2)
-
-
 def test_icontract_floor_is_coherent() -> None:
-    assert_coherent(occurrences(rf"icontract>={VERSION}"), 4)
+    assert_coherent(occurrences(rf"icontract>={VERSION}"), 3)
 
 
 def test_prek_floor_is_coherent() -> None:

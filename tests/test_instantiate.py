@@ -253,7 +253,6 @@ def test_generated_justfile_has_one_routine_gate_and_one_private_e2e_route(
         "proof-report",
         "doctor",
         "session-e2e",
-        "scaffold-update",
         "update",
     ]
     assert re.findall(r"(?m)^([a-z][a-z0-9-]*) [^:\n]+:$", justfile) == [
@@ -266,10 +265,8 @@ def test_generated_justfile_has_one_routine_gate_and_one_private_e2e_route(
     assert "uv run python -m scripts.crosshair_gate fast" in justfile
     assert '--property-id "$1"' in justfile
     assert "HYPOTHESIS_PROFILE=fast" in justfile
-    assert (
-        "env -u PYTHONPYCACHEPREFIX uvx --from copier==9.17.0 copier update "
-        "--defaults --conflict inline" in justfile
-    )
+    assert "scaffold-update:" not in justfile
+    assert "copier update" not in justfile
     assert justfile.count('uv run --with "$SESSION_PROFILER_DEPENDENCY" pytest') == 1
     assert "-m session_e2e" in justfile
     assert "scripts.architecture_guard" not in justfile
@@ -466,40 +463,6 @@ def test_generated_repository_can_preserve_complete_agent_sessions(
     assert "output/" not in gitignore
 
 
-def test_scaffold_update_does_not_create_an_invalid_project_venv(
-    tmp_path: Path,
-) -> None:
-    project = _generate_with_answers(tmp_path / "project", {})
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    uvx = bin_dir / "uvx"
-    uvx.write_text(
-        "#!/usr/bin/env bash\n"
-        "set -euo pipefail\n"
-        '[[ -z "${PYTHONPYCACHEPREFIX+x}" ]]\n'
-        '[[ "$*" == "--from copier==9.17.0 copier update --defaults '
-        '--conflict inline" ]]\n',
-        encoding="utf-8",
-    )
-    uvx.chmod(0o755)
-    environment = {
-        **os.environ,
-        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
-    }
-
-    result = subprocess.run(
-        ["just", "scaffold-update"],
-        cwd=project,
-        env=environment,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert not (project / ".venv").exists()
-
-
 def test_generation_records_copier_template_and_answers(generated: Path) -> None:
     answers = (generated / ".copier-answers.yml").read_text(encoding="utf-8")
 
@@ -512,23 +475,24 @@ def test_generation_records_copier_template_and_answers(generated: Path) -> None
     assert re.search(rf"(?m)^package: ['\"]?{PACKAGE_NAME}['\"]?$", answers)
 
 
-def test_generated_readme_documents_copier_update_workflow(generated: Path) -> None:
+def test_generated_readme_does_not_document_scaffold_updates(generated: Path) -> None:
     readme = (generated / "README.md").read_text(encoding="utf-8")
 
     assert "`python-repo init` runs this recipe before creating the baseline commit" in readme
     assert "Linked worktrees created with `git worktree add`" in readme
-    assert "uvx --from copier==9.17.0 copier check-update --quiet" in readme
-    assert "exit status `2`" in readme
-    assert "just scaffold-update" in readme
-    assert "check-merge-conflict" in readme
+    assert "## Scaffold updates" not in readme
+    assert "scaffold-update" not in readme
+    assert "copier check-update" not in readme
 
 
-def test_generated_agent_contract_routes_scaffold_updates(generated: Path) -> None:
+def test_generated_agent_contract_does_not_route_scaffold_updates(
+    generated: Path,
+) -> None:
     contract = (generated / "AGENTS.md").read_text(encoding="utf-8")
 
-    assert "`just scaffold-update`" in contract
-    assert "`just update` remains dependency-only" in contract
-    assert "Resolve Copier conflicts" in contract
+    assert "### Scaffold updates" not in contract
+    assert "scaffold-update" not in contract
+    assert "Copier conflicts" not in contract
 
 
 def test_generated_readiness_docs_route_doctor_before_publication(

@@ -49,10 +49,6 @@ session-log input output=".agent-sessions" agent="auto":
 session-e2e:
     uv run --with "$SESSION_PROFILER_DEPENDENCY" pytest -q -m session_e2e -o addopts="--strict-config --strict-markers --disable-socket" tests/e2e
 
-# Apply the newest tagged scaffold release with Copier's three-way merge.
-scaffold-update:
-    env -u PYTHONPYCACHEPREFIX uvx --from copier==9.17.0 copier update --defaults --conflict inline
-
 update:
 {% if not workspace_member %}    uv lock --upgrade
     uv run prek update

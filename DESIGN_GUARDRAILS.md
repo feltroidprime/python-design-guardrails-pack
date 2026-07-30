@@ -20,8 +20,10 @@ root-only exceptions cover the generator's subprocess and CLI boundaries.
 Pre-commit proves fast rendering and policy coherence; pre-push runs the
 complete root suite with four work-stealing workers under a one-minute
 interaction budget. The slower downstream generation, symbolic, repair,
-worktree, and Copier-update matrix remains mandatory through `just validate`
-at completion and in CI.
+worktree, and synthetic foundation-update ownership-preservation checks remain
+mandatory through `just validate` at completion and in CI. The pack exposes no
+public Copier update command; a future versioned repository-update protocol
+will own foundation migrations.
 
 ## Code-level design
 

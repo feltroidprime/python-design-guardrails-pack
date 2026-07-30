@@ -70,8 +70,8 @@ repository, not this one.
    `template/` requires an explicit rationale in the change description and an
    update to `DESIGN_GUARDRAILS.md` when the mapping changes.
 4. **Keep version pins coherent.** Several pins deliberately exist in more
-   than one place (Copier, uv, the prek floor, pytest-xdist, and the
-   private session-profiler commit).
+   than one place (Copier, uv, the prek floor, and the private
+   session-profiler commit).
    `tests/test_pin_coherence.py` discovers every occurrence by scanning the
    tracked tree and fails `just test` when any copy disagrees, so there is no
    location list to memorize: move a pin, then update the copies the test

@@ -11,13 +11,17 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Remove the public `just scaffold-update` Copier workflow and its generated
+  documentation. Foundation migration remains deferred to the planned
+  repository update protocol; the synthetic ownership-preservation acceptance
+  test remains.
 - Make the prek commit and pre-push hook policy unconditional. The `precommit`
   Copier question is removed: every standalone generated repository now ships
   `prek.toml`, the `prek` dev dependency, and the `prek install`/`prek update`
   steps in `just bootstrap`/`just update`. Workspace members still omit them,
   because the workspace root owns hooks and the lockfile. Existing repositories
-  answering `precommit = false` gain the hook policy on the next
-  `just scaffold-update`.
+  answering `precommit = false` need a future versioned migration to adopt the
+  hook policy.
 - Remove the end-to-end value benchmark harness (`benchmarks/`, its tests, and
   the `just benchmark*`/`just bench-*` recipes) from the maintainer repository.
   It never shipped to generated repositories, so downstream content is
@@ -70,9 +74,8 @@ identity, including the dirty marker when the experiment has uncommitted changes
   the CI `setup-bun` step, and **Bun is no longer a prerequisite**. Import Linter
   still enforces the layer contract.
 - Renumber the shipped foundation ADRs so previous 0002-0006 become 0001-0005
-  and add the proof-carrying-core decision as 0006. Repositories updating with
-  `just scaffold-update` will see these renames; adjust local
-  `ARCH-EXCEPTION: ADR-NNNN` markers accordingly.
+  and add the proof-carrying-core decision as 0006. A future versioned
+  migration must handle local `ARCH-EXCEPTION: ADR-NNNN` markers accordingly.
 - Scope the docs guard's derived-documentation exclusion to any `generated/`
   directory under `docs/`.
 - Harden `just check` as a mechanical gate: before any repair or acceptance

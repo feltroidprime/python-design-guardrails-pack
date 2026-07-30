@@ -27,8 +27,8 @@ escapes, empty segments, and non-canonical Unicode, while
 icontract, Hypothesis, and CrossHair. The quality gate rejects overlapping
 roots, unowned repository paths, and capability imports that bypass `api.py`;
 the pack rejects any template file that would render into a user-owned PRODUCT
-root. Empty derived indexes carry a source-state digest, and a real Copier
-update test proves scaffold updates leave seeded product bytes unchanged.
+root. Empty derived indexes carry a source-state digest, and a synthetic
+foundation-update test proves seeded product bytes remain unchanged.
 
 The generated foundation also includes the draft
 `repoctl.modules.repository_generation` system capability. Its real hexagonal
@@ -112,25 +112,6 @@ by one verdict line. Missing remotes, an unavailable or offline GitHub CLI, and
 intentionally omitted standalone policy are warnings; any failed check makes
 the command exit non-zero.
 
-Generated repositories retain the pack's durable GitHub provenance. From a
-clean branch, `just scaffold-update` applies the newest tagged pack release
-through Copier's three-way merge; `just update` remains dependency-only.
-
-Repositories generated before `scaffold-update` existed can bootstrap it by
-running the recipe body once from a clean branch:
-
-```bash
-env -u PYTHONPYCACHEPREFIX uvx --from copier==9.17.0 copier update --defaults --conflict inline
-```
-
-That command can only follow a reachable tagged Git source. If the older
-`.copier-answers.yml` records a temporary or installed local `_src_path`, first
-replace only that value with
-`https://github.com/feltroidprime/python-design-guardrails-pack.git` on the
-clean migration branch. The update then records the durable source and adds
-`just scaffold-update`; Copier owns the answers file again after this one-time
-provenance repair.
-
 ## Workspace member mode
 
 Answer `workspace_member: true` (default `false`) when the generated project is
@@ -186,7 +167,7 @@ One opinionated stack. One reason for every choice.
 | Installable `python-repo` CLI | Generate, bootstrap, validate, commit, and optionally publish with one stable command. |
 | Pinned Copier engine | Use maintained generation with controlled renderer behavior. |
 | Validated answers and strict Jinja | Reject bad package names, unknown data, and half-rendered output immediately. |
-| Copier provenance and `just scaffold-update` | Pull tagged template releases with a three-way merge instead of blindly replacing local changes. |
+| Copier provenance | Record source and answers for reproducible generation; future foundation migrations use the planned repository update protocol. |
 | Automatic Git and optional GitHub setup | Start from a committed baseline and publish without manual remote wiring. |
 | Python 3.14 only | Use current typing and language semantics without compatibility branches. |
 | One deliberate runtime proof dependency | `icontract` keeps preconditions, postconditions, and invariants executable in production; Hypothesis and CrossHair remain development-only. |
@@ -247,12 +228,12 @@ just release vX.Y.Z # verify and create an annotated release tag
 then generates a throwaway repository, checks template cleanliness and
 rendering, resolves dependencies, proves hook repair and tracked-Python syntax
 rejection, exercises `just doctor` in green and faulted states, runs the
-downstream gate, and tests an offline Copier update.
+downstream gate, and verifies synthetic foundation-update ownership preservation.
 
 The pack's pre-push hook runs the complete root suite with pytest-xdist
 work-stealing and is budgeted below one minute. The slower generated bootstrap,
-hook-repair, linked-worktree, symbolic, and offline-update matrix remains in
-`just validate`; CI runs that canonical command, and maintainers still run it
-before claiming a template or validation change complete.
+hook-repair, linked-worktree, and symbolic matrix remains in `just validate`;
+CI runs that canonical command, and maintainers still run it before claiming a
+template or validation change complete.
 
 See `DESIGN_GUARDRAILS.md` for the design-to-enforcement rationale and `VALIDATION.md` for the last recorded full validation.
