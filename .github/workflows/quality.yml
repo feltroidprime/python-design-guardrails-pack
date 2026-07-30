@@ -33,8 +33,9 @@ jobs:
 
       # The root is intentionally venv-less and lock-free; uv provisions the
       # exact pins each recipe names, including the 3.14 interpreter.
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v9
         with:
+          version: "0.12.0"
           enable-cache: true
 
       - name: Install just

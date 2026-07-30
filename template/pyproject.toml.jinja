@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build==0.11.28"]
+requires = ["uv_build==0.12.0"]
 build-backend = "uv_build"
 
 [project]
@@ -29,7 +29,7 @@ dev = [
 ]
 
 {% endif %}[tool.uv]
-required-version = ">=0.11.28,<0.12"
+required-version = ">=0.12.0,<0.13"
 {% if not workspace_member %}# z3-solver 5.0.0.0 (a crosshair-tool dependency) ships a macOS arm64 wheel whose
 # internal WHEEL tag (macosx_13_3_arm64) disagrees with its filename tag, so uv
 # reinstalls it on every sync and `uv sync --check` never converges, which keeps

@@ -86,11 +86,12 @@ def test_ruff_floor_is_coherent() -> None:
 def test_uv_pin_is_coherent() -> None:
     assert_coherent(
         occurrences(
+            rf"uv_build=={VERSION}",
             rf"required-version = \">={VERSION},",
             rf"setup-uv@v\d+\s+with:\s+version: \"{VERSION}\"",
             rf"uv-pre-commit\"\s*rev = \"{VERSION}\"",
         ),
-        3,
+        5,
     )
 
 
