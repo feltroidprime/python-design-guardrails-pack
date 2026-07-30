@@ -1,5 +1,17 @@
 """Stable public surface of the repository-generation capability."""
 
+from repoctl.modules.repository_generation.application.ports import (
+    RepositoryConflictError,
+    RepositoryPathEscapeError,
+    RepositoryPort,
+    RepositoryPortError,
+    RepositoryTransactionError,
+    TransactionAlreadyExistsError,
+    TransactionInspection,
+    TransactionMissingError,
+    TransactionState,
+    TransactionStateError,
+)
 from repoctl.modules.repository_generation.domain.decisions import plan
 from repoctl.modules.repository_generation.domain.indexes import (
     DerivedCapability,
@@ -75,10 +87,20 @@ __all__ = [
     "OwnershipZoneRoots",
     "ParentPathError",
     "PlanningOwnershipError",
+    "RepositoryConflictError",
     "RepositoryFile",
     "RepositoryPath",
     "RepositoryPathCandidate",
+    "RepositoryPathEscapeError",
+    "RepositoryPort",
+    "RepositoryPortError",
     "RepositorySnapshot",
+    "RepositoryTransactionError",
+    "TransactionAlreadyExistsError",
+    "TransactionInspection",
+    "TransactionMissingError",
+    "TransactionState",
+    "TransactionStateError",
     "UnclassifiedPathError",
     "UnicodeNormalizationPathError",
     "canonical_index_bytes",

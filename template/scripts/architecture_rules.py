@@ -30,6 +30,41 @@ REPOSITORY_GENERATION_DOMAIN_IMPORT_ROOTS = frozenset(
         "unicodedata",
     }
 )
+REPOSITORY_GENERATION_APPLICATION_IMPORT_ROOTS = frozenset(
+    {
+        "dataclasses",
+        "hashlib",
+        "json",
+        "repoctl",
+        "typing",
+    }
+)
+REPOSITORY_GENERATION_APPLICATION_EFFECT_ROOTS = frozenset(
+    {
+        "aiohttp",
+        "asyncio",
+        "concurrent",
+        "django",
+        "fastapi",
+        "flask",
+        "httpx",
+        "logging",
+        "multiprocessing",
+        "os",
+        "pathlib",
+        "random",
+        "requests",
+        "secrets",
+        "shutil",
+        "socket",
+        "sqlalchemy",
+        "subprocess",
+        "sys",
+        "threading",
+        "time",
+        "urllib",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -270,23 +305,18 @@ def check_import(
     ambient_effect_scope: str | None,
 ) -> list[Violation]:
     violations: list[Violation] = []
-    if ambient_effect_scope == REPOSITORY_GENERATION_APPLICATION_SCOPE:
-        violations.append(
-            violation(
-                path,
-                node,
-                "ARCH011",
-                (
-                    "Repository-generation application code must remain import-free "
-                    "during the planning-only stage."
-                ),
-            )
-        )
-    elif ambient_effect_scope is not None:
+    if ambient_effect_scope is not None:
         imported_roots = import_roots(node)
-        forbidden_roots = (
-            imported_roots - REPOSITORY_GENERATION_DOMAIN_IMPORT_ROOTS
+        allowed_roots = (
+            REPOSITORY_GENERATION_APPLICATION_IMPORT_ROOTS
+            if ambient_effect_scope == REPOSITORY_GENERATION_APPLICATION_SCOPE
+            else REPOSITORY_GENERATION_DOMAIN_IMPORT_ROOTS
             if ambient_effect_scope == REPOSITORY_GENERATION_DOMAIN_SCOPE
+            else None
+        )
+        forbidden_roots = (
+            imported_roots - allowed_roots
+            if allowed_roots is not None
             else imported_roots & policy.forbidden_import_roots
         )
         violations.extend(
@@ -322,16 +352,16 @@ def check_call(
     if ambient_effect_scope is None:
         return []
     name = dotted_name(node.func)
-    forbidden = ambient_effect_scope == REPOSITORY_GENERATION_APPLICATION_SCOPE or any(
+    forbidden = (
+        name.split(".", maxsplit=1)[0] in REPOSITORY_GENERATION_APPLICATION_EFFECT_ROOTS
+        if ambient_effect_scope == REPOSITORY_GENERATION_APPLICATION_SCOPE
+        else False
+    ) or any(
         name == suffix or name.endswith(f".{suffix}") for suffix in policy.forbidden_call_suffixes
     )
     if not forbidden:
         return []
-    message = (
-        "Repository-generation application code must remain call-free during the planning-only stage."
-        if ambient_effect_scope == REPOSITORY_GENERATION_APPLICATION_SCOPE
-        else f"{ambient_effect_scope} call '{name}' is nondeterministic or performs I/O."
-    )
+    message = f"{ambient_effect_scope} call '{name}' is nondeterministic or performs I/O."
     return [
         violation(
             path,

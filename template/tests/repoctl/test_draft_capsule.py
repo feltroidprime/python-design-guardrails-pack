@@ -75,7 +75,7 @@ def test_repoctl_tree_is_entirely_foundation_owned() -> None:
 
 def test_repository_generation_application_rejects_ambient_effects() -> None:
     root = repository_root()
-    path = root / CAPABILITY_ROOT / "application/__init__.py"
+    path = root / CAPABILITY_ROOT / "application/ports.py"
     policy = load_policy(root)
     source = path.read_text(encoding="utf-8")
     clean_codes = {
