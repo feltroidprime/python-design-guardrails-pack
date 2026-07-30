@@ -1,5 +1,8 @@
 """Stable public surface of the repository-generation capability."""
 
+from repoctl.modules.repository_generation.adapters.outbound.memory_repository import (
+    MemoryRepository,
+)
 from repoctl.modules.repository_generation.application.ports import (
     RepositoryConflictError,
     RepositoryPathEscapeError,
@@ -78,6 +81,7 @@ __all__ = [
     "DerivedIndexes",
     "DotPathSegmentError",
     "EmptyPathSegmentError",
+    "MemoryRepository",
     "NonCanonicalSeparatorError",
     "Operation",
     "OwnershipPathError",
