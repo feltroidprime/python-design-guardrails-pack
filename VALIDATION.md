@@ -6,63 +6,47 @@ uv 0.11.28, just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist
 
 ## Change validated
 
-Issue #52 of epic #44 adds independent state-machine evidence for the
-repository capability protocol.
+Issue #53 of epic #44 adds detached-process contract evidence for every
+`repoctl` control-plane command.
 
-- `verification/harness/repository_model.py` is a primitive-only reference
-  model for capability lifecycle status, declarations, product-byte hashes,
-  derived-index membership, and successful plan IDs. It imports no `repoctl`
-  application or domain implementation.
-- `verification/repoctl/test_repository_state_machine.py` drives the live
-  memory repository through planning, first application, immediate replay,
-  stale-plan rejection, a manual product edit, a second capability, and index
-  regeneration. Its invariant rejects changed product bytes, duplicate
-  successful plan IDs, and paths outside the allowed roots.
-- The deliberate unsafe overwrite mutation produces a two-step counterexample
-  against that model. The focused `-m stateful` command bypasses product
-  coverage only for verification-only paths; the normal full quality gate
-  retains its 90% floor.
-- During validation, #51's Jinja package import was made safe for both short
-  and long rendered package names: its long import is format-stable and its
-  product/repoctl import groups are explicitly split so Ruff repairs do not
-  create drift in either fresh renders or Copier updates.
+- `tests/repoctl/contract/cli_process_cases.py` defines nine public-boundary
+  subprocess cases. Each invokes `python -m repoctl` with closed standard input
+  and captures its two output streams without inspecting command implementation.
+- The cases cover default JSON envelopes, status, capability planning, unknown
+  commands, invalid plan schema, stale plans, plan-output conflicts, repeated
+  application, and bounded capability continuation tokens.
+- `tests/repoctl/contract/test_repoctl_cli_contract.py` verifies successful
+  JSON envelope shape and empty stderr, error stream separation and error
+  envelope shape (including retryability and corrective hints), traceback/ANSI
+  stream sanitation, fixture-specific outcomes, closed stdin, and dynamic
+  coverage of every public control-plane catalog command.
 
 ## Commands and actual results
 
 ```bash
+uv run pytest -q -m contract tests/repoctl/contract/test_repoctl_cli_contract.py
+just test
 just validate
 ```
+
+The focused, freshly rendered acceptance command reported **11 passed** in
+2.02s. Root `just test` reported **215 passed** in 27.01s.
 
 The final canonical `just validate` passed end to end (directly observed exit
 code 0):
 
-- root Ruff repair/check was stable across 137 files; root tests: **215
-  passed** in 34.44s;
+- root Ruff repair/check was stable across 139 files; root tests: **215
+  passed** in 39.01s;
 - template cleanliness, fresh instantiation, generated bootstrap, downstream
   repair probes, missing-hook repair, tracked-syntax and dirty-doctor fault
   probes, and linked-worktree pre-commit/pre-push checks all passed;
 - the generated type gate reported **0 errors, 0 warnings**; ownership,
   architecture, documentation, proof-contract, symbolic-core, and import
   contracts all passed;
-- each generated full quality run reported **241 passed, 8 skipped, 3
+- each generated full quality run reported **252 passed, 8 skipped, 3
   deselected** with **93.94%** coverage;
 - the committed Copier update round trip and offline downstream gate completed
-  **2 passed in 62.16s**.
-
-Additional focused checks against a freshly rendered repository:
-
-```bash
-HYPOTHESIS_PROFILE=fast uv run pytest -q -m stateful verification/repoctl/test_repository_state_machine.py
-uv run pytest -q --no-cov verification/repoctl/test_repository_state_machine.py
-just prove
-```
-
-All commands exited 0. The exact stateful acceptance command reported **1
-passed, 2 deselected** in 0.22s; the complete state-machine module reported
-**3 passed** in 1.03s; and the proof loop reported **38 passed, 26 deselected**.
-The focused acceptance command emitted the expected coverage-library warnings
-because it does not exercise the generated product package and disables coverage
-reporting and enforcement for that narrowly selected run.
+  **2 passed in 64.40s**.
 
 The syntax and dirty-doctor failures printed during validation are deliberate
 fault-injection probes.
@@ -70,7 +54,7 @@ fault-injection probes.
 ## Remaining risks and portability notes
 
 - Full validation ran on Linux x86_64 only. macOS and Windows remain
-  unexercised; their symlink permissions and directory fsync behavior differ.
-- The control CLI intentionally permits saved plans only under its reserved
-  plan-control directory; use the application protocol's recovery instruction
-  when a plan is stale or an interrupted journal requires recovery.
+  unexercised; their subprocess environment and filesystem behavior can differ.
+- The detached-process evidence intentionally inherits the generated Python
+  executable and uses a generated-project `PYTHONPATH`, matching the supported
+  module invocation rather than an installed console-script environment.
