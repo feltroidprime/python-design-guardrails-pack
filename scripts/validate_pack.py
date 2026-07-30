@@ -89,7 +89,7 @@ def find_unrendered_jinja(root: Path) -> list[str]:
 
 def seed_repair_probes(root: Path) -> dict[Path, str]:
     """Introduce lint and format drift for the downstream loop to repair."""
-    entry_point = root / "src" / PACKAGE_NAME / "__main__.py"
+    probe = root / "src" / PACKAGE_NAME / "_generated" / "active_capabilities.py"
     expected: dict[Path, str] = {}
     for path in root.rglob("*"):
         if not path.is_file():
@@ -98,12 +98,10 @@ def seed_repair_probes(root: Path) -> dict[Path, str]:
             expected[path] = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-    broken_entry_point = expected[entry_point].replace(
-        'if __name__ == "__main__":', 'if  __name__=="__main__":'
-    )
-    if broken_entry_point == expected[entry_point]:
-        raise ValueError("repair probe could not find the generated __main__ guard")
-    _ = entry_point.write_text(broken_entry_point, encoding="utf-8")
+    broken_probe = expected[probe].replace(" = ()", "=()")
+    if broken_probe == expected[probe]:
+        raise ValueError("repair probe could not find the generated N0 index declaration")
+    _ = probe.write_text(broken_probe, encoding="utf-8")
     return expected
 
 
@@ -281,7 +279,7 @@ def main() -> int:
             return fail(
                 "downstream repair probes",
                 stale_probes,
-                "Make 'just check' apply deterministic Ruff and diagram repairs before its gate.",
+                "Make 'just check' apply deterministic Ruff repairs before its gate.",
             )
 
         print("\n=== missing-hook repair probe ===")

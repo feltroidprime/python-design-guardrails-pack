@@ -11,6 +11,10 @@ identity, including the dirty marker when the experiment has uncommitted changes
 
 ## [Unreleased]
 
+- Render N0 as a product-empty baseline. Generated repositories retain the
+  repository-control plane, guards, proof system, and generated indexes without
+  shipping a sample product capability; documentation and pack checks now
+  describe that boundary directly.
 - Remove the public `just scaffold-update` Copier workflow and its generated
   documentation. Foundation migration remains deferred to the planned
   repository update protocol; the synthetic ownership-preservation acceptance

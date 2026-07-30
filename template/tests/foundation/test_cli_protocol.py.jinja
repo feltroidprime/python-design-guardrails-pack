@@ -9,8 +9,8 @@ from {{ package }}._generated.active_capabilities import ACTIVE_CAPABILITIES
 from {{ package }}._generated.cli_catalog import CLI_CATALOGS
 from {{ package }}._generated.composition import COMPOSITION
 from {{ package }}.adapters.inbound.cli_outcomes import (
-    ComputedFailureDetail,
     INVALID_CONTINUATION,
+    ComputedFailureDetail,
 )
 from {{ package }}.adapters.inbound.cli_protocol import (
     FailureBody,
@@ -94,7 +94,11 @@ def test_failure_details_must_match_the_declared_outcome(
     [
         ("not-a-token", {"scope": "n0"}, "malformed"),
         (encode_continuation("", selection={"scope": "n0"}), {"scope": "n0"}, "missing_position"),
-        (encode_continuation(" \t", selection={"scope": "n0"}), {"scope": "n0"}, "invalid_position"),
+        (
+            encode_continuation(" \t", selection={"scope": "n0"}),
+            {"scope": "n0"},
+            "invalid_position",
+        ),
         (
             encode_continuation("position", selection={"scope": "other"}),
             {"scope": "n0"},

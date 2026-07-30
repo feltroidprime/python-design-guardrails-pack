@@ -36,7 +36,7 @@ EXAMPLE_MODULES = (
     f"{PACKAGE}.application.idempotency",
     f"{PACKAGE}.application.query_models",
 )
-ITEM_CORE_PATHS = (
+RETIRED_CORE_PATHS = (
     Path("src") / PACKAGE / "application",
     Path("src") / PACKAGE / "domain",
 )
@@ -124,11 +124,11 @@ def test_generated_tree_has_no_example_adapter_or_brick_modules(tmp_path: Path) 
     assert present_modules == []
 
 
-def test_generated_tree_has_no_item_core_or_foundation_properties(tmp_path: Path) -> None:
+def test_generated_tree_has_no_retired_core_or_foundation_properties(tmp_path: Path) -> None:
     generated = tmp_path / "generated"
-    assert instantiate.generate("item-core-removal", PACKAGE, generated) is None
+    assert instantiate.generate("retired-core-removal", PACKAGE, generated) is None
 
-    present_paths = [path for path in ITEM_CORE_PATHS if (generated / path).exists()]
+    present_paths = [path for path in RETIRED_CORE_PATHS if (generated / path).exists()]
     assert present_paths == []
 
     foundation_catalog = tomllib.loads(

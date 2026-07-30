@@ -1,391 +1,130 @@
 # AGENTS.md — repository operating contract
 
 Normative for every coding agent and human contributor.
+
 ## Objective hierarchy
 
 When goals conflict, the higher rule wins:
 
-1. Preserve domain correctness and invariants.
-2. Preserve dependency direction and explicit ownership.
+1. Preserve explicit ownership and repository correctness.
+2. Preserve dependency direction and proof closure.
 3. Keep the smallest coherent design that satisfies the requirement.
 4. Optimize readability for the next human reader.
 5. Optimize speed only after the first four hold.
 
-## Required workflow
+## N0 baseline
 
-Before editing:
+This repository starts at N0. It contains repository control, architecture and
+proof guards, `{{ package }}._foundation`, and empty derived indexes. It
+contains no product capability and PRODUCT roots may be absent.
 
-1. Read the nearest `AGENTS.md`, `architecture.toml`, `proof/policy.toml`, its relevant ownership-zone catalog(s), and relevant ADRs.
-2. Identify the domain concept, use case, boundary, and reason to change.
-3. Name the property, its exact scope, external assumptions, and one plausible counterexample before choosing an implementation.
-4. Trace existing call paths and imports; extend an existing abstraction before creating a parallel one.
-5. State which layer owns the change and which external assumptions remain outside the proof boundary.
+`repoctl.modules.repository_generation` is the sole shipped system capability.
+Its `api.py` is the stable public surface. The package declarations under
+`src/{{ package }}/adapters/inbound/` remain only because repository control
+imports them; do not turn them into a second command implementation or a
+generic framework.
 
-While editing:
+## Before editing
 
-1. Make the smallest vertical slice that proves the behavior.
-2. Write or update the pure specification predicate before coupling evidence to implementation branches.
-3. Keep core state immutable and transformations synchronous, deterministic, side-effect free, and explicit-input driven.
-4. Attach the property to production with `icontract`, then add its canonical Hypothesis proof and falsifying canary.
-5. Use a `RuleBasedStateMachine` when retries, ordering, cancellation, ownership, or previous actions affect correctness.
-6. Inject time, randomness, identifiers, persistence, network clients, subprocesses, GitHub, MCP, and side effects through application-owned ports.
-7. Finish a coherent edit before entering the check loop.
+1. Read this file, `architecture.toml`, `proof/policy.toml`, the relevant
+   declaration catalog, and the owning ADR.
+2. Classify every changed path as FOUNDATION, PRODUCT, DERIVED, or
+   DECLARATION. `architecture.toml` is the only ownership-root declaration.
+3. State the capability, property, exact scope, external assumptions, and one
+   plausible counterexample before changing implementation.
+4. Trace existing imports and call paths. Prefer deletion or the existing
+   canonical boundary over a parallel abstraction.
+5. For a new product capability, use repository control to make the declared
+   intent explicit; never invent product semantics in N0.
 
-### Check loop
+## While editing
 
-1. Run `just prove-one PROPERTY-ID` for the shortest loop while changing one law, or `just prove` for a coherent multi-property edit. Both check global property closure, execute canonical evidence with the fast Hypothesis profile, and run bounded CrossHair analysis only on relevant explicit pure targets.
-2. Run `just check`, the single repair and full verification command, before handoff. It applies deterministic repairs, then executes the complete acceptance gate.
-3. On red, resolve the first remaining failure and rerun the same command. Never weaken a normative property merely to make an implementation pass.
-4. For concurrency, replay, state-machine, parser, or incident-prone changes, also run `just prove-deep`.
-5. Before deployment or publication, run `just doctor`. Every `fail` blocks the operation; `warn` is reserved for an explicitly unavailable check such as no remote or offline GitHub access.
-6. Green means the unmodified gate exits zero. Then report the property IDs changed, counterexamples considered, architecture impact, external assumptions, and remaining risks.
-{% if agents_contract == 'hooks-first' %}7. Commit and push. Publication is complete when the commit and pre-push hooks succeed and `just doctor` reports no failures.
+1. Make one coherent vertical change with the smallest necessary surface.
+2. Keep pure decisions deterministic, explicit-input driven, and free of
+   ambient I/O, clocks, randomness, environment reads, and hidden state.
+3. Keep repository-control behavior inside its existing capability boundary;
+   do not bypass its `api.py` from another capability or test.
+4. Preserve PRODUCT bytes during foundation changes. DERIVED output remains
+   replaceable and must retain its generated banner and source-state digest.
+5. Do not weaken a ceiling, coverage floor, ownership rule, or proof rule to
+   make an empty baseline pass.
+
+## Repository control
+
+`python -m repoctl` is N0's automation surface. It reports status and
+capabilities, plans and applies declared capabilities, changes lifecycle state,
+regenerates indexes, and prints proof evidence.
+
+- Keep plan creation pure over explicit snapshot data, ownership roots, and
+  prior digests.
+- Keep saved control plans outside the planning snapshot.
+- Apply an inspected plan through the repository port; replay completed work as
+  `already_applied` rather than writing state again.
+- Activation requires current evidence. Retirement changes declaration state
+  without targeting PRODUCT paths.
+- Keep machine output stable: success uses stdout, failure uses stderr, and
+  human output is explicit.
+
+Read `docs/adr/0002-agent-native-cli-protocol.md` and
+`docs/adr/0004-agent-input-retry-and-composition-contract.md` before changing
+the control process boundary.
+
+## Proof-carrying behavior
+
+`proof/policy.toml` and its catalogs are normative. N0's active catalog is
+`proof/repoctl/`; an empty foundation does not justify fabricated properties.
+
+- Each declared law must connect a production target, independent pure oracle,
+  `icontract` condition, Hypothesis evidence, falsifying canary, and CrossHair
+  target where appropriate.
+- Oracles accept explicit facts and return `bool`; they never import or call
+  the behavior they judge or perform I/O.
+- `verification/harness/symbolic_canary.py` is deliberately false. CrossHair
+  must refute it before symbolic silence counts as success.
+- Add a product law only with a real declared capability, not as a placeholder.
+
+Read `docs/architecture/PROVABILITY.md` before adding or changing a property.
+
+## Check loop
+
+1. Run `just prove-one PROPERTY-ID` for one law, or `just prove` for a
+   coherent repository-control or capability change.
+2. Run `just check` before handoff. It performs deterministic repairs and the
+   full acceptance gate.
+3. Resolve the first remaining failure and rerun the same command. Do not
+   suppress or weaken a normative rule.
+4. Use `just prove-deep` for riskier stateful or symbolic changes.
+5. Run `just doctor` immediately before deployment or publication.
+{% if agents_contract == 'hooks-first' %}6. Commit and push only after the gate and pre-push hooks succeed.
 {% endif %}
-### Session evidence
 
-When this coding session must be retained for harness analysis, run
-`just session-log <transcript> .agent-sessions/<unique-name>` before handoff.
-Use a Codex rollout under `~/.codex/sessions/`, never
-`~/.codex/history.jsonl`. For Claude, use the primary JSONL; its matching
-`subagents` tree is included automatically. The ignored `.agent-sessions` tree
-can contain sensitive source, prompts, and tool results. Do not edit the
-evidence bundle: its hashes,
-coverage, metric consistency, and blob references are verified by
-`manifest.json`. See `docs/adr/0003-agent-session-evidence.md` for the stable
-API, immutable private-package pin, and deterministic format. Converter fixes
-belong in `session-profiler-optimizer`; this repository owns only the thin
-compatibility facade and consumer integration.
-Use `just session-e2e` only for an explicit local importer check: it reads
-private logs from the current user's home directory and samples both agents by
-session-size quintile. Routine `just check` deliberately excludes it.
-The private package is injected only for these opt-in commands. Before either
-one, authenticate `gh` for the package repository and run `gh auth setup-git`;
-baseline bootstrap and CI do not resolve it.
+## Documentation and decisions
 
-## Repository ownership
+`docs/README.md` is the documentation map. Cite real paths so the docs guard
+can keep them true. A new document claims a map row in the same change. Record
+an ADR for a new foundation abstraction, a new external boundary, a new
+ownership class, or a material protocol change.
 
-`architecture.toml` is the only ownership-root declaration. Classify every
-changed path before editing it:
+## Type, state, and boundary discipline
 
-- FOUNDATION is scaffold-owned and may change through a versioned update.
-- PRODUCT is user-owned immediately; never overwrite or delete an existing
-  product file during generation or scaffold updates.
-- DERIVED is replaceable output and must retain its generated banner and
-  source-state digest.
-- DECLARATION is versioned machine-readable state under `.repo/`.
+- Use fully typed functions and methods. Avoid `Any`, implicit unknowns,
+  blanket ignores, and unparameterized generics.
+- Use a function unless identity, protected mutable state, a stable varying
+  protocol, lifecycle ownership, or a real invariant requires a class.
+- Model closed variants explicitly. Parse raw external input at the boundary;
+  do not propagate uncertain or loosely shaped data inward.
+- Keep filesystem locations as `pathlib.Path` once they enter the system.
+- Do not create `utils.py`, `helpers.py`, `common.py`, or `misc.py` dumping
+  grounds. Do not add a framework, event bus, DI container, or plugin system
+  without an ADR and a demonstrated force.
 
-Every capability uses the same structure and dependency rules regardless of
-ownership. Its `api.py` is the only stable cross-capability import surface.
-Never grant a system capability an exception that a product capability would
-not receive. ADR-0007 owns these rules.
-The scaffold's `repoctl.modules.repository_generation` capability is a draft
-capsule with immutable canonical plan values. Its domain classifier is the sole
-interpreter of ownership roots; keep `scripts/ownership.py` as a filesystem
-adapter with no independent path-rule table, and preserve
-`REPOCTL::PLAN-PATH-CLOSED`. Keep `plan(snapshot, intent)` a pure total
-decision over explicit ownership roots and prior file digests, preserve
-`REPOCTL::PLAN-DETERMINISTIC`, and never emit an operation for an existing
-PRODUCT path. `capability plan` may persist only its inspectable canonical
-control artifact in the plans directory beneath the repository declaration,
-excluded from the planning snapshot;
-`capability apply` materializes the DRAFT capsule through the durable
-transaction protocol and must replay as `already_applied` without changing
-state. Do not invent product semantics merely to fill its layers.
+## Testing and review
 
-## Proof-carrying core contract
-
-`proof/policy.toml` is normative policy, and the ownership-zone catalogs it
-names are normative property declarations. Together they connect a business
-property to production code, a pure oracle, executable evidence, and—where
-appropriate—symbolic analysis. Read the policy before adding a property, place
-that property in its owning catalog, and keep the catalog's declared
-`ownership_zone` aligned with its configured root; the loader aggregates all
-catalogs into one proof index. The repository rejects an incomplete chain before
-review:
-
-- `source_roots` and `test_roots` in the policy are the only discovery map.
-  Keep product and `repoctl` proof evidence under those declared roots;
-  CrossHair derives its import path from `source_roots`, and the canonical
-  `verification/tests/` collection imports `verification/repoctl/` evidence.
-- Every public class, function, or method under the configured domain proof
-  roots is owned by a normative property or a future-dated exemption. Every
-  property states its scope and assumptions explicitly.
-- Every core `icontract.require`, `icontract.ensure`, or
-  `icontract.invariant` has a literal
-  `description="PROPERTY[CAPABILITY::UPPER-KEBAB-ID]: ..."` (the namespace is
-  optional for legacy foundation properties) and calls a declared oracle,
-  either inline as a `lambda` or through a named module-level condition function
-  in the same file. Prefer the named form: `icontract` types conditions as
-  `Callable[..., Any]`, so only a named function gives the checker real parameter
-  types.
-- Pure oracles live in a configured specification module, accept explicit
-  facts, return `bool`, and never perform I/O, read clocks/randomness, import, or
-  call the implementation they judge. The proof guard rejects known effectful
-  modules and operations and checks implementation independence statically.
-- Every property has exactly one `@pytest.mark.proves("ID")` Hypothesis test,
-  and every declared oracle owns one `@pytest.mark.falsifies("ID")` canary whose
-  assertion depends on that single oracle. A canary that conjoins two oracles
-  stays false when either one degenerates to a constant, so the guard rejects it.
-  The canonical proof must invoke the exact declared target and every declared
-  oracle; constructing a callable class is not evidence that its targeted
-  `__call__` method ran. Additional examples and regressions stay ordinary tests.
-- History-dependent behavior uses one literal local Hypothesis
-  `RuleBasedStateMachine`. Only its initialization, stateful rules/invariants,
-  and reachable helper methods count as canonical evidence; unrelated module
-  code and dead methods do not. Every contracted public function or method in
-  the proof surface is a mandatory CrossHair
-  target; the guard rejects omissions. Class invariants remain
-  Hypothesis-plus-canary evidence.
-- The symbolic layer carries its own canary. `verification/harness/symbolic_canary.py`
-  states a deliberately false contract over the domain value types, and
-  `scripts/crosshair_gate.py` fails unless CrossHair refutes it. A symbolic run
-  that cannot construct those types reports nothing and exits zero, so without
-  the canary an empty search is indistinguishable from a successful one. Never
-  delete or weaken it to make a run pass.
-- A canary is mandatory because generated tests around a tautology still prove
-  nothing. It must demonstrate a plausible bad candidate that the oracle
-  rejects.
-- Coverage remains a floor. It cannot substitute for a missing property,
-  counterexample, model, or state-machine invariant.
-
-Do not copy a condition from implementation into a test. Both production
-contracts and evidence call the independent predicate in
-`domain/specifications.py` (or a pure application specification for a workflow
-protocol). See `docs/architecture/PROVABILITY.md`; ADR-0006 owns the decision.
-
-## Layer ownership
-
-### `domain`
-
-Owns business vocabulary, invariants, entities, aggregates, value objects, domain events, and domain errors.
-
-- Depends only on the standard-library portions allowed by `architecture.toml`.
-- Performs no I/O, environment reads, wall-clock reads, randomness/UUID generation, concurrency, logging, or framework imports.
-- Rejects invalid states during construction or aggregate operations.
-- Entities, value objects, and events are immutable, slotted, and keyword-only; state changes return new values through pure decisions.
-
-### `application`
-
-Owns use cases, orchestration, commands/queries, and the ports those use cases require.
-
-- May depend on `domain` only.
-- Defines interfaces inward; never imports concrete adapters.
-- Coordinates transactions and workflows; framework translation belongs to adapters.
-- Prefer constructor injection; method injection only for operation-scoped dependencies.
-
-### `adapters`
-
-Owns translation to/from external systems and frameworks.
-
-- `inbound` turns CLI/HTTP/jobs/messages into application calls.
-- `outbound` implements persistence, messaging, clock, identifier, filesystem, and network ports.
-- Translate external errors into stable application/domain errors, preserving causes.
-- `inbound` and `outbound` never import each other.
-
-### `bootstrap`
-
-The composition root: the only ordinary location allowed to instantiate the production dependency graph. `__main__.py` only delegates to it.
-
-## Foundation bricks: imitate, then extend
-
-The example application separates two kinds of code (see ADR-0001):
-
-- **Replaceable example**: the `Item` aggregate, its value objects, use cases, and CLI verbs. Replace them with the real domain; preserve the structure.
-- **Foundation bricks**: exactly one reference exemplar per cross-cutting capability. Before writing new plumbing, imitate the matching brick:
-
-| Need | Imitate |
-|---|---|
-| Current time | `Clock` port + `adapters/outbound/system_clock.py`; never read the clock in domain/application |
-| New identifiers | `ItemIdFactory` port + `adapters/outbound/uuid_ids.py` |
-| React to a domain fact | publish through `EventPublisher`; subscribe a handler in `bootstrap.build_application` (first consumer: `adapters/outbound/audit_log.py`) |
-| Talk to an external system | `adapters/outbound/sqlite_repository.py`: injected resource, errors translated to the application-owned error with causes preserved |
-| Resource lifecycle | `bootstrap.sqlite_application` context manager; acquire at the edge, release deterministically |
-| Certify a port implementation | subclass the port's contract in `tests/contract/` (see `item_repository_contract.py`) and provide a `repository` fixture |
-| Add/change a domain invariant or pure transition | declare it in the ownership-zone catalog selected by `proof/policy.toml`, write the oracle in `domain/specifications.py`, attach `icontract`, then add the canonical property and canary under `verification/tests/` |
-| Change a derived capability index | keep `repoctl` compilation a pure projection of explicit declarations, preserve `REPOCTL::DERIVED-INDEX-EXACT`, and import the capability through its `api.py` facade in external evidence |
-| Change repository path ownership | edit the pure classifier behind the repository-generation `api.py`, preserve its named boundary errors and `REPOCTL::PLAN-PATH-CLOSED`, and leave `scripts/ownership.py` as an adapter without a second rule table |
-| Change capability planning | keep ownership roots and prior digests in `RepositorySnapshot`, preserve create-only PRODUCT seeds and exact preconditions, and prove `REPOCTL::PLAN-DETERMINISTIC` through the repository-generation `api.py` |
-| Expose capability plan/apply | use the repository port for plan-control artifacts and application `apply`; never give the control CLI direct filesystem access or let saved plans affect a planning digest |
-| Prove retries, ordering, leases, or legal transitions | write a small reference predicate and a Hypothesis `RuleBasedStateMachine`; keep external effects behind fakes/ports |
-| New port | single operation → callable `type` alias; multiple operations → `Protocol` (both in `application/ports.py`) |
-| Expose a CLI command | add one `CommandSpec` in `adapters/inbound/cli_catalog.py` and matching independent command/outcome process cases; preserve ADR-0002 and ADR-0004 |
-
-A cross-cutting need with no matching brick requires an ADR before the code exists.
-
-## Agent-native CLI contract
-
-The CLI is an automation protocol, not a collection of parser handlers.
-ADR-0002 owns the base protocol; ADR-0004 owns its input, retry, safety,
-outcome, and composition extension.
-
-- `adapters/inbound/cli_catalog.py` is the only command registration surface.
-  Parser construction and `capabilities` both derive from it; never call
-  `add_parser` with a command literal or register beside the catalog.
-- Every catalog command has exactly one independent typed case in
-  `tests/contract/cli_contract_cases.py`. Choose the matching closed variant:
-  query, mutation, streaming, interactive/bootstrap, or bulk/export. The case
-  must supply that kind's bounds, retry, termination, automation, or scope
-  scenario before completeness can pass.
-- Every command declares ordinary typed arguments as its primary automation
-  input and declares stdin forbidden, optional, or required. Accepted stdin
-  uses the documented `-` marker. Structured file/stdin input may be additive;
-  it cannot replace the mandatory typed-argument process case. Required-stdin
-  cases exercise those arguments with the declared payload; optional and
-  forbidden cases exercise them with closed stdin. Removing the argument path
-  requires a new evidence-backed ADR. Accepted-stdin cases must observe
-  payload-derived semantics, not only process success. ARCH025 rejects
-  argument-primary drift.
-- Machine JSON is the default for data-bearing commands. Successful data uses
-  stdout only; diagnostics use stderr only. Human output requires
-  `--format human`. Never make wording, wrapping, option order, JSON key order,
-  generated IDs, or timestamps compatibility surfaces.
-- Queries declare positive defaults and maxima, stable order, truncation,
-  continuation, filters, selectable fields, and quiet support. Apply filters,
-  selection, and bounds in the use case and outbound port. Quiet mode requires
-  exactly one field and emits only undecorated single-line values. Every
-  declared filter and selectable field needs its exact independent case.
-- Mutations declare unconditional, conditional, or unsafe replay. Conditional
-  idempotency belongs at an atomic application-owned port; unsafe operations
-  return an operation ID. Destructive safety is a separate closed policy that
-  requires categorized domain/persistence/event/audit/destination probes with
-  explicit applicability and confirmed-change expectations, a no-effect
-  structured preview, and explicit confirmation bypass.
-- Every expected failure is a cataloged outcome with code, exit class,
-  retryability, safe details, and recovery guidance. Add an independent case
-  for every command-owned and shared outcome; never construct public codes ad
-  hoc. Use the closed constant/computed/argument detail-source variants; never
-  source public details from sensitive argument values.
-- Automation invocations never prompt, decorate machine output, or depend on a
-  TTY. Streams require filters plus termination; bulk/export requires scope and
-  destination; interactive conveniences require a complete flag-driven path.
-- Argparse stays private to `adapters/inbound/cli.py`. It produces typed
-  requests immediately; application and domain APIs never accept namespaces or
-  framework objects. ARCH021–025 enforce inbound non-interactivity, controlled
-  exits, framework isolation, catalog-owned command names/aliases, and
-  argument-primary input.
-- Breaking envelope, exit-classification, default, command identity/kind, or
-  removal of an argument path requires a new ADR and protocol version.
-  Backward-compatible capability fields and explicit output modes remain 1.x.
-  Run the full quality gate; there is no parallel CLI-only acceptance command.
-
-## Documentation
-
-`docs/README.md` is the documentation map: one row per document, stating who reads it and how its freshness is guaranteed. Three rules, enforced by the gate's `docs guard` check (`scripts/docs_guard.py`):
-
-1. **One owner per fact.** Link to the owning document; never paraphrase it into a second copy.
-2. **Freshness ladder — derived > checked > dated.** Generate documentation from code where possible. Otherwise cite real repository paths so the guard can verify them — renaming a file fails the gate until every document that cited it moves in the same commit. Prose no gate can verify (context, decisions) carries a status, owner, and revisit trigger: that is what `docs/adr/` is for.
-3. **Admission.** A new documentation file claims a row in the map in the same commit; a kind of knowledge with no fitting row requires an ADR before the file exists.
-
-ADR conventions are mechanical: `NNNN-kebab-case.md` file names, a matching `# ADR-NNNN:` heading, the front-matter keys of `docs/adr/0000-template.md`, contiguous numbering. Supersede a decision with a new ADR; never delete or rewrite an old one.
-
-## Typing policy
-
-- Python target is exactly 3.14.x.
-- Every function and method is fully typed.
-- `Any`, implicit unknowns, blanket `type: ignore`, and unparameterized generics are forbidden.
-- Use `Protocol` for structural ports and callable strategies; use an ABC only when runtime inheritance semantics or shared implementation are genuinely required.
-- Mark actual overrides with `@override` (ARCH030).
-- Model closed variants with enums/unions and exhaustive `match`; ARCH029 rejects bare primitive aliases.
-- Prefer domain value objects to ambiguous primitives at important boundaries.
-- Do not add `from __future__ import annotations`; Python 3.14 evaluates annotations lazily.
-
-## Function-or-class decision
-
-Start with a function. Introduce a class only when at least one is true:
-
-- the concept has identity or protected mutable state;
-- behavior varies behind a stable protocol;
-- lifecycle/resource ownership must be guaranteed;
-- multiple operations share a real invariant;
-- the object is a domain entity, aggregate, value object, or adapter.
-
-Do not create a class merely to namespace one function.
-
-## Pattern admission rules
-
-Admit a pattern only as a response to a named force, never as decoration:
-
-- **Strategy:** name the behavior that varies independently. Prefer a function or callable protocol.
-- **Adapter:** name the external API/framework being isolated.
-- **Facade:** name the unstable or complex subsystem hidden behind a narrow stable API.
-- **Repository:** name the aggregate persistence boundary; do not expose ORM/query-builder details inward.
-- **Domain event:** name the already-completed domain fact and the independent consumers. Do not use events to hide a direct call.
-- **Decorator:** use for transparent call-level augmentation.
-- **Proxy:** use when access, lifecycle, identity, or remote substitution belongs to an object boundary.
-- **Null object:** name the collaborator whose absence means "do nothing"; implement its port with a no-op and inject it in `bootstrap` instead of passing `port | None`.
-- **State machine:** use only when legal transitions and transition-triggered behavior are first-class domain constraints.
-
-A new foundational abstraction, framework, event bus, DI container, plugin system, or cross-layer dependency requires an ADR; record it using `docs/architecture/PATTERN_ADMISSION.md`.
-
-## Error policy
-
-- Raise the narrowest meaningful exception.
-- Catch only where recovery, translation, cleanup, or added context occurs — never merely to log and continue.
-- Preserve causes with `raise ... from error`.
-- For a failure callers must distinguish, raise a domain exception instead of returning `None` (see "None discipline"). Result/Either types are not this repository's idiom; adopting one requires an ADR.
-
-## None discipline
-
-`None` is edge data, not domain vocabulary. Raw input (API payloads, sensor readings, argv) may be incomplete; the core must never inherit that uncertainty. Before typing `X | None`, apply the first matching rule:
-
-1. **"Nothing" has a real value.** Prefer an empty collection, `0`, or `False` over `None` when the meaning is "nothing to do": `field(default_factory=tuple)`, never `list[X] | None = None` (ARCH016).
-2. **Required data may be missing at the edge.** Parse, don't propagate: the adapter converts raw input into a strict domain object and raises at the boundary (fail fast). Optional fields belong to edge DTOs in `adapters`; domain models never carry them (ARCH017).
-3. **The operation can fail.** Raise the narrowest domain exception instead of returning `None` (ARCH018 in domain).
-4. **The object moves through lifecycle states with different guarantees.** One class accumulating optional fields is the warning sign. Model each state as its own frozen type (`DraftOrder` / `PaidOrder`, not `Order` with optional `paid_at`) and let each signature demand exactly the state it needs — invalid states become unrepresentable.
-5. **A collaborator is optional and doing nothing is valid.** Inject a null object implementing the same port from `bootstrap`; do not thread `port | None` through call sites and re-check it everywhere.
-6. **`None` is itself a legal value and "not provided" must be distinguished.** Use a dedicated module-level sentinel object, not a second meaning for `None`.
-7. **A query may legitimately find nothing.** A port may return `X | None` (`ItemRepository.get` is the exemplar); the caller converts it into a domain exception or an explicit branch immediately. An optional never travels more than one call inward.
-
-## Path discipline
-
-A filesystem location is a `pathlib.Path` from the moment it exists. A `str` path is wire data — argv, JSON payloads, database columns, environment variables — and follows the same parse-don't-propagate rule as `None`. Ruff's `PTH` rules already reject the `os.path` API at call sites; the guard covers what a call-site linter cannot see:
-
-1. **Declarations demand `Path`.** A parameter, return, or field whose name says "path" is typed `pathlib.Path`, never `str` — and never `str | Path`, which forces every consumer to re-normalize (ARCH019, ARCH020/028). Once the boundary says `Path`, the type checker propagates the obligation to every caller.
-2. **Parse at the edge.** The inbound adapter converts raw text to `Path` at first touch: `argparse` uses `type=Path`; a payload field becomes `Path(raw["database"])` before it is stored or passed inward. Name pre-parse text for what it is (`raw`, `text`), not for what it will become.
-3. **Serialize at the last moment.** `str(path)` / `os.fspath(path)` appear only inside the outbound call that hands the value to the external system (database parameter, JSON body, subprocess argv); the serialized form is never stored, returned, or passed on.
-4. **A bare name is not a path.** A value with no directory meaning is domain data: name it `stem`, `label`, or `slug` and keep it a `str`; `filename: str` is flagged because the name claims filesystem semantics the type denies.
-5. **The domain never sees the filesystem.** `pathlib` and `os` are in `domain.forbidden_import_roots`; pass content or a value object inward and keep paths in application/adapter signatures behind ports.
-6. **Published-library boundaries are the one exception.** Accepting `str | os.PathLike[str]` in a public API mimics the standard library and requires an ADR-backed exception; internal code normalizes immediately behind it.
-
-## State, concurrency, and lifecycle
-
-- One owner for each mutable state.
-- No mutable module containers (ARCH026; `__all__` excepted), service locators, or fire-and-forget tasks.
-- Use structured concurrency (`TaskGroup`) and explicit timeout/cancellation behavior at outer boundaries.
-- Acquire resources with context managers and test cleanup on failure.
-- Free-threaded Python does not make shared mutable state safe by design.
-
-## Testing policy
-
-- Test externally observable behavior and invariants, not private implementation details.
-- A critical law starts in the ownership-zone catalog selected by `proof/policy.toml`, not in a test name. The broad proof calls an independent oracle over generated data.
-- Use ordinary Hypothesis for input partitions, algebraic laws, models, and metamorphic relations; use `RuleBasedStateMachine` when history matters.
-- Every declared oracle has a falsifying canary that depends on it alone. An oracle that cannot reject a plausible mutant is not ready.
-- Every contracted public function or method in the proof surface is a CrossHair target. Keep such symbols pure and deterministic; adapters remain under shared contracts, examples, integration tests, and fault scenarios.
-- Every port implementation must pass the shared contract test for that port.
-- Unit and proof tests perform no network access; the test runner disables sockets by default.
-- Integration tests are marked explicitly and still prefer local deterministic substitutes.
-- A bug fix starts with a failing regression test and, when the defect generalizes, a strengthened property or counterexample.
-- Coverage is a floor, not evidence that the right property was expressed.
-
-## Anti-slop rules
-
-Forbidden without an ADR-backed exception:
-
-- `utils.py`, `helpers.py`, `common.py`, or `misc.py` dumping grounds;
-- `__init__.py` under `tests/` (test packages are namespace packages, ARCH014) and empty `__init__.py` anywhere (an `__init__.py` states its package's public surface or ownership, ARCH015);
-- same-named Enum copies (ARCH027; broader duplicates remain review concerns);
-- `Manager`, `Handler`, `Processor`, or `Service` names without a precise domain qualifier;
-- speculative generic frameworks for one implementation;
-- hidden I/O in properties, constructors, or domain methods;
-- boolean flags that switch unrelated behavior;
-- `None` where "None discipline" prescribes a default, a parse, an exception, or a state (ARCH016–ARCH018);
-- filesystem paths typed as `str` (ARCH019–ARCH020/028);
-- comments that restate code instead of explaining a non-obvious invariant or trade-off;
-- reminder comments that schedule manual upkeep — "bump this after each release", "keep in sync with" (ARCH031); derive the value from its source of truth or enforce the invariant with a test or gate check;
-- broad refactors mixed into a feature change;
-- weakening a gate to make generated code pass.
-
-## Architecture exceptions
-
-A suppression is legal only when it includes a narrow diagnostic code and an `ARCH-EXCEPTION: ADR-XXXX` marker. The referenced ADR must record owner, reason, scope, expiry/revisit trigger, and removal criteria.
+- Test observable behavior and independent laws, not private structure.
+- Unit and proof tests perform no network access; the runner disables sockets
+  by default.
+- A bug fix begins with a failing regression test. Strengthen a property when
+  the defect generalizes.
+- Coverage is a floor, never proof that the correct law was expressed.
+- Report changed property IDs, counterexamples considered, ownership impact,
+  commands actually run, and remaining risks at handoff.

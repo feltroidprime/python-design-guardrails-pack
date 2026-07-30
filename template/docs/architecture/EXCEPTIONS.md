@@ -2,59 +2,43 @@
 
 ## Active exceptions
 
-### ADR-0002 / ADR-0004 — subprocess execution at the mandatory CLI process seam
+### ADR-0002 — subprocess execution at the repository-control process seam
 
-- Files/diagnostics: the `subprocess.run`/`subprocess.Popen` helpers under
-  `tests/integration/` that carry an ADR-0002 or ADR-0004 marker, Ruff S603.
+- Files/diagnostics: detached-process helpers under `tests/repoctl/`, Ruff
+  S603.
 - Owner: repository maintainers.
-- Reason: the CLI contract must observe the installed process with detached
-  stdin, real streams, exit status, isolated working directory, and timeout;
-  an in-process substitute cannot prove those properties.
-- Risk: a future test could pass untrusted arguments to the helper.
-- Revisit trigger: the test runner provides a typed process fixture that Ruff
-  can recognize as safe, or either helper accepts input outside closed test
-  cases.
-- Removal criteria: replace the helper calls with an equally complete process
-  seam that needs no S603 suppression.
+- Reason: control commands must be observed through real stdin, streams, exit
+  status, and isolated working directories.
+- Risk: a future test could pass untrusted arguments to a helper.
+- Revisit trigger: the test runner supplies a typed process fixture that Ruff
+  recognizes as safe.
+- Removal criteria: replace the helpers with an equally complete seam that
+  needs no S603 suppression.
 
-### ADR-0002 — argparse override parameter retains its framework name
+### ADR-0002 — argparse override keeps its framework parameter name
 
-- File/diagnostic: `src/*/adapters/inbound/cli.py`, ARCH019 on the `file`
-  parameter of `_ContractParser._print_message`.
+- File/diagnostic: `repoctl/modules/repository_generation/adapters/inbound/cli.py`,
+  ARCH019 on `_ContractParser._print_message`.
 - Owner: repository maintainers.
-- Reason: this protected argparse override must retain the base method's
-  keyword-compatible parameter name and `SupportsWrite[str]` type; it is an
-  output stream, not a filesystem location.
-- Risk: readers could mistake the name for a path despite the precise type.
-- Revisit trigger: argparse exposes a public injected-output hook or the parser
-  boundary is replaced under a superseding ADR.
-- Removal criteria: delete the override or use a framework API whose parameter
-  name does not conflict with Path discipline.
+- Reason: the protected argparse override must retain the base method's
+  keyword-compatible `file` parameter; it is an output stream, not a path.
+- Risk: readers could mistake the name for a filesystem location.
+- Revisit trigger: argparse exposes a public injected-output hook.
+- Removal criteria: delete the override or use an API without the conflicting
+  parameter name.
 
-### ADR-0002 — broad translation at the CLI process boundary
+### ADR-0002 — broad translation at the repository-control process boundary
 
-- File/diagnostic: `src/*/adapters/inbound/cli_runtime.py`, Ruff BLE001 on the
-  outer `Exception` translation boundary.
+- File/diagnostic: `repoctl/modules/repository_generation/adapters/inbound/cli.py`,
+  Ruff BLE001.
 - Owner: repository maintainers.
-- Reason: the versioned process contract must hide otherwise unclassified
-  internal failures behind exit 70 and a stable envelope. Known domain and
-  dependency failures are translated more narrowly first; explicit `--debug`
-  keeps exit 70 while printing the captured traceback.
-- Risk: a programmer defect is translated during normal CLI execution instead
-  of immediately surfacing as an uncaught exception.
-- Revisit trigger: Python gains a narrower common exception family for
-  application failures, or the process supervisor owns this translation.
-- Removal criteria: preserve stable unexpected-failure output and exit
-  semantics without a broad boundary catch.
+- Reason: the process protocol translates unexpected failures into one stable
+  machine envelope; explicit debug output preserves diagnostic access.
+- Risk: a programming defect is translated during ordinary CLI execution.
+- Revisit trigger: the supervisor gains a narrower common failure boundary.
+- Removal criteria: preserve stable unexpected-failure output without a broad
+  catch.
 
-Each exception must include:
-
-- ADR identifier;
-- exact files/imports/diagnostics covered;
-- owner;
-- reason the normal rule cannot currently hold;
-- risk introduced;
-- expiry date or objective revisit trigger;
-- removal criteria.
-
-Suppressions in code must use a narrow code and include `ARCH-EXCEPTION: ADR-XXXX`.
+Each exception must include an ADR identifier, exact scope, owner, reason,
+risk, an objective revisit trigger, and removal criteria. Suppressions in code
+must use a narrow diagnostic and `ARCH-EXCEPTION: ADR-XXXX` marker.

@@ -35,6 +35,18 @@ SESSION_PROFILER_DEPENDENCY = (
 )
 INVALID_PROJECT_NAMES = ("My-Product", "-orders", "orders app", "orders/app", "")
 INVALID_PACKAGE_NAMES = ("1orders", "acme-orders", "Acme", "acme orders", "")
+REMOVED_PRODUCT_VOCABULARY = (
+    "Item",
+    "ItemId",
+    "ItemName",
+    "CreateItem",
+    "ListItems",
+    "ItemRepository",
+    "ItemCreatedEvent",
+    "items.db",
+    "add-item example",
+    "list-items example",
+)
 
 EXPECTED_FILES = (
     ".repo/capabilities/repository_generation.toml",
@@ -118,56 +130,54 @@ EXPECTED_FILES = (
     "scripts/review_discipline.py",
     "tests/e2e/session_contract.py",
     "tests/e2e/test_real_agent_sessions.py",
-    f"src/{PACKAGE_NAME}/__main__.py",
+    f"src/{PACKAGE_NAME}/__init__.py",
+    f"src/{PACKAGE_NAME}/_foundation/__init__.py",
+    f"src/{PACKAGE_NAME}/_generated/__init__.py",
     f"src/{PACKAGE_NAME}/_generated/active_capabilities.py",
     f"src/{PACKAGE_NAME}/_generated/cli_catalog.py",
     f"src/{PACKAGE_NAME}/_generated/composition.py",
-    f"src/{PACKAGE_NAME}/adapters/inbound/cli_catalog.py",
+    f"src/{PACKAGE_NAME}/adapters/__init__.py",
+    f"src/{PACKAGE_NAME}/adapters/inbound/__init__.py",
     f"src/{PACKAGE_NAME}/adapters/inbound/cli_contract.py",
     f"src/{PACKAGE_NAME}/adapters/inbound/cli_outcomes.py",
     f"src/{PACKAGE_NAME}/adapters/inbound/cli_protocol.py",
-    f"src/{PACKAGE_NAME}/adapters/inbound/cli_runtime.py",
-    f"src/{PACKAGE_NAME}/application/errors.py",
-    f"src/{PACKAGE_NAME}/application/specifications.py",
-    f"src/{PACKAGE_NAME}/bootstrap.py",
-    f"src/{PACKAGE_NAME}/domain/decisions.py",
-    f"src/{PACKAGE_NAME}/domain/entities.py",
-    f"src/{PACKAGE_NAME}/domain/events.py",
-    f"src/{PACKAGE_NAME}/domain/specifications.py",
-    f"src/{PACKAGE_NAME}/domain/value_objects.py",
     f"src/{PACKAGE_NAME}/py.typed",
-    "tests/contract/cli_case_primitives.py",
-    "tests/contract/cli_contract_cases.py",
-    "tests/contract/cli_outcome_cases.py",
-    "tests/integration/test_cli_case_shapes.py",
-    "tests/integration/test_cli_contract.py",
     "tests/e2e/test_session_evidence.py",
-    "tests/integration/test_cli_composability.py",
-    "tests/integration/test_cli_discovery.py",
-    "tests/integration/test_cli_idempotency.py",
-    "tests/integration/test_cli_input_contract.py",
-    "tests/integration/test_cli_outcomes.py",
-    "tests/integration/test_cli_safety_contract.py",
+    "tests/foundation/test_cli_protocol.py",
     "tests/repoctl/test_draft_capsule.py",
     "tests/repoctl/test_capability_contract.py",
+    "tests/repoctl/contract/cli_process_cases.py",
+    "tests/repoctl/contract/conftest.py",
+    "tests/repoctl/contract/repository_port_contract.py",
+    "tests/repoctl/contract/test_local_repository.py",
+    "tests/repoctl/contract/test_memory_repository.py",
+    "tests/repoctl/contract/test_repoctl_cli_contract.py",
+    "tests/repoctl/contract/test_repository_port_contract.py",
+    "tests/repoctl/integration/generation_support.py",
+    "tests/repoctl/integration/test_cli_mutations.py",
+    "tests/repoctl/integration/test_cli_queries.py",
+    "tests/repoctl/integration/test_generate.py",
+    "tests/repoctl/unit/test_derived_indexes.py",
+    "tests/repoctl/unit/test_journal.py",
     "tests/repoctl/unit/test_plan_models.py",
-    "tests/unit/adapters/test_cli_protocol.py",
-    "tests/unit/domain/test_value_objects.py",
+    "tests/unit/generated/test_empty_repository_state.py",
+    "tests/unit/scripts/pytest.ini",
+    "tests/unit/scripts/test_capability_validator.py",
+    "tests/unit/scripts/test_ownership.py",
+    "tests/unit/scripts/test_ownership_guard.py",
     "verification/conftest.py",
     "verification/harness/assertions.py",
+    "verification/harness/repository_model.py",
     "verification/harness/stateful.py",
-    "verification/harness/strategies.py",
     "verification/harness/symbolic_canary.py",
+    "verification/repoctl/test_apply_state_machine.py",
     "verification/repoctl/test_derived_index_properties.py",
     "verification/repoctl/test_lifecycle_state_machine.py",
     "verification/repoctl/test_path_closed_properties.py",
     "verification/repoctl/test_plan_deterministic_properties.py",
     "verification/repoctl/test_proof_policy.py",
-    "verification/tests/test_create_item_state_machine.py",
-    "verification/tests/test_decision_properties.py",
-    "verification/tests/test_domain_state_properties.py",
+    "verification/repoctl/test_repository_state_machine.py",
     "verification/tests/test_repoctl_evidence.py",
-    "verification/tests/test_value_object_properties.py",
 )
 
 
@@ -474,10 +484,12 @@ def test_generation_records_copier_template_and_answers(generated: Path) -> None
     assert re.search(rf"(?m)^package: ['\"]?{PACKAGE_NAME}['\"]?$", answers)
 
 
-def test_generated_readme_does_not_document_scaffold_updates(generated: Path) -> None:
+def test_generated_readme_describes_n0_without_scaffold_updates(generated: Path) -> None:
     readme = (generated / "README.md").read_text(encoding="utf-8")
 
-    assert "`python-repo init` runs this recipe before creating the baseline commit" in readme
+    assert "Python 3.14 repository starting at N0" in readme
+    assert "no shipped product capability" in readme
+    assert "`python-repo init` runs this recipe before its baseline commit" in readme
     assert "Linked worktrees created with `git worktree add`" in readme
     assert "## Scaffold updates" not in readme
     assert "scaffold-update" not in readme
@@ -500,9 +512,8 @@ def test_generated_readiness_docs_route_doctor_before_publication(
     readme = (generated / "README.md").read_text(encoding="utf-8")
     contract = (generated / "AGENTS.md").read_text(encoding="utf-8")
 
-    assert "Run `just doctor` immediately before deployment or publication" in readme
-    assert "Every `fail` blocks the operation" in contract
-    assert "`warn` is reserved for an explicitly unavailable check" in contract
+    assert "just doctor                # deployment and publication readiness verdict" in readme
+    assert "Run `just doctor` immediately before deployment or publication." in contract
 
 
 def test_copier_migrations_are_wired() -> None:
@@ -598,8 +609,7 @@ def test_delta_or_identical_workspace_member_has_exact_file_delta(
     assert "dependency-groups" not in pyproject
     assert set(pyproject["tool"]) == {"uv", "importlinter"}
     assert {contract["id"] for contract in pyproject["tool"]["importlinter"]["contracts"]} == {
-        "layers",
-        "adapter-independence",
+        "layers"
     }
 
     justfile = variant["justfile"].decode("utf-8")
@@ -643,14 +653,9 @@ def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> Non
     }
 
     expected_agents = baseline["AGENTS.md"].replace(
-        b"6. Green means the unmodified gate exits zero. Then report the property IDs changed, "
-        b"counterexamples considered, architecture impact, external assumptions, and remaining "
-        b"risks.\n\n",
-        b"6. Green means the unmodified gate exits zero. Then report the property IDs changed, "
-        b"counterexamples considered, architecture impact, external assumptions, and remaining "
-        b"risks.\n"
-        b"7. Commit and push. Publication is complete when the commit and pre-push hooks succeed "
-        b"and `just doctor` reports no failures.\n\n",
+        b"5. Run `just doctor` immediately before deployment or publication.\n",
+        b"5. Run `just doctor` immediately before deployment or publication.\n"
+        b"6. Commit and push only after the gate and pre-push hooks succeed.\n",
     )
     assert variant["AGENTS.md"] == expected_agents
 
@@ -1185,6 +1190,24 @@ def test_artifact_exclusions_have_one_configuration_source() -> None:
     assert "IGNORED_ARTIFACT_PATTERNS" not in generator
 
 
+def test_root_and_template_markdown_contain_no_removed_product_vocabulary() -> None:
+    documents = (
+        *REPO_ROOT.glob("*.md"),
+        *(path for path in TEMPLATE.rglob("*") if path.name.endswith((".md", ".md.jinja"))),
+        TEMPLATE / "{% if agents_contract != 'none' %}AGENTS.md{% endif %}.jinja",
+        TEMPLATE / "{% if agents_contract != 'none' %}CLAUDE.md{% endif %}",
+    )
+    mentions = [
+        f"{path.relative_to(REPO_ROOT)}: {term}"
+        for path in sorted(documents)
+        if path.is_file()
+        for term in REMOVED_PRODUCT_VOCABULARY
+        if re.search(rf"(?<!\w){re.escape(term)}(?!\w)", path.read_text(encoding="utf-8"), re.I)
+    ]
+
+    assert mentions == []
+
+
 def test_expected_files_are_preserved(generated: Path) -> None:
     missing = [name for name in EXPECTED_FILES if not (generated / name).is_file()]
     assert missing == [], "Missing expected files in generated repository:\n" + "\n".join(missing)
@@ -1238,31 +1261,18 @@ def declared_runtime_environment(generated: Path) -> list[str]:
     return [*command, "python"]
 
 
-def test_generated_vertical_slice_executes(generated: Path) -> None:
-    """The example slice must be importable and behave under the new package name."""
-    program = (
-        "import io\n"
-        "import sys\n"
-        "sys.path.insert(0, 'src')\n"
-        f"from {PACKAGE_NAME}.adapters.inbound.cli import run\n"
-        f"from {PACKAGE_NAME}.bootstrap import memory_application\n"
-        "app = memory_application()\n"
-        "out, err = io.StringIO(), io.StringIO()\n"
-        "code = run(['add', '  Pack check  '], create_item=app.create_item,"
-        " list_items=app.list_items, out=out, err=err)\n"
-        "assert code == 0, (code, err.getvalue())\n"
-        "assert 'Pack check' in out.getvalue(), out.getvalue()\n"
-        "code = run(['list'], create_item=app.create_item,"
-        " list_items=app.list_items, out=out, err=err)\n"
-        "assert code == 0, (code, err.getvalue())\n"
-        "print('slice ok')\n"
-    )
+def test_generated_n0_control_plane_executes(generated: Path) -> None:
+    """N0 exposes an executable repository-control status command."""
     result = subprocess.run(
-        [*declared_runtime_environment(generated), "-c", program],
+        [*declared_runtime_environment(generated), "-m", "repoctl", "status"],
         cwd=generated,
+        env={**os.environ, "PYTHONPATH": str(generated / "src")},
         capture_output=True,
         text=True,
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "slice ok" in result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["command"] == "status"
+    assert payload["data"]["repository"]["package"] == PACKAGE_NAME
+    assert payload["data"]["capability_counts"] == {"draft": 0, "active": 0, "retired": 0}

@@ -1,24 +1,21 @@
 # Validation record — 2026-07-30
 
-Validated on Linux 6.8.0-136-generic (x86_64) with Python 3.14.6,
-uv 0.12.0, just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist
-3.8.0, Ruff 0.16.0, and prek 0.4.11.
+Validated on Linux 6.8.0-136-generic (x86_64) with Python 3.14.6, uv 0.12.0,
+just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist 3.8.0, Ruff 0.16.0,
+and prek 0.4.11.
 
 ## Change validated
 
-Issue #58 exposes the guarded control-plane lifecycle and reporting operations
-on the generated `repoctl` CLI.
+Issue #62 completes the N0 documentation and pack-test migration.
 
-- `capability activate`, `capability retire`, `generate`, and `proof-report`
-  are declared in the closed control-command catalog and listed by
-  `repoctl capabilities`.
-- The existing mutation boundary owns all control mutations; the duplicate
-  lifecycle CLI adapter was removed. Focused saved-plan decoding and output
-  formatting seams keep that boundary below the 650-line architecture ceiling.
-- Refusal language for lifecycle and proof-contract outcomes lives in the
-  canonical CLI outcome module.
-- The detached-process case catalog supplies closed-stdin evidence for every
-  control command and fails closed if a catalog command lacks such a case.
+- Generated and root documentation now describe a product-empty N0 baseline
+  with repository control, guards, proof evidence, and generated indexes.
+- The generated-file registry, workspace import contract, and executable smoke
+  test describe the shipped N0 surface. The smoke test runs `repoctl status`
+  and confirms an empty capability state.
+- The validation harness seeds repair drift in a retained generated index,
+  rather than in the removed package entry point.
+- A pack test rejects retired exemplar vocabulary in root and template Markdown.
 
 ## Commands and actual results
 
@@ -26,27 +23,26 @@ on the generated `repoctl` CLI.
 PYTHONDONTWRITEBYTECODE=1 just validate
 ```
 
-The final canonical `just validate` passed end to end:
+The canonical command passed end to end:
 
-- root Ruff repair/check was stable across 145 files and the root test suite
-  passed with **213 passed, 11 warnings** in 19.99s;
-- template cleanliness, fresh instantiation, generated bootstrap, downstream
-  repair probes, missing-hook repair, tracked-syntax and dirty-doctor fault
-  probes, and linked-worktree pre-commit/pre-push checks all passed;
-- the generated type gate reported **0 errors, 0 warnings**; ownership,
-  architecture, documentation, proof-contract, symbolic-core, and import
-  contracts all passed;
-- the generated full quality run passed with **283 passed, 8 skipped, 3
-  deselected** in 81.39s and **93.10%** coverage (90% required). The hook-repair
-  rerun also passed with **283 passed, 8 skipped, 3 deselected** in 80.78s.
+- root Ruff repair/check was stable across 141 files, and the root suite passed
+  **217 tests** with 14 dirty-template warnings;
+- template cleanliness, fresh generation, complete Jinja rendering, generated
+  bootstrap, and the downstream repair probe passed;
+- the generated gate reported **0 errors, 0 warnings** from BasedPyright;
+  ownership, architecture, documentation, proof-contract, symbolic-core, and
+  Import Linter checks passed;
+- generated tests passed **125 passed, 1 skipped, 3 deselected** with **95.65%
+  coverage** (90% required);
+- missing-hook repair, tracked syntax rejection, clean and dirty doctor probes,
+  and linked-worktree pre-commit/pre-push probes passed.
 
-The syntax and dirty-doctor failures printed during validation are deliberate
+The syntax and dirty-tree failures printed during validation are deliberate
 fault-injection probes.
 
 ## Remaining risks and portability notes
 
 - Full validation ran on Linux x86_64 only. macOS and Windows remain
-  unexercised; their subprocess environment and filesystem behavior can differ.
-- `proof-report` reports the existing property/evidence matrix. It is not a new
-  proof-index format, and it still fails closed when the proof contract does not
-  validate.
+  unexercised; their subprocess and filesystem behavior can differ.
+- The generated repository intentionally has no product capability. Product
+  behavior remains unvalidated until a repository owner declares one.
