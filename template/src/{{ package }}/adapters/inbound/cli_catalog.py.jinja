@@ -1,5 +1,8 @@
 """Closed registration surface for supported command-line capabilities."""
 
+from typing import cast
+
+from {{ package }}._generated.cli_catalog import CLI_CATALOGS
 from {{ package }}.adapters.inbound.cli_contract import (
     ChoiceOption,
     CommandKind,
@@ -33,7 +36,7 @@ DEBUG_OPTION = FlagOption(
 )
 
 
-COMMAND_CATALOG = (
+COMPATIBILITY_COMMAND_CATALOG = (
     CommandSpec(
         name=CommandName.ADD,
         kind=CommandKind.MUTATION,
@@ -160,3 +163,26 @@ COMMAND_CATALOG = (
         ),
     ),
 )
+
+REPLACEABLE_LEGACY_COMMAND_NAMES = frozenset({CommandName.ADD, CommandName.LIST})
+
+
+def _merged_command_catalog() -> tuple[CommandSpec, ...]:
+    commands_by_name = {command.name: command for command in COMPATIBILITY_COMMAND_CATALOG}
+    claimed_legacy_names: set[CommandName] = set()
+    for catalog in CLI_CATALOGS:
+        for command in cast("tuple[CommandSpec, ...]", catalog):
+            if command.name not in REPLACEABLE_LEGACY_COMMAND_NAMES:
+                raise ValueError(
+                    f"CLI catalog can replace only a legacy command: {command.name.value}"
+                )
+            if command.name in claimed_legacy_names:
+                raise ValueError(
+                    f"CLI legacy compatibility command is claimed more than once: {command.name.value}"
+                )
+            commands_by_name[command.name] = command
+            claimed_legacy_names.add(command.name)
+    return tuple(sorted(commands_by_name.values(), key=lambda command: command.name.value))
+
+
+COMMAND_CATALOG = _merged_command_catalog()
