@@ -58,3 +58,29 @@ def stale_plan_is_rejected(observation: ApplyStalePlanObservation) -> bool:
 def product_bytes_are_preserved(observation: ApplyProductPreservationObservation) -> bool:
     """Return whether an attempted existing-product write was refused before mutation."""
     return observation.status == "product_file_exists" and observation.bytes_preserved
+
+
+def activation_is_closed(
+    *,
+    status: str,
+    missing_evidence: tuple[str, ...],
+    expected_missing_evidence: tuple[str, ...],
+    declaration_is_draft: bool,
+) -> bool:
+    """Return whether incomplete activation was refused without changing DRAFT state."""
+    return (
+        status == "refused"
+        and bool(expected_missing_evidence)
+        and missing_evidence == expected_missing_evidence
+        and declaration_is_draft
+    )
+
+
+def retirement_is_non_destructive(
+    *,
+    status: str,
+    product_hashes_unchanged: bool,
+    retired_declaration_exists: bool,
+) -> bool:
+    """Return whether retirement preserved PRODUCT bytes and recorded RETIRED state."""
+    return status == "retired" and product_hashes_unchanged and retired_declaration_exists

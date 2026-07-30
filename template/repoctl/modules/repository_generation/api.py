@@ -27,6 +27,12 @@ from repoctl.modules.repository_generation.application.journal import (
     recover_journal,
     transaction_id_for,
 )
+from repoctl.modules.repository_generation.application.lifecycle import (
+    ActivationEvidence,
+    LifecycleOutcome,
+    activate,
+    retire,
+)
 from repoctl.modules.repository_generation.application.ports import (
     RepositoryConflictError,
     RepositoryPathEscapeError,
@@ -45,8 +51,10 @@ from repoctl.modules.repository_generation.application.specifications import (
     ApplyProductPreservationObservation,
     ApplyStalePlanObservation,
     ApplyStatus,
+    activation_is_closed,
     apply_is_idempotent,
     product_bytes_are_preserved,
+    retirement_is_non_destructive,
     stale_plan_is_rejected,
 )
 from repoctl.modules.repository_generation.application.use_cases import apply
@@ -158,6 +166,7 @@ __all__ = [
     "RECOVERY_INSTRUCTION",
     "SYSTEM_CAPABILITY_MODULES",
     "AbsolutePathError",
+    "ActivationEvidence",
     "AmbiguousOwnershipError",
     "ApplyIdempotenceObservation",
     "ApplyOutcome",
@@ -180,6 +189,7 @@ __all__ = [
     "GenerationOutcome",
     "JournalProgress",
     "JournalProtocolError",
+    "LifecycleOutcome",
     "LocalRepository",
     "MemoryRepository",
     "NonCanonicalSeparatorError",
@@ -207,6 +217,8 @@ __all__ = [
     "TransactionStateError",
     "UnclassifiedPathError",
     "UnicodeNormalizationPathError",
+    "activate",
+    "activation_is_closed",
     "apply",
     "apply_is_idempotent",
     "begin_journal",
@@ -231,6 +243,8 @@ __all__ = [
     "record_operation",
     "recover_journal",
     "render_derived_indexes",
+    "retire",
+    "retirement_is_non_destructive",
     "run",
     "stale_plan_is_rejected",
     "transaction_id_for",

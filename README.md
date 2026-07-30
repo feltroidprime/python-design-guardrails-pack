@@ -44,7 +44,9 @@ remains pure: the repository-control CLI stores an inspectable canonical plan
 under `.repo/plans/`, which is excluded from the planning snapshot.
 `capability apply` then uses the durable transaction protocol to materialize
 the requested DRAFT capsule exactly once; a replay reports `already_applied`
-without changing repository state.
+without changing repository state. Its lifecycle changes are declaration-only:
+activation requires current architecture, surface, proof, port, and CLI evidence,
+while retirement preserves every PRODUCT file.
 
 ## Ship Python faster without letting the codebase rot
 

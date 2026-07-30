@@ -6,32 +6,19 @@ uv 0.12.0, just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist
 
 ## Change validated
 
-Issue #55 makes declaration-derived indexes a small, deterministic compiler
-output.
+Issue #56 adds a deliberately small, declaration-only capability lifecycle.
 
-- The compiler derives the active-capability, composition, product-CLI, and
-  proof indexes only from explicit capability declarations—never runtime module
-  discovery or product-source inspection.
-- The declaration source hash is calculated from canonical declaration
-  documents, preserving the empty repository's established baseline without
-  scanning static product sources. Canonical declaration order makes repeated
-  output byte-identical.
-- A direct compiler-to-repository loop writes only changed files and checks that
-  each target is classified as `DERIVED` immediately before writing it.
-- Both adapters share a schema-validating declaration decoder backed by the
-  domain's canonical lifecycle type and predicate, so unsupported schema
-  versions fail before any derived output is written. Rendered Python
-  references must belong to the declaration's product module or to the exact
-  configured capability-name/system-module pair, and use Python's canonical
-  hard-keyword predicate.
-- Integration and unit tests cover empty output, active-versus-retired
-  exactness, deterministic full-tree bytes, product and system proof ownership,
-  forbidden discovery imports, DERIVED-only writes, hard-versus-soft keyword
-  handling, and invalid declarations before a write occurs.
-
-This intentionally does not add a recovery journal, cross-process lease, or
-generic mutation protocol. Those mechanisms were beyond #55's declaration to
-deterministic-output scope.
+- Activation accepts only complete, current evidence for the architecture
+  contract, stable surface, normative-property evidence, port contract, and
+  CLI-process evidence; each missing item is returned by name.
+- Transitions use a conditional declaration write and refuse declarations that
+  are not classified as `DECLARATION`, including under a custom ownership
+  policy.
+- Retirement changes only the declaration status. It neither writes product
+  files nor implements deletion, purge, CLI, generation, journals, leases, or
+  recovery machinery.
+- Stateful proof tests cover refusal, successful activation, retirement's
+  product-byte preservation, and reactivation requiring fresh evidence.
 
 ## Commands and actual results
 
@@ -42,17 +29,17 @@ PYTHONDONTWRITEBYTECODE=1 just validate
 The final canonical `just validate` passed end to end (directly observed exit
 code 0):
 
-- root Ruff repair/check was stable across 143 files and the root test suite
-  passed with **213 passed, 11 warnings** in 23.59s;
+- root Ruff repair/check was stable across 145 files and the root test suite
+  passed with **213 passed, 11 warnings** in 17.62s;
 - template cleanliness, fresh instantiation, generated bootstrap, downstream
   repair probes, missing-hook repair, tracked-syntax and dirty-doctor fault
   probes, and linked-worktree pre-commit/pre-push checks all passed;
 - the generated type gate reported **0 errors, 0 warnings**; ownership,
   architecture, documentation, proof-contract, symbolic-core, and import
   contracts all passed;
-- the generated full quality run passed with **265 passed, 8 skipped, 3
-  deselected** in 60.42s and **93.94%** coverage (90% required). The hook-repair
-  rerun also passed with **265 passed, 8 skipped, 3 deselected** in 58.82s.
+- the generated full quality run passed with **277 passed, 8 skipped, 3
+  deselected** in 77.18s and **93.94%** coverage (90% required). The hook-repair
+  rerun also passed with **277 passed, 8 skipped, 3 deselected** in 77.79s.
 
 The syntax and dirty-doctor failures printed during validation are deliberate
 fault-injection probes.
@@ -61,9 +48,9 @@ fault-injection probes.
 
 - Full validation ran on Linux x86_64 only. macOS and Windows remain
   unexercised; their subprocess environment and filesystem behavior can differ.
-- A run replaces multiple derived files through independent conditional writes,
-  so an abrupt process termination can leave a mixed generation. The next
-  regeneration deterministically rewrites the current declaration output; #55
-  deliberately does not provide crash recovery or cross-process coordination.
-- Lifecycle validation and execution of rendered product imports are delivered
-  by later epic leaves.
+- Lifecycle evidence is supplied by the caller; #56 validates completeness and
+  freshness at the declaration boundary rather than independently collecting
+  evidence.
+- A lifecycle transition does not trigger derived-index generation or expose a
+  CLI command. Existing generation can reflect the new declaration state, while
+  #58 owns the lifecycle CLI work.

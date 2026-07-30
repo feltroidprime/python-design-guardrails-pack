@@ -64,7 +64,8 @@ repoctl capability plan NAME --output .repo/plans/NAME.json` stores that
 inspectable plan without changing its snapshot digest; `capability apply` uses
 the durable transaction protocol to create the requested DRAFT capsule exactly
 once, with an `already_applied` replay outcome. The capsule still has no
-placeholder product model or lifecycle transition.
+placeholder product model; its lifecycle changes only its declaration, requiring
+current evidence for activation and preserving every PRODUCT file on retirement.
 
 The proof loop is intentionally narrower than the full gate. One
 `proof/policy.toml` sets the shared discovery policy and names the ownership-zone
