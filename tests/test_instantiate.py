@@ -50,6 +50,11 @@ REMOVED_PRODUCT_VOCABULARY = (
     "list-items example",
 )
 
+
+def test_pack_tests_ignore_invoking_git_hook_context() -> None:
+    assert not {key for key in os.environ if instantiate.is_local_git_environment(key)}
+
+
 EXPECTED_FILES = (
     ".repo/capabilities/repository_generation.toml",
     ".repo/repository.toml",
