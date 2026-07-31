@@ -18,9 +18,10 @@ import shutil
 import subprocess
 import sys
 import threading
+import warnings
 
 from copier import run_copy
-from copier.errors import CopierError
+from copier.errors import CopierError, DirtyLocalWarning
 from plumbum import local
 
 PACKAGE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -93,7 +94,13 @@ def generate(project_name: str, package_name: str, output: Path) -> str | None:
     if output.exists() and any(output.iterdir()):
         return f"Refusing to overwrite non-empty directory: {output}"
     try:
-        with without_local_git_context():
+        with (
+            without_local_git_context(),
+            warnings.catch_warnings(),
+        ):
+            # Editable installs intentionally render the current worktree. Copier
+            # warns about that expected behavior even though no user action is needed.
+            warnings.simplefilter("ignore", DirtyLocalWarning)
             run_copy(
                 str(source),
                 output,

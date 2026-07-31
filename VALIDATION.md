@@ -1,25 +1,23 @@
 # Validation record — 2026-07-31
 
 Validated on Linux 6.8.0-136-generic (x86_64) with Python 3.14.6, uv 0.12.0,
-just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist 3.8.0, Ruff 0.16.1,
-and prek 0.4.11.
+just 1.56.0, Git 2.54.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist 3.8.0,
+Ruff 0.16.1, and prek 0.4.11.
 
 ## Change validated
 
-Issue #73 documents one canonical capability lifecycle in the conditional
-downstream agent contract and checks every executable line against the
-recursive acceptance walk that already exercises it.
+Generated repositories now run Python-language prek hooks with Python 3.14,
+matching their declared interpreter and the syntax emitted by the template.
+This prevents `check-ast` and `debug-statements` from parsing Python 3.14 code
+with an unrelated Python 3.13 hook environment during the initial commit.
 
-- The workflow covers discovery, plan/apply, implementation and evidence,
-  activation, regeneration, one focused proof, the full gate, retirement,
-  regeneration, staging, and the full gate again.
-- The recursive test extracts the marked command block, substitutes its two
-  documented placeholders, and requires those commands to be an ordered
-  subsequence of the existing invocation log. It does not run a second walk.
-- The generated README links to the agent contract instead of duplicating the
-  workflow.
-- `DESIGN_GUARDRAILS.md` now maps the recursive acceptance walk, representative
-  shape matrix, and mutation catalog to their executable evidence.
+- `prek.toml` sets `default_language_version.python = "python3.14"`.
+- The initializer still renders current worktree changes from an editable pack
+  installation, but suppresses Copier's expected `DirtyLocalWarning`; other
+  Copier warnings remain visible.
+- Generator tests assert the rendered hook interpreter and keep direct Copier
+  test helpers free of the same expected dirty-template warning.
+- The downstream README and guardrail map document the interpreter alignment.
 
 ## Commands and actual results
 
@@ -28,52 +26,61 @@ uv run --no-project --python 3.14 \
   --with pytest==9.1.1 --with copier==9.17.0 \
   --with "icontract>=2.7.3" \
   pytest -q \
-  tests/test_docs_guard.py::test_template_documentation_passes_the_guard \
-  tests/test_instantiate.py::test_generated_docs_guard_runs_and_passes \
-  tests/test_instantiate.py::test_root_and_template_markdown_contain_no_removed_product_vocabulary
+  tests/test_instantiate.py::test_generated_repository_uses_prek_for_git_hooks \
+  tests/test_instantiate.py::test_generation_uses_current_dirty_worktree_instead_of_latest_tag
 
 uv run --no-project --python 3.14 \
   --with pytest==9.1.1 --with copier==9.17.0 \
   --with "icontract>=2.7.3" \
-  pytest -q \
-  tests/recursive/test_recursive_generation.py::test_recursive_walk_executes_the_specification_through_repoctl
+  pytest -q -W error::copier.errors.DirtyLocalWarning \
+  tests/test_instantiate.py
 
-just check
+uv run --no-project --python 3.14 --with . \
+  python-repo init hook-smoke /tmp/python-repo-macos.PA8pP7 --no-github
+
 just validate
 ```
 
-The focused documentation checks passed **3 tests** with one expected Copier
-dirty-template warning in 1.75 seconds. The focused real recursive walk passed
-**1 test** with one expected warning in 183.27 seconds. Root Ruff reported
-**154 files already formatted** and no lint violations.
+The two focused regressions passed **2 tests** in 2.33 seconds. The complete
+generator module passed **56 tests** in 42.45 seconds while treating any
+uncaught `DirtyLocalWarning` as an error.
 
-The canonical `just validate` command passed end to end:
+The initializer smoke test generated and bootstrapped a fresh repository,
+passed its quality gate (**127 passed, 1 skipped, 3 deselected; 95.65%
+coverage**), and completed the initial commit after all prek hooks passed,
+including `check-ast` and `debug-statements`. Because the smoke command ran the
+CLI inside an ephemeral `uv run --with .` build environment, nested generated
+`uv` commands printed `VIRTUAL_ENV` mismatch warnings; an installed
+`python-repo` tool does not have that nested harness condition.
 
-- root Ruff repair/check was stable across 154 files, and the root suite passed
-  **244 tests** with 21 dirty-template warnings in 541.04 seconds;
+The final canonical `just validate` command passed end to end:
+
+- root Ruff repair/check was stable across **154 files**, and the root suite
+  passed **244 tests** in 619.18 seconds with no warning summary;
 - template cleanliness, fresh generation, complete Jinja rendering, generated
   bootstrap, and the downstream repair probe passed;
 - the generated gate reported **0 errors, 0 warnings** from BasedPyright;
   ownership, architecture, documentation, proof-contract, symbolic-core, and
   Import Linter checks passed;
 - the first two visible generated gate executions each passed **127 tests,
-  1 skipped, 3 deselected**, in 37.86 and 31.26 seconds, with **95.65%
+  1 skipped, 3 deselected**, in 33.62 and 31.43 seconds, with **95.65%
   coverage** (90% required);
+- the initial commit passed every prek hook with the Python 3.14 hook policy;
 - missing-hook repair, tracked syntax rejection, clean and dirty doctor probes,
   and linked-worktree pre-commit and pre-push probes passed. The linked
   pre-push hook reported its full quality gate passed.
 
-The syntax and dirty-tree failures printed during validation are deliberate
-fault-injection probes.
+The generated contract placeholder skip, syntax failure, dirty-tree failure,
+and offline doctor warnings printed during validation are deliberate probes.
 
 ## Remaining risks and portability notes
 
-- Full validation ran on Linux x86_64 only. macOS and Windows remain
-  unexercised; their subprocess and filesystem behavior can differ.
-- The successful canonical root suite took 541.04 seconds, within the
-  documented ten-minute warm-cache budget but with limited headroom.
-- The extractor deliberately supports one shell command per line and the two
-  documented placeholders. A future workflow syntax change must update the
-  parser and recursive walk together.
-- Activation flags assert that their named evidence forms exist; the workflow
-  explicitly warns agents not to pass them speculatively.
+- Full validation ran on Linux x86_64. The reported failure came from macOS
+  arm64, but this environment could not execute the final acceptance run on
+  macOS; prek's documented Python toolchain resolution and the generated
+  configuration are platform-independent.
+- The root suite took 619.18 seconds under concurrent host load, slightly over
+  the ten-minute warm-cache budget. No test timed out or failed.
+- Existing generated repositories retain their old `prek.toml`; regenerate or
+  add `default_language_version.python = "python3.14"`, then reinstall hooks
+  with `uv run prek install -f`.

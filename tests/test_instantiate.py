@@ -12,8 +12,10 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import warnings
 
 from copier import run_copy
+from copier.errors import DirtyLocalWarning
 import pytest
 
 # Import paths are provided by tests/conftest.py.
@@ -230,6 +232,7 @@ def test_generated_repository_uses_prek_for_git_hooks(generated: Path) -> None:
 
     assert config["minimum_prek_version"] == "0.4.9"
     assert config["default_install_hook_types"] == ["pre-commit", "pre-push"]
+    assert config["default_language_version"]["python"] == "python3.14"
     assert set(hooks) >= {
         "architecture-guard",
         "proof-contract",
@@ -545,7 +548,8 @@ def test_fast_recipe_renders_default_template_and_runs_policy_checks() -> None:
 
 
 def _generate_with_answers(output: Path, answers: dict[str, object]) -> Path:
-    with instantiate.without_local_git_context():
+    with instantiate.without_local_git_context(), warnings.catch_warnings():
+        warnings.simplefilter("ignore", DirtyLocalWarning)
         run_copy(
             str(REPO_ROOT),
             output,
@@ -665,7 +669,8 @@ def test_checks_via_commit_has_exact_agents_content_delta(tmp_path: Path) -> Non
 def test_copier_derives_package_default_from_project_name(tmp_path: Path) -> None:
     output = tmp_path / "default-answer"
 
-    with instantiate.without_local_git_context():
+    with instantiate.without_local_git_context(), warnings.catch_warnings():
+        warnings.simplefilter("ignore", DirtyLocalWarning)
         run_copy(
             str(REPO_ROOT),
             output,
@@ -1054,6 +1059,7 @@ def test_generation_uses_current_dirty_worktree_instead_of_latest_tag(
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
+    assert "DirtyLocalWarning" not in result.stderr
     assert (output / "current-worktree.txt").read_text(encoding="utf-8") == "current\n"
     staged = subprocess.run(
         ["git", "diff", "--cached", "--name-only"],
