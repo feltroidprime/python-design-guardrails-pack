@@ -14,7 +14,11 @@ import subprocess
 from typing import cast
 import warnings
 
+import pytest
+
 import instantiate
+
+pytestmark = pytest.mark.repository_gate
 
 PROPERTY_ID = "REPOCTL::INDEPENDENT-CAPABILITIES-COMMUTE"
 PACK_ROOT = Path(__file__).resolve().parents[2]

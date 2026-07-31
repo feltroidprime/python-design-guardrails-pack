@@ -1,14 +1,18 @@
 """One real-command harness for recursive generated-repository scenarios."""
 
-import ast
 from dataclasses import dataclass, field
-from hashlib import sha256
 from pathlib import Path
 import re
 import subprocess
 from typing import Protocol
 
 import instantiate
+from tests.recursive.shape_support import (
+    COMMAND_TIMEOUT_SECONDS,
+    assert_product_hashes,
+    product_hashes,
+    runtime_capabilities,
+)
 
 PACK_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = "recursive_project"
@@ -23,7 +27,6 @@ ACTIVATION_EVIDENCE = (
     "--port-contract",
     "--cli-process-evidence",
 )
-COMMAND_TIMEOUT_SECONDS = 900
 INVENTED_BUSINESS_LOGIC = (
     re.compile(r"\bNotImplementedError\b"),
     re.compile(r"(?m)^\s*class\s+\w*(?:Aggregate|Entity|Model|Record)\b"),
@@ -138,56 +141,7 @@ def assert_no_invented_business_logic(capability_root: Path) -> None:
     assert not matches, f"invented business logic matched: {matches}"
 
 
-def _product_files(repository: Path, package: str, capability: str) -> tuple[Path, ...]:
-    roots = (
-        repository / "src" / package / "modules" / capability,
-        repository / "tests" / "modules" / capability,
-        repository / "verification" / "modules" / capability,
-        repository / "docs" / "product" / capability,
-    )
-    files = {path for root in roots if root.is_dir() for path in root.rglob("*") if path.is_file()}
-    proof_catalog = repository / "proof" / "modules" / f"{capability}.toml"
-    if proof_catalog.is_file():
-        files.add(proof_catalog)
-    return tuple(sorted(files))
-
-
-def _product_hashes(repository: Path, package: str, capability: str) -> dict[str, str]:
-    files = _product_files(repository, package, capability)
-    assert files, f"{capability} has no product files"
-    return {
-        path.relative_to(repository).as_posix(): sha256(path.read_bytes()).hexdigest()
-        for path in files
-    }
-
-
-def _assert_product_hashes(
-    expected: dict[str, str],
-    repository: Path,
-    package: str,
-    capability: str,
-) -> None:
-    observed = _product_hashes(repository, package, capability)
-    assert observed == expected, f"{capability} product bytes changed: {observed!r}"
-
-
-def _runtime_capabilities(repository: Path, package: str) -> tuple[str, ...]:
-    index = repository / "src" / package / "_generated" / "active_capabilities.py"
-    tree = ast.parse(index.read_text(encoding="utf-8"), filename=str(index))
-    assignment = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.AnnAssign)
-        and isinstance(node.target, ast.Name)
-        and node.target.id == "ACTIVE_CAPABILITIES"
-    )
-    modules = ast.literal_eval(assignment.value)
-    assert isinstance(modules, tuple)
-    assert all(isinstance(module, str) for module in modules)
-    return tuple(module.rsplit(".", maxsplit=1)[-1] for module in modules)
-
-
-def _render_and_bootstrap(harness: _CommandHarness) -> None:
+def _render_repository(harness: _CommandHarness) -> None:
     error = instantiate.generate(PROJECT, PACKAGE, harness.repository)
     assert error is None, error
     harness.record("render N0")
@@ -206,8 +160,32 @@ def _render_and_bootstrap(harness: _CommandHarness) -> None:
             "--message=Render N0",
         )
     )
+
+
+def _render_and_bootstrap(harness: _CommandHarness) -> None:
+    _render_repository(harness)
     _ = harness.run(("just", "bootstrap"))
     harness.record("bootstrap N0")
+
+
+def prepare_active_shape(
+    repository: Path,
+    fixture: ShapeFixture,
+) -> Path:
+    """Create, activate, and certify one shape through real CLI commands."""
+    harness = _CommandHarness(repository=repository)
+    _render_repository(harness)
+
+    harness.plan_and_apply(ALPHA)
+    assert_no_invented_business_logic(repository / "src" / PACKAGE / "modules" / ALPHA)
+    fixture.install_implementation(repository, PACKAGE, ALPHA)
+    fixture.install_evidence(repository, PACKAGE, ALPHA)
+    harness.stage_all()
+    harness.activate(ALPHA)
+    _ = harness.run(("just", "check"))
+
+    assert runtime_capabilities(repository, PACKAGE) == (ALPHA,)
+    return repository
 
 
 def run_recursive_walk(
@@ -259,26 +237,26 @@ def run_recursive_walk(
 
     _ = harness.run(("just", "check"))
     harness.record("run the full gate")
-    alpha_hashes = _product_hashes(repository, PACKAGE, ALPHA)
+    alpha_hashes = product_hashes(repository, PACKAGE, ALPHA)
 
     harness.plan_and_apply(BETA)
     assert_no_invented_business_logic(repository / "src" / PACKAGE / "modules" / BETA)
     harness.record("plan and apply capability beta from the resulting N1 repository")
 
-    _assert_product_hashes(alpha_hashes, repository, PACKAGE, ALPHA)
+    assert_product_hashes(alpha_hashes, repository, PACKAGE, ALPHA)
     harness.record("verify alpha's product bytes are unchanged")
 
     harness.activate(BETA)
-    _assert_product_hashes(alpha_hashes, repository, PACKAGE, ALPHA)
+    assert_product_hashes(alpha_hashes, repository, PACKAGE, ALPHA)
     harness.record("activate beta")
 
     harness.retire(ALPHA)
     harness.record("retire alpha")
 
-    _assert_product_hashes(alpha_hashes, repository, PACKAGE, ALPHA)
+    assert_product_hashes(alpha_hashes, repository, PACKAGE, ALPHA)
     harness.record("verify alpha's files remain unchanged")
 
-    active = _runtime_capabilities(repository, PACKAGE)
+    active = runtime_capabilities(repository, PACKAGE)
     assert active == (BETA,), active
     harness.record("verify derived runtime indexes contain beta but not alpha")
 

@@ -71,6 +71,6 @@ just validate
 Run `just validate` for changes to the template, generator, root tests, or
 validation scripts. It generates a throwaway N0 repository and runs its full
 quality gate. `just test` includes the real N0 → N1 → N2 acceptance walk and
-has a ten-minute warm-cache budget; use `just test-fast` for sub-minute
+has a seven-minute warm-cache budget; use `just test-fast` for sub-minute
 feedback. See `DESIGN_GUARDRAILS.md` for the enforcement map and `VALIDATION.md`
 for the latest full-validation record.

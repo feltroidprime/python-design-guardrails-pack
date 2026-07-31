@@ -30,6 +30,11 @@ include = ["instantiate.py", "copier.yml"]
 [tool.hatch.build.targets.sdist]
 include = ["instantiate.py", "copier.yml", "template", "README.md"]
 
+[tool.pytest.ini_options]
+markers = [
+  "repository_gate: tests that generate repositories and run heavyweight certification gates",
+]
+
 # Keep the pack and the repositories it generates on one Ruff policy. The root
 # adds only path-shaped exceptions for its generator CLI and subprocess-heavy
 # acceptance harness; downstream policy remains canonical in the template.

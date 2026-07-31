@@ -1,14 +1,16 @@
 """Boring process and asset mechanics shared by recursive shape fixtures."""
 
+import ast
+from hashlib import sha256
 import json
 from pathlib import Path
 import subprocess
 from typing import cast
 
 import instantiate
-from tests.recursive.harness import COMMAND_TIMEOUT_SECONDS
 
 type AssetTargets = tuple[tuple[str, str], ...]
+COMMAND_TIMEOUT_SECONDS = 900
 
 
 def run_detached(
@@ -63,6 +65,53 @@ def select_capability(document: dict[str, object], name: str) -> dict[str, objec
     ]
     assert len(matches) == 1
     return matches[0]
+
+
+def product_hashes(repository: Path, package: str, capability: str) -> dict[str, str]:
+    """Hash every PRODUCT file owned by one capability."""
+    roots = (
+        repository / "src" / package / "modules" / capability,
+        repository / "tests" / "modules" / capability,
+        repository / "verification" / "modules" / capability,
+        repository / "docs" / "product" / capability,
+    )
+    files = {path for root in roots if root.is_dir() for path in root.rglob("*") if path.is_file()}
+    proof_catalog = repository / "proof" / "modules" / f"{capability}.toml"
+    if proof_catalog.is_file():
+        files.add(proof_catalog)
+    assert files, f"{capability} has no product files"
+    return {
+        path.relative_to(repository).as_posix(): sha256(path.read_bytes()).hexdigest()
+        for path in sorted(files)
+    }
+
+
+def assert_product_hashes(
+    expected: dict[str, str],
+    repository: Path,
+    package: str,
+    capability: str,
+) -> None:
+    """Assert that one capability's complete PRODUCT surface is unchanged."""
+    observed = product_hashes(repository, package, capability)
+    assert observed == expected, f"{capability} product bytes changed: {observed!r}"
+
+
+def runtime_capabilities(repository: Path, package: str) -> tuple[str, ...]:
+    """Read active capability names from the generated runtime index."""
+    index = repository / "src" / package / "_generated" / "active_capabilities.py"
+    tree = ast.parse(index.read_text(encoding="utf-8"), filename=str(index))
+    assignment = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.AnnAssign)
+        and isinstance(node.target, ast.Name)
+        and node.target.id == "ACTIVE_CAPABILITIES"
+    )
+    modules = ast.literal_eval(assignment.value)
+    assert isinstance(modules, tuple)
+    assert all(isinstance(module, str) for module in modules)
+    return tuple(module.rsplit(".", maxsplit=1)[-1] for module in modules)
 
 
 def install_assets(

@@ -118,7 +118,7 @@ Required before claiming completion:
   must match the justfile and scripts.
 
 `just test` includes the real N0 → N1 → N2 recursive acceptance walk and has a
-ten-minute warm-cache budget; `just test-fast` is the sub-minute inner loop.
+seven-minute warm-cache budget; `just test-fast` is the sub-minute inner loop.
 Neither is a completion criterion for template changes.
 
 Prerequisites: `python3` (3.14), `uv`, `just`, and network access for the first
