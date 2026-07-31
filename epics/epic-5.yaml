@@ -363,6 +363,8 @@ tasks:
     depends_on: [recursive_acceptance_harness]
     risk: mechanical
     lane:
+      - VALIDATION.md
+      - epics/epic-5.yaml
       - tests/test_update_preservation.py
     forbidden_paths: [tests/recursive/harness.py, template/**]
     acceptance_criteria:

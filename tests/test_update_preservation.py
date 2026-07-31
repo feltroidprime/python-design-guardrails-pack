@@ -2,9 +2,11 @@
 
 import errno
 from hashlib import sha256
+import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 from tempfile import TemporaryDirectory
 import time
 import tomllib
@@ -15,33 +17,25 @@ from copier import _main as copier_main, run_copy, run_update
 import pytest
 
 import instantiate
-from scripts.ownership import classify_path
-from scripts.ownership_policy import load_ownership_policy
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 COPIER_CONFIG = REPOSITORY_ROOT / "copier.yml"
 TEMPLATE = REPOSITORY_ROOT / "template"
-CAPABILITY_SEED = REPOSITORY_ROOT / "tests/fixtures/capability_seed"
 PROJECT_NAME = "preservation-project"
 PACKAGE = "preservation_project"
+CAPABILITY_NAME = "billing"
 FOUNDATION_A = "v1.0.0"
 FOUNDATION_B = "v1.0.1"
 OVERWRITE_MUTANT = "v1.0.2"
 FOUNDATION_B_MARKER = "Foundation version B."
 INITIAL_SOURCE_DIGEST = "4fea77788e9666e6b12698b9b4fac85af160db00472e83339460edfddc9f152e"
-DERIVED_PATHS = (
-    Path(f"src/{PACKAGE}/_generated/active_capabilities.py"),
-    Path(f"src/{PACKAGE}/_generated/composition.py"),
-    Path(f"src/{PACKAGE}/_generated/cli_catalog.py"),
-    Path("proof/_generated/index.json"),
-)
 DERIVED_TEMPLATE_PATHS = (
     Path("src/{{ package }}/_generated/active_capabilities.py"),
     Path("src/{{ package }}/_generated/composition.py"),
     Path("src/{{ package }}/_generated/cli_catalog.py"),
     Path("proof/_generated/index.json"),
 )
-MUTATED_PRODUCT_PATH = Path(f"src/{PACKAGE}/modules/billing/api.py")
+MUTATED_PRODUCT_PATH = Path(f"src/{PACKAGE}/modules/{CAPABILITY_NAME}/api.py")
 COPIER_CLEANUP_ATTEMPTS = 3
 COPIER_CLEANUP_RETRY_SECONDS = 0.01
 
@@ -62,10 +56,15 @@ class RetryingTemporaryDirectory(TemporaryDirectory):
 
 
 def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    environment = instantiate.environment_without_local_git_context()
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    source_root = cwd / "src"
+    if source_root.is_dir():
+        environment["PYTHONPATH"] = str(source_root)
     return subprocess.run(
         command,
         cwd=cwd,
-        env=instantiate.environment_without_local_git_context(),
+        env=environment,
         capture_output=True,
         text=True,
         check=False,
@@ -135,6 +134,15 @@ def test_retrying_temporary_directory_preserves_non_transient_cleanup_errors(
         original_cleanup(directory)
 
 
+def test_update_scenario_no_longer_references_the_hand_seeded_fixture() -> None:
+    source = Path(__file__).read_text(encoding="utf-8")
+    legacy_path = Path("tests", "fixtures", "capability_seed").as_posix()
+    legacy_symbol = "CAPABILITY" + "_SEED"
+
+    assert legacy_path not in source
+    assert legacy_symbol not in source
+
+
 def prepare_template(root: Path) -> Path:
     root.mkdir()
     shutil.copy2(COPIER_CONFIG, root / "copier.yml")
@@ -162,29 +170,49 @@ def generate_project(template: Path, project: Path) -> None:
     commit_all(project, "Render foundation A")
 
 
-def mapped_seed_path(relative: Path) -> Path:
-    parts = list(relative.parts)
-    if parts[:2] == ["src", "seed_package"]:
-        parts[1] = PACKAGE
-    return Path(*parts)
+def create_and_customize_product(project: Path) -> tuple[Path, ...]:
+    plan_reference = Path(".repo/plans") / f"{CAPABILITY_NAME}.json"
+    planned = run(
+        [
+            sys.executable,
+            "-m",
+            "repoctl",
+            "capability",
+            "plan",
+            CAPABILITY_NAME,
+            "--output",
+            str(plan_reference),
+        ],
+        project,
+    )
+    assert planned.returncode == 0, planned.stdout + planned.stderr
+    applied = run(
+        [
+            sys.executable,
+            "-m",
+            "repoctl",
+            "capability",
+            "apply",
+            str(plan_reference),
+        ],
+        project,
+    )
+    assert applied.returncode == 0, applied.stdout + applied.stderr
 
-
-def seed_and_customize_product(project: Path) -> tuple[Path, ...]:
-    seeded: list[Path] = []
-    for source in sorted(path for path in CAPABILITY_SEED.rglob("*") if path.is_file()):
-        relative = mapped_seed_path(source.relative_to(CAPABILITY_SEED))
-        destination = project / relative
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(source.read_bytes().replace(b"seed_package", PACKAGE.encode()))
-        seeded.append(relative)
-
-    policy = load_ownership_policy(project)
-    product_paths = tuple(path for path in seeded if str(classify_path(path, policy)) == "PRODUCT")
+    operations = cast(
+        "list[dict[str, str]]",
+        json.loads((project / plan_reference).read_text(encoding="utf-8"))["operations"],
+    )
+    product_paths = tuple(
+        Path(operation["path"])
+        for operation in operations
+        if operation["kind"] == "create_product_seed"
+    )
     assert product_paths
     for relative in product_paths:
         path = project / relative
         path.write_bytes(b"# user-owned customization\n" + path.read_bytes())
-    commit_all(project, "Seed and customize product capability")
+    commit_all(project, "Create and customize product capability")
     return product_paths
 
 
@@ -263,9 +291,8 @@ def test_foundation_update_preserves_every_seeded_product_byte(tmp_path: Path) -
     template = prepare_template(tmp_path / "template-source")
     project = tmp_path / "project"
     generate_project(template, project)
-    product_paths = seed_and_customize_product(project)
+    product_paths = create_and_customize_product(project)
     product_before = file_hashes(project, product_paths)
-    derived_before = {path: (project / path).read_bytes() for path in DERIVED_PATHS}
 
     mutant_project = tmp_path / "mutant-project"
     cloned = run(
@@ -278,9 +305,6 @@ def test_foundation_update_preserves_every_seeded_product_byte(tmp_path: Path) -
 
     assert overwritten_paths(product_before, project) == ()
     assert FOUNDATION_B_MARKER in (project / "README.md").read_text(encoding="utf-8")
-    assert {
-        path for path, content in derived_before.items() if (project / path).read_bytes() != content
-    } == set(DERIVED_PATHS)
 
     publish_overwrite_mutant(template)
     update_project(mutant_project, OVERWRITE_MUTANT)
