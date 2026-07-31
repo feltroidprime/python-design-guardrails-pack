@@ -263,25 +263,29 @@ tasks:
     repo: feltroidprime/python-design-guardrails-pack
     issue: feltroidprime/python-design-guardrails-pack#72
     outcome: >-
-      Two capabilities compose through a consumer-owned port injected by the outer
-      bootstrap, with the consumer importing none of the provider's internals.
+      Two CLI-created capabilities expose factories through the derived composition
+      index, and an outer bootstrap injects the provider into the consumer's callable
+      port without any consumer-to-provider import.
     decision_boundary: >-
-      Owns the two fixtures' seam and the composition wiring. May not change the
-      generated composition index format, and may not let the consumer import
-      anything but the provider's api.py.
+      Owns one focused fixture and its bootstrap assertion. The generated index
+      exposes active factories but does not invoke or dependency-order them; the
+      test may set each throwaway declaration's existing factory field because the
+      CLI has no factory option. It may not change template or harness behavior.
     interfaces: [recursive-harness-v1, shape-fixture-v1, generated-composition-v1]
     uncertainty: high
     depends_on: [fixture_pure_library, fixture_external_integration]
     risk: novel
     lane:
+      - VALIDATION.md
+      - epics/epic-5.yaml
       - tests/fixtures/shapes/composition/**
       - tests/recursive/test_shape_composition.py
     forbidden_paths: [tests/recursive/harness.py]
     acceptance_criteria:
       - "`pytest -q tests/recursive/test_shape_composition.py` passes with both capabilities active and one real scenario executing across them."
-      - "A test parses the consumer's imports and asserts it imports only the provider's api module; adding an import of the provider's domain makes the architecture guard fail."
-      - "The generated composition index wires the provider into the consumer, and a test asserts the wiring comes from the derived file rather than hand-written code."
-      - "Retiring the provider makes the composition index drop the wiring, and the consumer's product files stay byte-identical."
+      - "The consumer owns a callable port and has no provider import; adding an import of the provider's domain makes CAP003 fail."
+      - "The outer bootstrap executes only factories obtained from the generated composition index, with no hand-written factory imports."
+      - "Retiring the provider removes only its factory from the generated index, leaves the consumer factory importable, and keeps the consumer's product files byte-identical."
     required_checks: [pack-tests, pack-validate]
     done_artifacts:
       - tests/recursive/test_shape_composition.py

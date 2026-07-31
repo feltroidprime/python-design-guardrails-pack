@@ -1,0 +1,6 @@
+"""Public factory supplied by the provider capability."""
+
+
+def unit_price() -> int:
+    """Return the provider's unit price."""
+    return 7

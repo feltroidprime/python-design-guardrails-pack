@@ -6,18 +6,20 @@ and prek 0.4.11.
 
 ## Change validated
 
-Issue #71 moves the update-preservation scenario from a copied fixture to a
-capability created by the generated repository's real CLI.
+Issue #72 adds one focused multi-capability composition fixture without
+changing the generated template or shared recursive harness.
 
-- The test invokes detached `python -m repoctl capability plan` and
-  `capability apply` commands for one representative capability.
-- It customizes every `create_product_seed` path declared by that plan, hashes
-  every customized file, and proves a normal synthetic foundation update
-  preserves all bytes.
-- The existing product-overwrite mutant still proves the oracle is
-  fault-sensitive, while a source audit rejects the former hand-seeded fixture
-  path and symbol.
-- No generated template or recursive harness behavior changed.
+- The generated repository's real CLI creates provider `alpha` and consumer
+  `beta`, and their existing declaration fields name two tiny public factories.
+- With both capabilities active, an outer bootstrap imports only the derived
+  `COMPOSITION` tuple and injects the provider callable into the consumer-owned
+  callable port for a real quote scenario.
+- An AST assertion rejects every provider import from all consumer sources,
+  while a deliberate provider-domain import proves the canonical capability
+  validator emits CAP003.
+- Retiring the provider removes its factory from `COMPOSITION`, leaves the
+  consumer factory importable, and preserves every consumer PRODUCT byte using
+  the recursive harness's canonical product-file scope.
 
 ## Commands and actual results
 
@@ -25,35 +27,28 @@ capability created by the generated repository's real CLI.
 uv run --no-project --python 3.14 \
   --with pytest==9.1.1 --with copier==9.17.0 \
   --with "icontract>=2.7.3" \
-  pytest -q \
-  tests/test_update_preservation.py::test_update_scenario_no_longer_references_the_hand_seeded_fixture
-uv run --no-project --python 3.14 \
-  --with pytest==9.1.1 --with copier==9.17.0 \
-  --with "icontract>=2.7.3" \
-  pytest -q tests/test_update_preservation.py
+  pytest -q tests/recursive/test_shape_composition.py
 just check
 just validate
 ```
 
-The TDD red anti-fixture test failed as intended while the old fixture path
-remained. The final focused file passed **4 tests** in 5.13 seconds, including
-the normal update and deliberate overwrite-mutant branches. An initial
-`just check` identified the anti-fixture string construction as Ruff FLY002;
-after correction, root Ruff reported **153 files already formatted** and no
-lint violations.
+The initial focused test failed as intended before its two fixture assets
+existed. The final focused test passed **1 test** with one expected Copier
+dirty-template warning in 6.70 seconds. Root Ruff reported **154 files already
+formatted** and no lint violations.
 
 The canonical `just validate` command passed end to end:
 
-- root Ruff repair/check was stable across 153 files, and the root suite passed
-  **243 tests** with 20 dirty-template warnings in 536.34 seconds;
+- root Ruff repair/check was stable across 154 files, and the root suite passed
+  **244 tests** with 21 dirty-template warnings in 553.82 seconds;
 - template cleanliness, fresh generation, complete Jinja rendering, generated
   bootstrap, and the downstream repair probe passed;
 - the generated gate reported **0 errors, 0 warnings** from BasedPyright;
   ownership, architecture, documentation, proof-contract, symbolic-core, and
   Import Linter checks passed;
-- both generated gates passed **127 tests, 1 skipped, 3 deselected**, first in
-  33.31 seconds and then in 32.04 seconds, with **95.65% coverage** (90%
-  required);
+- the three generated gate executions each passed **127 tests, 1 skipped,
+  3 deselected**, in 32.73, 35.66, and 36.67 seconds, with **95.65% coverage**
+  (90% required);
 - missing-hook repair, tracked syntax rejection, clean and dirty doctor probes,
   and linked-worktree pre-commit/pre-push probes passed.
 
@@ -64,11 +59,11 @@ fault-injection probes.
 
 - Full validation ran on Linux x86_64 only. macOS and Windows remain
   unexercised; their subprocess and filesystem behavior can differ.
-- The successful canonical root suite took 536.34 seconds, within the
-  documented ten-minute warm-cache budget but with limited headroom for later
-  recursive shape fixtures.
-- The scenario exercises the single representative capability required by
-  SPEC-0001 §20.5 and intentionally depends on the public plan operation kind
-  `create_product_seed`.
-- The remaining composition and agent-workflow cases are owned by issues
-  #72–#73.
+- The successful canonical root suite took 553.82 seconds, within the
+  documented ten-minute warm-cache budget but with little headroom.
+- The generated composition index intentionally exposes a deterministic tuple
+  of active factories; dependency ordering and invocation remain the outer
+  bootstrap's responsibility.
+- The CLI has no factory option, so this test sets the existing factory field
+  only in its throwaway declarations after real plan/apply creation.
+- The remaining agent-workflow case is owned by issue #73.

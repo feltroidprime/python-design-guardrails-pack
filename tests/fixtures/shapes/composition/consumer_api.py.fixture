@@ -1,0 +1,15 @@
+"""Consumer-owned composition port and factory."""
+
+from collections.abc import Callable
+
+type UnitPrice = Callable[[], int]
+type Quote = Callable[[int], int]
+
+
+def build_quote(unit_price: UnitPrice) -> Quote:
+    """Build a quote operation from an injected unit-price provider."""
+
+    def quote(quantity: int) -> int:
+        return unit_price() * quantity
+
+    return quote
