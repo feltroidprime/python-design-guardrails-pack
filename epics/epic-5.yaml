@@ -385,22 +385,27 @@ tasks:
     issue: feltroidprime/python-design-guardrails-pack#73
     outcome: >-
       The downstream agent contract documents the exact command sequence for
-      adding, implementing, proving, activating, and retiring a capability, with
-      every command verified against the harness.
+      adding, implementing, activating, proving, checking, and retiring a
+      capability, with every command verified against the harness.
     decision_boundary: >-
       Owns the wording and the placement of the workflow. May not change any
       command or guard, and may not document a step the harness does not perform.
+      The existing recursive test may only add the documentation-to-invocation
+      assertion; it may not change the walk.
     interfaces: [recursive-harness-v1, repoctl-cli-v1]
     uncertainty: low
     depends_on: [fixture_composition, mutation_catalog, commutativity_and_scale]
     risk: mechanical
     lane:
+      - epics/epic-5.yaml
       - template/docs/**
       - template/README.md.jinja
+      - "template/{% if agents_contract != 'none' %}AGENTS.md{% endif %}.jinja"
       - README.md
       - DESIGN_GUARDRAILS.md
       - VALIDATION.md
-    forbidden_paths: [tests/recursive/**, template/repoctl/**]
+      - tests/recursive/test_recursive_generation.py
+    forbidden_paths: [tests/recursive/harness.py, template/repoctl/**]
     acceptance_criteria:
       - "In the generated repository, `uv run python -m scripts.docs_guard` exits 0."
       - "A pack test extracts every command shown in the workflow documentation and asserts each appears in the recursive harness's recorded invocation log."

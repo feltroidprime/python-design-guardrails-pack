@@ -69,6 +69,39 @@ Read `docs/adr/0002-agent-native-cli-protocol.md` and
 `docs/adr/0004-agent-input-retry-and-composition-contract.md` before changing
 the control process boundary.
 
+## Capability lifecycle workflow
+
+Use this sequence for one new capability. After apply, replace only the
+generated PRODUCT seeds with real behavior and add the capability's proof
+catalog and evidence. The activation flags are assertions that those named
+evidence forms now exist; never pass them speculatively.
+
+The executable lines are checked, in order, against the pack's recursive
+acceptance log. `NAME` and `PROPERTY-ID` are placeholders for the capability
+and one of its normative laws.
+
+<!-- capability-workflow:start -->
+```bash
+uv run python -m repoctl capabilities
+uv run python -m repoctl capability plan NAME --output .repo/plans/NAME.json
+uv run python -m repoctl capability apply .repo/plans/NAME.json
+# Implement NAME and add its proof catalog and evidence.
+git add --all
+uv run python -m repoctl capability activate NAME --architecture-contract --stable-surface --normative-property-evidence --port-contract --cli-process-evidence
+uv run python -m repoctl generate
+just prove-one PROPERTY-ID
+just check
+uv run python -m repoctl capability retire NAME
+uv run python -m repoctl generate
+git add --all
+just check
+```
+<!-- capability-workflow:end -->
+
+Activation and retirement change declaration state; each following `generate`
+refreshes DERIVED indexes. Neither lifecycle command may rewrite PRODUCT
+bytes.
+
 ## Proof-carrying behavior
 
 `proof/policy.toml` and its catalogs are normative. N0's active catalog is

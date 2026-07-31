@@ -6,20 +6,20 @@ and prek 0.4.11.
 
 ## Change validated
 
-Issue #72 adds one focused multi-capability composition fixture without
-changing the generated template or shared recursive harness.
+Issue #73 documents one canonical capability lifecycle in the conditional
+downstream agent contract and checks every executable line against the
+recursive acceptance walk that already exercises it.
 
-- The generated repository's real CLI creates provider `alpha` and consumer
-  `beta`, and their existing declaration fields name two tiny public factories.
-- With both capabilities active, an outer bootstrap imports only the derived
-  `COMPOSITION` tuple and injects the provider callable into the consumer-owned
-  callable port for a real quote scenario.
-- An AST assertion rejects every provider import from all consumer sources,
-  while a deliberate provider-domain import proves the canonical capability
-  validator emits CAP003.
-- Retiring the provider removes its factory from `COMPOSITION`, leaves the
-  consumer factory importable, and preserves every consumer PRODUCT byte using
-  the recursive harness's canonical product-file scope.
+- The workflow covers discovery, plan/apply, implementation and evidence,
+  activation, regeneration, one focused proof, the full gate, retirement,
+  regeneration, staging, and the full gate again.
+- The recursive test extracts the marked command block, substitutes its two
+  documented placeholders, and requires those commands to be an ordered
+  subsequence of the existing invocation log. It does not run a second walk.
+- The generated README links to the agent contract instead of duplicating the
+  workflow.
+- `DESIGN_GUARDRAILS.md` now maps the recursive acceptance walk, representative
+  shape matrix, and mutation catalog to their executable evidence.
 
 ## Commands and actual results
 
@@ -27,30 +27,41 @@ changing the generated template or shared recursive harness.
 uv run --no-project --python 3.14 \
   --with pytest==9.1.1 --with copier==9.17.0 \
   --with "icontract>=2.7.3" \
-  pytest -q tests/recursive/test_shape_composition.py
+  pytest -q \
+  tests/test_docs_guard.py::test_template_documentation_passes_the_guard \
+  tests/test_instantiate.py::test_generated_docs_guard_runs_and_passes \
+  tests/test_instantiate.py::test_root_and_template_markdown_contain_no_removed_product_vocabulary
+
+uv run --no-project --python 3.14 \
+  --with pytest==9.1.1 --with copier==9.17.0 \
+  --with "icontract>=2.7.3" \
+  pytest -q \
+  tests/recursive/test_recursive_generation.py::test_recursive_walk_executes_the_specification_through_repoctl
+
 just check
 just validate
 ```
 
-The initial focused test failed as intended before its two fixture assets
-existed. The final focused test passed **1 test** with one expected Copier
-dirty-template warning in 6.70 seconds. Root Ruff reported **154 files already
-formatted** and no lint violations.
+The focused documentation checks passed **3 tests** with one expected Copier
+dirty-template warning in 1.75 seconds. The focused real recursive walk passed
+**1 test** with one expected warning in 183.27 seconds. Root Ruff reported
+**154 files already formatted** and no lint violations.
 
 The canonical `just validate` command passed end to end:
 
 - root Ruff repair/check was stable across 154 files, and the root suite passed
-  **244 tests** with 21 dirty-template warnings in 553.82 seconds;
+  **244 tests** with 21 dirty-template warnings in 541.04 seconds;
 - template cleanliness, fresh generation, complete Jinja rendering, generated
   bootstrap, and the downstream repair probe passed;
 - the generated gate reported **0 errors, 0 warnings** from BasedPyright;
   ownership, architecture, documentation, proof-contract, symbolic-core, and
   Import Linter checks passed;
-- the three generated gate executions each passed **127 tests, 1 skipped,
-  3 deselected**, in 32.73, 35.66, and 36.67 seconds, with **95.65% coverage**
-  (90% required);
+- the first two visible generated gate executions each passed **127 tests,
+  1 skipped, 3 deselected**, in 37.86 and 31.26 seconds, with **95.65%
+  coverage** (90% required);
 - missing-hook repair, tracked syntax rejection, clean and dirty doctor probes,
-  and linked-worktree pre-commit/pre-push probes passed.
+  and linked-worktree pre-commit and pre-push probes passed. The linked
+  pre-push hook reported its full quality gate passed.
 
 The syntax and dirty-tree failures printed during validation are deliberate
 fault-injection probes.
@@ -59,11 +70,10 @@ fault-injection probes.
 
 - Full validation ran on Linux x86_64 only. macOS and Windows remain
   unexercised; their subprocess and filesystem behavior can differ.
-- The successful canonical root suite took 553.82 seconds, within the
-  documented ten-minute warm-cache budget but with little headroom.
-- The generated composition index intentionally exposes a deterministic tuple
-  of active factories; dependency ordering and invocation remain the outer
-  bootstrap's responsibility.
-- The CLI has no factory option, so this test sets the existing factory field
-  only in its throwaway declarations after real plan/apply creation.
-- The remaining agent-workflow case is owned by issue #73.
+- The successful canonical root suite took 541.04 seconds, within the
+  documented ten-minute warm-cache budget but with limited headroom.
+- The extractor deliberately supports one shell command per line and the two
+  documented placeholders. A future workflow syntax change must update the
+  parser and recursive walk together.
+- Activation flags assert that their named evidence forms exist; the workflow
+  explicitly warns agents not to pass them speculatively.

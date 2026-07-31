@@ -2,6 +2,7 @@
 
 import ast
 from pathlib import Path
+import shlex
 
 import pytest
 
@@ -35,12 +36,34 @@ EXPECTED_STEPS = (
     "verify derived runtime indexes contain beta but not alpha",
     "run the full gate again",
 )
+WORKFLOW_START = "<!-- capability-workflow:start -->"
+WORKFLOW_END = "<!-- capability-workflow:end -->"
 
 
 def _write_fixture_file(repository: Path, relative: str, content: str) -> None:
     target = repository / relative
     target.parent.mkdir(parents=True, exist_ok=True)
     _ = target.write_text(content, encoding="utf-8")
+
+
+def _documented_workflow_commands(repository: Path) -> tuple[tuple[str, ...], ...]:
+    source = (repository / "AGENTS.md").read_text(encoding="utf-8")
+    assert (source.count(WORKFLOW_START), source.count(WORKFLOW_END)) == (1, 1)
+    body = source.partition(WORKFLOW_START)[2].partition(WORKFLOW_END)[0]
+    lines = (
+        line.strip()
+        for line in body.splitlines()
+        if line.strip() and not line.strip().startswith(("```", "#"))
+    )
+    commands = tuple(
+        tuple(
+            token.replace("NAME", "alpha").replace("PROPERTY-ID", PROPERTY_ID)
+            for token in shlex.split(line)
+        )
+        for line in lines
+    )
+    assert commands
+    return commands
 
 
 class AlphaFixture:
@@ -182,6 +205,9 @@ def test_recursive_walk_executes_the_specification_through_repoctl(
     assert all(
         invocation[: len(REPOCTL_PREFIX)] == REPOCTL_PREFIX for invocation in creation_invocations
     )
+    recorded_invocations = iter(recursive_walk.invocations)
+    for command in _documented_workflow_commands(recursive_walk.repository):
+        assert any(invocation == command for invocation in recorded_invocations), command
 
 
 def test_harness_has_no_direct_product_write_primitive() -> None:

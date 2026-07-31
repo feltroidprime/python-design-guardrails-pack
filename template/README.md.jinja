@@ -62,7 +62,11 @@ uv run python -m repoctl capability apply .repo/plans/NAME.json
 uv run python -m repoctl proof-report
 ```
 
-Planning is pure over explicit declarations, ownership roots, and prior file
+{% if agents_contract != 'none' %}Coding agents should follow the
+[harness-verified capability lifecycle](AGENTS.md#capability-lifecycle-workflow)
+in the repository operating contract.
+
+{% endif %}Planning is pure over explicit declarations, ownership roots, and prior file
 digests. Applying an inspected plan is durable and replays as `already_applied`.
 Activation and retirement update declarations while preserving PRODUCT bytes.
 See `docs/adr/0002-agent-native-cli-protocol.md`,
