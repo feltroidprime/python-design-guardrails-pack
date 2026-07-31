@@ -1,0 +1,28 @@
+"""Executable evidence for the pure-library fixture's property."""
+
+from hypothesis import given, strategies as st
+import pytest
+
+from @MODULE@.api import ordered_pair, pair_is_canonical
+from verification.harness.assertions import assert_falsifies, assert_property
+
+
+@pytest.mark.proof
+@pytest.mark.proves("@PROPERTY_ID@")
+@given(st.integers(), st.integers())
+def test_pair_is_ordered_canonically(left: int, right: int) -> None:
+    result = ordered_pair(left, right)
+
+    assert_property(
+        condition=pair_is_canonical(left, right, result),
+        property_id="@PROPERTY_ID@",
+    )
+
+
+@pytest.mark.proof
+@pytest.mark.falsifies("@PROPERTY_ID@")
+def test_reversed_pair_is_a_real_counterexample() -> None:
+    assert_falsifies(
+        condition=pair_is_canonical(1, 2, (2, 1)),
+        property_id="@PROPERTY_ID@",
+    )

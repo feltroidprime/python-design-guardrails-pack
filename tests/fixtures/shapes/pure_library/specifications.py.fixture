@@ -1,0 +1,10 @@
+"""Pure specifications for ordered pairs."""
+
+
+def pair_is_canonical(
+    left: int,
+    right: int,
+    result: tuple[int, int],
+) -> bool:
+    """Return whether result contains both inputs in ascending order."""
+    return result == (min(left, right), max(left, right))

@@ -1,0 +1,24 @@
+"""Pure pair operations."""
+
+import icontract
+
+from @MODULE@.domain.specifications import pair_is_canonical
+
+
+def _pair_is_canonical(
+    left: int,
+    right: int,
+    result: tuple[int, int],
+) -> bool:
+    return pair_is_canonical(left, right, result)
+
+
+@icontract.ensure(
+    _pair_is_canonical,
+    description="PROPERTY[@PROPERTY_ID@]: pair is ordered canonically",
+)
+def ordered_pair(left: int, right: int) -> tuple[int, int]:
+    """Return the two values in ascending order."""
+    if left <= right:
+        return left, right
+    return right, left

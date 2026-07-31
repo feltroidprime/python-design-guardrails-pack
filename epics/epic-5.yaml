@@ -139,7 +139,7 @@ tasks:
     issue: feltroidprime/python-design-guardrails-pack#68
     outcome: >-
       A pure library capability created through the real CLI reaches ACTIVE with
-      no adapters, and CrossHair analyses its pure functions.
+      no adapter implementation modules, and CrossHair analyses its pure function.
     decision_boundary: >-
       Owns this fixture's minimal real implementation and its properties. May not
       modify the harness seam and may not ship the fixture in a generated
@@ -149,14 +149,16 @@ tasks:
     depends_on: [recursive_acceptance_harness]
     risk: novel
     lane:
+      - VALIDATION.md
+      - epics/epic-5.yaml
       - tests/fixtures/shapes/pure_library/**
       - tests/recursive/test_shape_pure_library.py
     forbidden_paths: [tests/recursive/harness.py]
     acceptance_criteria:
       - "`pytest -q tests/recursive/test_shape_pure_library.py` passes."
-      - "The capability reaches status active through `python -m repoctl capability activate`, with no module under its adapters directories."
+      - "The capability reaches ACTIVE through `python -m repoctl capability activate`, with no adapter or application implementation module beyond generator-seeded package markers."
       - "`uv run python -m scripts.crosshair_gate fast` reports at least one analysed target inside the fixture capability."
-      - "A test asserts the fixture's api.py is the only module any external code imports."
+      - "A test asserts all external Python imports of the fixture capability resolve only to its `api.py`; proof-tool target references are exempt."
       - "A pack test asserts no path under tests/fixtures/shapes/ appears in a generated repository."
     required_checks: [pack-tests, pack-validate]
     done_artifacts:

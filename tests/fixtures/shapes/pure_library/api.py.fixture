@@ -1,0 +1,6 @@
+"""Stable public surface of the pure-library shape fixture."""
+
+from @MODULE@.domain.pairs import ordered_pair
+from @MODULE@.domain.specifications import pair_is_canonical
+
+__all__ = ["ordered_pair", "pair_is_canonical"]
