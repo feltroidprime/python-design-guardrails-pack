@@ -18,7 +18,8 @@ just bootstrap
 ```
 
 {% if not workspace_member %}Prek installs the commit and pre-push shims in Git's shared hooks directory.
-Linked worktrees created with `git worktree add` therefore use the same hooks.
+Linked worktrees created with `git worktree add` therefore use the same hooks. Python hooks run
+with Python 3.14 so their parser matches the repository's supported language version.
 
 {% endif %}## Daily commands
 
