@@ -290,25 +290,28 @@ tasks:
     repo: feltroidprime/python-design-guardrails-pack
     issue: feltroidprime/python-design-guardrails-pack#70
     outcome: >-
-      Each of the fourteen mandatory mutations is temporarily introduced, caught by
-      a named deterministic mechanism, and recorded in a machine-readable catalog.
+      Each of the fourteen mandatory mutations is mapped to the existing deterministic
+      test that kills its equivalent mutant and recorded in a machine-readable catalog.
     decision_boundary: >-
-      Owns how mutations are applied and reverted and the catalog's format. May not
-      leave a mutation in the tree, may not add a check purely to catch a mutation,
-      and may not mark a mutation caught by a non-deterministic mechanism.
+      Owns the catalog's format and integrity checks. The existing proof, guard,
+      property, and contract tests remain the executable mutation evidence; this task
+      may not wrap them in a second mutation runner, add a check purely to catch a
+      mutation, or mark a mutation caught by a non-deterministic mechanism.
     interfaces: [recursive-harness-v1, mutation-catalog-v1]
     uncertainty: high
     depends_on: [recursive_acceptance_harness]
     risk: novel
     lane:
+      - VALIDATION.md
+      - epics/epic-5.yaml
       - tests/mutations/**
       - tests/fixtures/mutation_catalog.json
     forbidden_paths: [tests/recursive/harness.py]
     acceptance_criteria:
-      - "`pytest -q tests/mutations` passes and reports fourteen mutations, each applied and reverted."
-      - "tests/fixtures/mutation_catalog.json contains one entry per mutation naming the mutation, the mechanism that caught it, and the exact failing command."
-      - "A test asserts the catalog covers exactly the fourteen mutations listed in the specification, by identifier, and fails if one is missing."
-      - "A test asserts the working tree is byte-identical before and after the mutation suite runs."
+      - "`pytest -q tests/mutations` passes and validates fourteen catalog entries without executing a second mutation runner."
+      - "tests/fixtures/mutation_catalog.json contains one entry per mutation naming the mutation, the existing deterministic mechanism that catches it, and the exact focused command."
+      - "A test asserts the catalog covers exactly the fourteen mutations listed in the specification, in order and by identifier, and fails if one is missing, duplicated, or renamed."
+      - "A test asserts every focused command names an existing collected test that supplies the mutation, falsifier, property, guard, or contract evidence."
       - "For each mutation, the recorded mechanism is one of the guards, the proof gate, CrossHair, a Hypothesis property, or a contract test, and never a manual review step."
     required_checks: [pack-tests, pack-validate]
     done_artifacts:
