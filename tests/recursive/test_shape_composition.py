@@ -4,6 +4,8 @@ import ast
 from pathlib import Path
 import sys
 
+import pytest
+
 import instantiate
 from tests.recursive.harness import (
     ACTIVATION_EVIDENCE,
@@ -12,15 +14,17 @@ from tests.recursive.harness import (
     PACKAGE,
     PROJECT,
     REPOCTL_PREFIX,
-    _assert_product_hashes,
-    _product_hashes,
 )
 from tests.recursive.shape_support import (
+    assert_product_hashes,
     assert_success,
     install_assets,
     json_object,
+    product_hashes,
     run_detached,
 )
+
+pytestmark = pytest.mark.repository_gate
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "shapes" / "composition"
 PROVIDER_ASSET = (("provider_api.py.fixture", "src/{package}/modules/{capability}/api.py"),)
@@ -135,7 +139,7 @@ def test_active_capabilities_compose_only_through_the_generated_index(
         for module in _imports(path.read_text(encoding="utf-8"))
         if module == provider_module or module.startswith(f"{provider_module}.")
     } == set()
-    consumer_hashes = _product_hashes(repository, PACKAGE, BETA)
+    consumer_hashes = product_hashes(repository, PACKAGE, BETA)
 
     original = consumer_api.read_bytes()
     validator = (
@@ -160,12 +164,12 @@ def test_active_capabilities_compose_only_through_the_generated_index(
 
     assert guarded.returncode == 1
     assert "CAP003" in guarded.stdout + guarded.stderr
-    _assert_product_hashes(consumer_hashes, repository, PACKAGE, BETA)
+    assert_product_hashes(consumer_hashes, repository, PACKAGE, BETA)
 
     _repoctl(repository, "capability", "retire", ALPHA)
     _repoctl(repository, "generate")
 
-    _assert_product_hashes(consumer_hashes, repository, PACKAGE, BETA)
+    assert_product_hashes(consumer_hashes, repository, PACKAGE, BETA)
 
     remaining_script = f"""
 import json

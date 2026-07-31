@@ -4,12 +4,13 @@ import ast
 from pathlib import Path
 from typing import cast
 
+import pytest
+
 from tests.recursive.harness import (
-    ACTIVATION_EVIDENCE,
     ALPHA,
     PACKAGE,
     REPOCTL_PREFIX,
-    run_recursive_walk,
+    prepare_active_shape,
 )
 from tests.recursive.shape_support import (
     assert_success,
@@ -18,6 +19,8 @@ from tests.recursive.shape_support import (
     run_detached,
     select_capability,
 )
+
+pytestmark = pytest.mark.repository_gate
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "shapes" / "pure_library"
 PROPERTY_ID = "ALPHA::PAIR-IS-ORDERED"
@@ -115,22 +118,12 @@ def _external_capability_imports(
 def test_pure_library_exposes_only_an_analysed_api(
     tmp_path: Path,
 ) -> None:
-    recursive_walk = run_recursive_walk(
+    repository = prepare_active_shape(
         tmp_path / "recursive-project",
         PureLibraryFixture(),
     )
-    repository = recursive_walk.repository
     capability_root = repository / "src" / PACKAGE / "modules" / ALPHA
 
-    assert recursive_walk.runtime_capabilities == ("beta",)
-    assert "activate alpha" in recursive_walk.steps
-    assert (
-        *REPOCTL_PREFIX,
-        "capability",
-        "activate",
-        ALPHA,
-        *ACTIVATION_EVIDENCE,
-    ) in recursive_walk.invocations
     assert not (repository / "tests" / "fixtures" / "shapes").exists()
     assert {
         path.relative_to(capability_root).as_posix()
@@ -154,6 +147,7 @@ def test_pure_library_exposes_only_an_analysed_api(
         (*REPOCTL_PREFIX, "capabilities", "--limit", "100"),
     )
     declaration = select_capability(json_object(observed.stdout), ALPHA)
+    assert declaration["status"] == "active"
     boundaries = declaration["boundaries"]
     assert isinstance(boundaries, dict)
     assert cast("dict[str, object]", boundaries) == {"inbound": [], "outbound": []}

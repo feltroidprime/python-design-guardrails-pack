@@ -4,12 +4,13 @@ from pathlib import Path
 import subprocess
 from typing import cast
 
+import pytest
+
 from tests.recursive.harness import (
-    ACTIVATION_EVIDENCE,
     ALPHA,
     PACKAGE,
     REPOCTL_PREFIX,
-    run_recursive_walk,
+    prepare_active_shape,
 )
 from tests.recursive.shape_support import (
     assert_success,
@@ -18,6 +19,8 @@ from tests.recursive.shape_support import (
     run_detached,
     select_capability,
 )
+
+pytestmark = pytest.mark.repository_gate
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "shapes" / "stateful_workflow"
 PROPERTY_ID = "ALPHA::TERMINAL-RUNS-CLOSE"
@@ -125,21 +128,10 @@ class StatefulWorkflowFixture:
 def test_stateful_workflow_closes_terminal_runs_through_injected_ports(
     tmp_path: Path,
 ) -> None:
-    recursive_walk = run_recursive_walk(
+    repository = prepare_active_shape(
         tmp_path / "recursive-project",
         StatefulWorkflowFixture(),
     )
-    repository = recursive_walk.repository
-
-    assert recursive_walk.runtime_capabilities == ("beta",)
-    assert "activate alpha" in recursive_walk.steps
-    assert (
-        *REPOCTL_PREFIX,
-        "capability",
-        "activate",
-        ALPHA,
-        *ACTIVATION_EVIDENCE,
-    ) in recursive_walk.invocations
 
     observed = run_detached(
         repository,
@@ -150,7 +142,7 @@ def test_stateful_workflow_closes_terminal_runs_through_injected_ports(
         (*REPOCTL_PREFIX, "capabilities", "--limit", "100"),
     )
     declaration = select_capability(json_object(observed.stdout), ALPHA)
-    assert declaration["status"] == "retired"
+    assert declaration["status"] == "active"
     boundaries = declaration["boundaries"]
     assert isinstance(boundaries, dict)
     assert cast("dict[str, object]", boundaries)["outbound"] == ["clock", "execution"]

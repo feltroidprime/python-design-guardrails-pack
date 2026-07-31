@@ -4,20 +4,27 @@ from pathlib import Path
 import subprocess
 from typing import cast
 
+import pytest
+
 from tests.recursive.harness import (
     ACTIVATION_EVIDENCE,
     ALPHA,
     PACKAGE,
     REPOCTL_PREFIX,
-    run_recursive_walk,
+    prepare_active_shape,
 )
 from tests.recursive.shape_support import (
+    assert_product_hashes,
     assert_success,
     install_assets,
     json_object,
+    product_hashes,
     run_detached,
+    runtime_capabilities,
     select_capability,
 )
+
+pytestmark = pytest.mark.repository_gate
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "shapes" / "cli_capability"
 PROPERTY_ID = "ALPHA::PROBE-READY"
@@ -139,10 +146,10 @@ def test_cli_capability_owns_a_detached_command_boundary(
 ) -> None:
     fixture = CliCapabilityFixture()
 
-    recursive_walk = run_recursive_walk(tmp_path / "recursive-project", fixture)
+    repository = prepare_active_shape(tmp_path / "recursive-project", fixture)
 
-    assert recursive_walk.runtime_capabilities == ("beta",)
-    assert not (recursive_walk.repository / "src" / PACKAGE / "__main__.py").exists()
+    assert not (repository / "src" / PACKAGE / "__main__.py").exists()
+    expected_product_hashes = product_hashes(repository, PACKAGE, ALPHA)
 
     command = (
         "uv",
@@ -152,17 +159,36 @@ def test_cli_capability_owns_a_detached_command_boundary(
         f"{PACKAGE}.modules.{ALPHA}",
         "probe",
     )
-    completed = run_detached(recursive_walk.repository, command)
+    completed = run_detached(repository, command)
     assert_success(completed, command)
     assert completed.stderr == ""
-    assert json_object(completed.stdout) == {
+    expected = {
         "command": "probe",
         "data": {"result": "ready"},
         "schema_version": "1.0",
     }
+    assert json_object(completed.stdout) == expected
+
+    active = run_detached(
+        repository,
+        (*REPOCTL_PREFIX, "capabilities", "--limit", "100"),
+    )
+    assert_success(
+        active,
+        (*REPOCTL_PREFIX, "capabilities", "--limit", "100"),
+    )
+    active_declaration = select_capability(json_object(active.stdout), ALPHA)
+    assert active_declaration["status"] == "active"
+    assert cast("dict[str, object]", active_declaration["boundaries"])["inbound"] == ["cli"]
+    assert cast("dict[str, object]", active_declaration["activation"])["cli_catalog"] == ""
+
+    retire = (*REPOCTL_PREFIX, "capability", "retire", ALPHA)
+    assert_success(run_detached(repository, retire), retire)
+    generate = (*REPOCTL_PREFIX, "generate")
+    assert_success(run_detached(repository, generate), generate)
 
     retired = run_detached(
-        recursive_walk.repository,
+        repository,
         (*REPOCTL_PREFIX, "capabilities", "--limit", "100"),
     )
     assert_success(
@@ -173,3 +199,10 @@ def test_cli_capability_owns_a_detached_command_boundary(
     assert declaration["status"] == "retired"
     assert cast("dict[str, object]", declaration["boundaries"])["inbound"] == ["cli"]
     assert cast("dict[str, object]", declaration["activation"])["cli_catalog"] == ""
+    assert runtime_capabilities(repository, PACKAGE) == ()
+    assert_product_hashes(expected_product_hashes, repository, PACKAGE, ALPHA)
+
+    completed_after_retirement = run_detached(repository, command)
+    assert_success(completed_after_retirement, command)
+    assert completed_after_retirement.stderr == ""
+    assert json_object(completed_after_retirement.stdout) == expected

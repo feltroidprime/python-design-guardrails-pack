@@ -4,11 +4,13 @@ from pathlib import Path
 import subprocess
 from typing import cast
 
+import pytest
+
 from tests.recursive.harness import (
     ACTIVATION_EVIDENCE,
     ALPHA,
     REPOCTL_PREFIX,
-    run_recursive_walk,
+    prepare_active_shape,
 )
 from tests.recursive.shape_support import (
     assert_success,
@@ -17,6 +19,8 @@ from tests.recursive.shape_support import (
     run_detached,
     select_capability,
 )
+
+pytestmark = pytest.mark.repository_gate
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "shapes" / "external_integration"
 PROPERTY_ID = "ALPHA::LOOKUP-PRESERVES-KEY"
@@ -155,22 +159,20 @@ class ExternalIntegrationFixture:
 def test_external_integration_owns_and_certifies_its_port(
     tmp_path: Path,
 ) -> None:
-    recursive_walk = run_recursive_walk(
+    repository = prepare_active_shape(
         tmp_path / "recursive-project",
         ExternalIntegrationFixture(),
     )
 
-    assert recursive_walk.runtime_capabilities == ("beta",)
-    assert "activate alpha" in recursive_walk.steps
-
     observed = run_detached(
-        recursive_walk.repository,
+        repository,
         (*REPOCTL_PREFIX, "capabilities", "--limit", "100"),
     )
     assert_success(
         observed,
         (*REPOCTL_PREFIX, "capabilities", "--limit", "100"),
     )
-    declaration = select_capability(json_object(observed.stdout), ALPHA)
-    assert declaration["status"] == "retired"
+    capabilities = json_object(observed.stdout)
+    declaration = select_capability(capabilities, ALPHA)
+    assert declaration["status"] == "active"
     assert cast("dict[str, object]", declaration["boundaries"])["outbound"] == ["transport"]

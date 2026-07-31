@@ -1,100 +1,101 @@
 # Validation record — 2026-07-31
 
 Validated on Linux 6.8.0-136-generic (x86_64) with Python 3.14.6, uv 0.12.0,
-just 1.56.0, Git 2.54.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist 3.8.0,
-Ruff 0.16.1, and prek 0.4.11.
+just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist 3.8.0, Ruff 0.16.1,
+and prek 0.4.11.
 
 ## Change validated
 
-Generated repositories now run Python-language prek hooks with Python 3.14,
-matching their declared interpreter and the syntax emitted by the template.
-This prevents `check-ast` and `debug-statements` from parsing Python 3.14 code
-with an unrelated Python 3.13 hook environment during the initial commit.
+This merge combines the macOS hook fix from PR #78 with the root-suite
+performance work already on `main`.
 
-- `prek.toml` sets `default_language_version.python = "python3.14"`.
-- The initializer still renders current worktree changes from an editable pack
-  installation, but suppresses Copier's expected `DirtyLocalWarning`; other
-  Copier warnings remain visible.
-- Generator tests assert the rendered hook interpreter and keep direct Copier
-  test helpers free of the same expected dirty-template warning.
-- The root test session removes an invoking Git hook's repository-local
-  environment before fixtures run, preventing nested Git commands from
-  targeting the pack checkout during pre-push validation.
-- The downstream README and guardrail map document the interpreter alignment.
+- Generated `prek.toml` pins Python-language hooks to Python 3.14, matching the
+  generated repository's interpreter and syntax contract.
+- The initializer suppresses Copier's expected `DirtyLocalWarning` when it
+  renders current editable-worktree changes; unrelated warnings remain visible.
+- The root pytest session removes an invoking hook's repository-local Git
+  variables so nested Git fixtures cannot target the pack checkout.
+- Four representative shape tests now prepare their active capability directly
+  through the real `repoctl` CLI and run one complete generated gate. The one
+  canonical 19-step N0 → N1 → N2 walk remains unchanged.
+- `just test` runs the canonical walk alone, six `repository_gate` tests across
+  five workers, and the complementary lightweight tests across five workers.
+  The pre-push hook advertises a seven-minute warm-cache budget.
 
-## Commands and actual results
+## Focused and performance evidence
+
+Before merging, the hook branch passed:
+
+- **2 focused hook/warning regressions** in 2.33 seconds;
+- the complete generator module, **56 tests**, in 42.45 seconds with uncaught
+  `DirtyLocalWarning` treated as an error;
+- the injected Git-hook-context reproduction, **57 tests**, in 11.69 seconds;
+- a real `python-repo init ... --no-github` smoke, including the generated
+  quality gate and every initial-commit hook;
+- its canonical `just validate`, including **245 root tests** and generated
+  gates of **127 passed, 1 skipped, 3 deselected** at **95.65% coverage**.
+
+Profiling on `main` found that three repeated generated gates consumed 183.03
+of a representative shape test's 195.18 seconds (93.8%). After removing those
+redundant lifecycle walks, the external-integration shape took 65.14 seconds.
+A warm-cache root run completed all 244 then-current tests in 370.44 seconds
+(6:10), versus the 541.04-second (9:01) baseline: 31.5% faster.
+
+The scheduling selectors were collected independently before merging:
+
+- canonical recursive walk: **1** node;
+- `repository_gate` phase: **6** nodes;
+- complementary lightweight phase: **237** nodes;
+- complete then-current suite: **244** nodes, with no overlap or omission.
+
+## Merged-state validation
+
+The resolved merge is validated with:
 
 ```bash
-uv run --no-project --python 3.14 \
-  --with pytest==9.1.1 --with copier==9.17.0 \
-  --with "icontract>=2.7.3" \
-  pytest -q \
-  tests/test_instantiate.py::test_generated_repository_uses_prek_for_git_hooks \
-  tests/test_instantiate.py::test_generation_uses_current_dirty_worktree_instead_of_latest_tag
-
-uv run --no-project --python 3.14 \
-  --with pytest==9.1.1 --with copier==9.17.0 \
-  --with "icontract>=2.7.3" \
-  pytest -q -W error::copier.errors.DirtyLocalWarning \
-  tests/test_instantiate.py
-
-uv run --no-project --python 3.14 --with . \
-  python-repo init hook-smoke /tmp/python-repo-macos.PA8pP7 --no-github
-
-GIT_DIR=/home/felt/orca/workspaces/python-design-guardrails-pack/bug-macos/.git/worktrees/repo \
-  uv run --no-project --python 3.14 \
-  --with pytest==9.1.1 --with pytest-xdist==3.8.0 \
-  --with copier==9.17.0 --with "icontract>=2.7.3" \
-  pytest -q -n 4 --dist worksteal tests/test_instantiate.py
-
+just test-fast
 just validate
 ```
 
-The two focused regressions passed **2 tests** in 2.33 seconds. The complete
-generator module passed **56 tests** in 42.45 seconds while treating any
-uncaught `DirtyLocalWarning` as an error.
+`just test-fast` passed **14 tests** in 6.33 seconds after Ruff reported
+**154 files already formatted** with no lint violations. Direct collection
+selected **6/245** `repository_gate` tests and **238/245** complementary tests;
+with the separately selected canonical test, all 245 nodes are covered exactly
+once.
 
-The initializer smoke test generated and bootstrapped a fresh repository,
-passed its quality gate (**127 passed, 1 skipped, 3 deselected; 95.65%
-coverage**), and completed the initial commit after all prek hooks passed,
-including `check-ast` and `debug-statements`. Because the smoke command ran the
-CLI inside an ephemeral `uv run --with .` build environment, nested generated
-`uv` commands printed `VIRTUAL_ENV` mismatch warnings; an installed
-`python-repo` tool does not have that nested harness condition.
+The canonical `just validate` command passed end to end:
 
-The Git-hook-context reproduction initially failed **4 tests** because bare
-nested Git commands inherited the invoking repository. With the session
-isolation fixture it passed **57 tests** in 11.69 seconds, and the disposable
-run did not rewrite the pack checkout.
+- the root phases passed **1**, **6**, and **238** tests in 401.12, 291.01,
+  and 36.94 seconds respectively;
+- template cleanliness, fresh generation, complete Jinja rendering, bootstrap,
+  and the missing-hook repair probe passed;
+- BasedPyright reported **0 errors and 0 warnings**; ownership, architecture,
+  documentation, proof-contract, bounded CrossHair, and Import Linter checks
+  passed;
+- the two visible generated gates each passed **127 tests, 1 skipped,
+  3 deselected**, in 80.00 and 57.80 seconds, with **95.65% coverage**;
+- the generated initial commit passed every prek hook under the Python 3.14
+  policy;
+- tracked syntax rejection, clean and dirty doctor probes, and linked-worktree
+  pre-commit and pre-push probes passed.
 
-The final canonical `just validate` command passed end to end:
-
-- root Ruff repair/check was stable across **154 files**, and the root suite
-  passed **245 tests** in 617.40 seconds with no warning summary;
-- template cleanliness, fresh generation, complete Jinja rendering, generated
-  bootstrap, and the downstream repair probe passed;
-- the generated gate reported **0 errors, 0 warnings** from BasedPyright;
-  ownership, architecture, documentation, proof-contract, symbolic-core, and
-  Import Linter checks passed;
-- the first two visible generated gate executions each passed **127 tests,
-  1 skipped, 3 deselected**, in 34.80 and 31.40 seconds, with **95.65%
-  coverage** (90% required);
-- the initial commit passed every prek hook with the Python 3.14 hook policy;
-- missing-hook repair, tracked syntax rejection, clean and dirty doctor probes,
-  and linked-worktree pre-commit and pre-push probes passed. The linked
-  pre-push hook reported its full quality gate passed.
-
-The generated contract placeholder skip, syntax failure, dirty-tree failure,
-and offline doctor warnings printed during validation are deliberate probes.
+The root timings are a loaded-host correctness sample, not the warm-cache
+performance measurement: unrelated trading benchmarks were concurrently using
+multiple CPUs. The syntax and dirty-tree failures printed during validation are
+deliberate fault-injection probes.
 
 ## Remaining risks and portability notes
 
-- Full validation ran on Linux x86_64. The reported failure came from macOS
-  arm64, but this environment could not execute the final acceptance run on
-  macOS; prek's documented Python toolchain resolution and the generated
-  configuration are platform-independent.
-- The root suite took 617.40 seconds under concurrent host load, slightly over
-  the ten-minute warm-cache budget. No test timed out or failed.
+- Full validation is executed on Linux x86_64. The reported hook failure was
+  macOS arm64; the fix uses prek's platform-independent Python toolchain
+  configuration, but this environment cannot rerun the final acceptance suite
+  on macOS.
 - Existing generated repositories retain their old `prek.toml`; regenerate or
   add `default_language_version.python = "python3.14"`, then reinstall hooks
   with `uv run prek install -f`.
+- The seven-minute performance budget assumes warm caches without another
+  CPU-intensive suite. Concurrent pushes or unrelated benchmarks can erase the
+  wall-clock gain.
+- The canonical recursive walk remains an irreducible roughly three-minute
+  floor because it intentionally executes the complete lifecycle and generated
+  quality gates.

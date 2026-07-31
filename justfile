@@ -7,6 +7,9 @@ export PYTHONPYCACHEPREFIX := justfile_directory() / ".venv/pycache"
 
 ruff := 'uv run --no-project --python 3.14 --with "ruff>=0.15.21" ruff'
 ruff_sources := "instantiate.py scripts tests template"
+root_pytest := 'uv run --no-project --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 --with copier==9.17.0 --with "icontract>=2.7.3" pytest'
+recursive_acceptance := "tests/recursive/test_recursive_generation.py::test_recursive_walk_executes_the_specification_through_repoctl"
+repository_gate_marker := "repository_gate"
 
 default:
     @just --list
@@ -20,10 +23,13 @@ check:
     {{ruff}} format --check {{ruff_sources}}
     {{ruff}} check {{ruff_sources}}
 
-# Pack tests, including the recursive generated-repository acceptance walk.
+# Run the subprocess-heavy recursive walk alone, then keep the repository-gate
+# tests separate from the lightweight remainder so neither group slows the other.
 # Keep Copier coherent with pyproject.toml and copier.yml.
 test: check
-    uv run --no-project --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 --with copier==9.17.0 --with "icontract>=2.7.3" pytest -q -n 4 --dist worksteal tests
+    {{root_pytest}} -q {{recursive_acceptance}}
+    {{root_pytest}} -q -n 5 --dist worksteal -m {{repository_gate_marker}} tests --deselect {{recursive_acceptance}}
+    {{root_pytest}} -q -n 5 --dist worksteal -m "not {{repository_gate_marker}}" tests --deselect {{recursive_acceptance}}
 
 # Fast pre-commit guard: render the complete default template, keep pins
 # coherent, and verify that pre-push owns the bounded full root suite while CI
