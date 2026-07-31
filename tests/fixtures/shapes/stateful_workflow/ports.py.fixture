@@ -1,0 +1,15 @@
+"""Application-owned workflow ports."""
+
+from typing import Protocol
+
+
+class ClockPort(Protocol):
+    """Supply deterministic workflow timestamps."""
+
+    def now(self) -> int: ...
+
+
+class ExecutionPort(Protocol):
+    """Execute one workflow attempt outside the domain."""
+
+    def execute(self, run_id: str, observed_at: int) -> bool: ...

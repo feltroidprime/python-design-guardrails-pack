@@ -1,0 +1,204 @@
+"""State-machine evidence for the stateful-workflow fixture."""
+
+from typing import final
+
+from hypothesis.stateful import RuleBasedStateMachine, invariant, precondition, rule
+import pytest
+
+from @MODULE@.api import (
+    Run,
+    attempt,
+    cancel,
+    start,
+    terminal_run_is_closed,
+)
+from verification.harness.assertions import assert_falsifies, assert_property
+from verification.harness.stateful import run_state_machine_as_test
+
+
+def require(detail: str, *, condition: bool) -> None:
+    """Fail one state-machine transition with a specific diagnostic."""
+    if not condition:
+        raise AssertionError(detail)
+
+
+@final
+class SentinelClock:
+    """Count calls and return a distinct deterministic timestamp."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def now(self) -> int:
+        self.calls += 1
+        return self.calls
+
+
+@final
+class SentinelExecution:
+    """Count calls and expose one controlled execution outcome."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+        self.succeeds = False
+
+    def execute(self, run_id: str, observed_at: int) -> bool:
+        require("execution received the wrong run", condition=run_id == "run")
+        require("execution received no clock observation", condition=observed_at > 0)
+        self.calls += 1
+        return self.succeeds
+
+
+@final
+class WorkflowMachine(RuleBasedStateMachine):
+    """Explore retry, success, cancellation, and restart sequences."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._clock = SentinelClock()
+        self._execution = SentinelExecution()
+        self._run = start("run", self._clock)
+        require(
+            "start did not call the clock exactly once",
+            condition=self._clock.calls == 1,
+        )
+        require(
+            "start did not retain the clock observation",
+            condition=self._run.observed_at == self._clock.calls,
+        )
+
+    def _assert_property(self) -> None:
+        assert_property(
+            condition=terminal_run_is_closed(
+                self._run.status,
+                closed=self._run.closed,
+            ),
+            property_id="@PROPERTY_ID@",
+        )
+
+    def _is_open(self) -> bool:
+        return not self._run.closed
+
+    def _is_retryable(self) -> bool:
+        return self._run.status == "retryable"
+
+    def _is_closed(self) -> bool:
+        return self._run.closed
+
+    @precondition(_is_open)
+    @rule()
+    def fail_attempt(self) -> None:
+        clock_calls = self._clock.calls
+        execution_calls = self._execution.calls
+        self._execution.succeeds = False
+
+        self._run = attempt(self._run, self._clock, self._execution)
+
+        require("failed attempt is not retryable", condition=self._run.status == "retryable")
+        require("failed attempt closed the run", condition=not self._run.closed)
+        require(
+            "attempt did not call the clock once",
+            condition=self._clock.calls == clock_calls + 1,
+        )
+        require(
+            "attempt did not call execution once",
+            condition=self._execution.calls == execution_calls + 1,
+        )
+        require(
+            "failed attempt did not retain the clock observation",
+            condition=self._run.observed_at == self._clock.calls,
+        )
+
+    @precondition(_is_retryable)
+    @rule()
+    def retry_successfully(self) -> None:
+        clock_calls = self._clock.calls
+        execution_calls = self._execution.calls
+        self._execution.succeeds = True
+
+        self._run = attempt(self._run, self._clock, self._execution)
+
+        require("successful retry did not succeed", condition=self._run.status == "succeeded")
+        require("successful retry left the run open", condition=self._run.closed)
+        require(
+            "retry did not call the clock once",
+            condition=self._clock.calls == clock_calls + 1,
+        )
+        require(
+            "retry did not call execution once",
+            condition=self._execution.calls == execution_calls + 1,
+        )
+        require(
+            "successful retry did not retain the clock observation",
+            condition=self._run.observed_at == self._clock.calls,
+        )
+
+    @precondition(_is_open)
+    @rule()
+    def cancel_run(self) -> None:
+        clock_calls = self._clock.calls
+        execution_calls = self._execution.calls
+
+        self._run = cancel(self._run, self._clock)
+
+        require(
+            "cancellation did not become terminal",
+            condition=self._run.status == "cancelled",
+        )
+        require("cancellation left the run open", condition=self._run.closed)
+        require(
+            "cancellation did not call the clock",
+            condition=self._clock.calls == clock_calls + 1,
+        )
+        require(
+            "cancellation unexpectedly called execution",
+            condition=self._execution.calls == execution_calls,
+        )
+        require(
+            "cancellation did not retain the clock observation",
+            condition=self._run.observed_at == self._clock.calls,
+        )
+
+    @precondition(_is_closed)
+    @rule()
+    def restart(self) -> None:
+        clock_calls = self._clock.calls
+
+        self._run = start("run", self._clock)
+
+        require("restart did not create a ready run", condition=self._run.status == "ready")
+        require("restart created a closed run", condition=not self._run.closed)
+        require(
+            "restart did not call the clock",
+            condition=self._clock.calls == clock_calls + 1,
+        )
+        require(
+            "restart did not retain the clock observation",
+            condition=self._run.observed_at == self._clock.calls,
+        )
+
+    @invariant()
+    def terminal_runs_are_closed(self) -> None:
+        self._assert_property()
+
+
+@pytest.mark.proof
+@pytest.mark.proves("@PROPERTY_ID@")
+def test_workflow_state_machine() -> None:
+    run_state_machine_as_test(WorkflowMachine)
+
+
+@pytest.mark.proof
+@pytest.mark.falsifies("@PROPERTY_ID@")
+def test_open_terminal_run_is_a_real_counterexample() -> None:
+    invalid = Run(
+        run_id="run",
+        status="succeeded",
+        observed_at=1,
+        closed=False,
+    )
+
+    assert_falsifies(
+        condition=terminal_run_is_closed(invalid.status, closed=invalid.closed),
+        property_id="@PROPERTY_ID@",
+    )

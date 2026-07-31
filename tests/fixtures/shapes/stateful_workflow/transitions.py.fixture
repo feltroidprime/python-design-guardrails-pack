@@ -1,0 +1,45 @@
+"""Pure workflow state transitions."""
+
+from dataclasses import replace
+
+from @MODULE@.domain.entities import Run
+
+
+def ready_run(run_id: str, observed_at: int) -> Run:
+    """Create one open run."""
+    return Run(
+        run_id=run_id,
+        status="ready",
+        observed_at=observed_at,
+        closed=False,
+    )
+
+
+def record_failure(run: Run, observed_at: int) -> Run:
+    """Record a retryable failed attempt."""
+    return replace(
+        run,
+        status="retryable",
+        observed_at=observed_at,
+        closed=False,
+    )
+
+
+def record_success(run: Run, observed_at: int) -> Run:
+    """Record a successful terminal attempt."""
+    return replace(
+        run,
+        status="succeeded",
+        observed_at=observed_at,
+        closed=True,
+    )
+
+
+def record_cancellation(run: Run, observed_at: int) -> Run:
+    """Record a cancelled terminal run."""
+    return replace(
+        run,
+        status="cancelled",
+        observed_at=observed_at,
+        closed=True,
+    )

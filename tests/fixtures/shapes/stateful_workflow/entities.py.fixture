@@ -1,0 +1,16 @@
+"""Immutable workflow state."""
+
+from dataclasses import dataclass
+from typing import Literal
+
+type RunStatus = Literal["ready", "retryable", "succeeded", "cancelled"]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Run:
+    """One explicit workflow run state."""
+
+    run_id: str
+    status: RunStatus
+    observed_at: int
+    closed: bool

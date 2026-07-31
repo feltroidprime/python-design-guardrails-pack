@@ -180,13 +180,15 @@ tasks:
     depends_on: [recursive_acceptance_harness]
     risk: novel
     lane:
+      - VALIDATION.md
+      - epics/epic-5.yaml
       - tests/fixtures/shapes/stateful_workflow/**
       - tests/recursive/test_shape_stateful_workflow.py
     forbidden_paths: [tests/recursive/harness.py]
     acceptance_criteria:
       - "`pytest -q tests/recursive/test_shape_stateful_workflow.py` passes and the capability reaches status active."
       - "The fixture's RuleBasedStateMachine covers a retry sequence and a cancellation sequence, and asserts a terminal run is closed."
-      - "`uv run python -m scripts.architecture_guard` reports ARCH011 or ARCH012 when the fixture's domain is mutated to read the wall clock, proving the ports are load-bearing."
+      - "`uv run python -m scripts.architecture_guard` reports ARCH011 or ARCH012 for a temporary domain wall-clock mutation, proving ambient clock access is guarded; state-machine sentinel assertions prove the injected clock and execution ports are used."
       - "A test asserts the fixture declares clock and execution ports in its capability declaration's outbound boundaries."
     required_checks: [pack-tests, pack-validate]
     done_artifacts:

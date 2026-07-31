@@ -1,0 +1,16 @@
+"""Stable public surface of the stateful-workflow shape fixture."""
+
+from @MODULE@.application.ports import ClockPort, ExecutionPort
+from @MODULE@.application.workflow import attempt, cancel, start
+from @MODULE@.domain.entities import Run
+from @MODULE@.domain.specifications import terminal_run_is_closed
+
+__all__ = [
+    "ClockPort",
+    "ExecutionPort",
+    "Run",
+    "attempt",
+    "cancel",
+    "start",
+    "terminal_run_is_closed",
+]

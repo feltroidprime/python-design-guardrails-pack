@@ -1,0 +1,36 @@
+"""Port-driven workflow application operations."""
+
+from @MODULE@.application.ports import ClockPort, ExecutionPort
+from @MODULE@.domain.entities import Run
+from @MODULE@.domain.transitions import (
+    ready_run,
+    record_cancellation,
+    record_failure,
+    record_success,
+)
+
+
+def start(run_id: str, clock: ClockPort) -> Run:
+    """Start one run at an injected time."""
+    return ready_run(run_id, clock.now())
+
+
+def attempt(
+    run: Run,
+    clock: ClockPort,
+    execution: ExecutionPort,
+) -> Run:
+    """Execute one open run attempt."""
+    if run.closed:
+        return run
+    observed_at = clock.now()
+    if execution.execute(run.run_id, observed_at):
+        return record_success(run, observed_at)
+    return record_failure(run, observed_at)
+
+
+def cancel(run: Run, clock: ClockPort) -> Run:
+    """Cancel one open run."""
+    if run.closed:
+        return run
+    return record_cancellation(run, clock.now())

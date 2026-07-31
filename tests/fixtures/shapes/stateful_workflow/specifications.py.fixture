@@ -1,0 +1,6 @@
+"""Pure specifications for workflow state."""
+
+
+def terminal_run_is_closed(status: str, *, closed: bool) -> bool:
+    """Return whether every terminal state is closed."""
+    return status not in {"succeeded", "cancelled"} or closed
