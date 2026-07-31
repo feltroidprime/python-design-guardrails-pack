@@ -6,22 +6,24 @@ and prek 0.4.11.
 
 ## Change validated
 
-Issue #66 certifies a capability-owned command boundary without reviving the
-deleted package-root product CLI.
+Issue #67 certifies an outbound integration boundary without adding a live
+network dependency or changing the recursive harness.
 
-- The unchanged recursive harness creates the capability through the real
-  control plane; the fixture then uses another detached plan/apply pair to
-  declare its `cli` inbound seam without patching the declaration.
-- The capability owns a local command catalog and
-  `python -m recursive_project.modules.alpha probe` entry point. Its retained
-  process case closes stdin and passes after retirement.
-- Activation without `--cli-process-evidence` is refused with the structured
-  `missing_evidence` outcome; the harness's complete evidence activates it.
-- The generated repository's existing exactness check observes both ACTIVE and
-  RETIRED gates, including the intentionally empty global CLI catalog, while
-  the recursive harness proves PRODUCT bytes remain unchanged.
-- No package-root CLI, generated-index format, production template, or harness
-  behavior changed.
+- Detached repoctl plan/apply declares alpha's `transport` outbound seam; the
+  fixture never patches its declaration.
+- An application-owned port has a fake adapter and an injected-transport real
+  adapter. One explicit balanced case table runs the same independent
+  behavioral specification against both.
+- The real adapter translates an injected `OSError` into the capability-owned
+  `IntegrationUnavailableError`; the low-level type remains only as the chained
+  cause.
+- Before the shared contract file is installed, detached activation without
+  `--port-contract` is refused with `missing_evidence` naming `port_contract`
+  and alpha remains DRAFT. The unchanged harness then supplies complete
+  evidence, reaches ACTIVE, proves the property, and completes retirement.
+- Repeated process, JSON-selection, and asset-install mechanics used by the CLI
+  and external-integration shapes now live in one small test-support module.
+  No production template or harness behavior changed.
 
 ## Commands and actual results
 
@@ -29,26 +31,35 @@ deleted package-root product CLI.
 PYTHONDONTWRITEBYTECODE=1 uv run --no-project --python 3.14 \
   --with pytest==9.1.1 --with copier==9.17.0 \
   --with "icontract>=2.7.3" \
-  pytest -q tests/recursive/test_shape_cli_capability.py
+  pytest -q tests/recursive/test_shape_external_integration.py
 PYTHONDONTWRITEBYTECODE=1 just check
 PYTHONDONTWRITEBYTECODE=1 just validate
 ```
 
-The focused #66 test passed **1 test** with one dirty-template warning in
-189.69 seconds. Root Ruff reported **148 files already formatted** and no lint
+The focused #67 test passed **1 test** with one dirty-template warning in
+195.35 seconds. Root Ruff reported **150 files already formatted** and no lint
 violations.
 
-The canonical command passed end to end:
+The first canonical attempt reached **224 passed** before an existing
+workspace-member generation test failed while Copier removed a temporary clone:
+`OSError: [Errno 39] Directory not empty: .../.git`. That exact test then passed
+serially (**1 passed**, one warning, 2.63 seconds). A second canonical attempt
+showed an early failure marker and was manually interrupted before pytest
+printed its traceback, so no cause is claimed for it. The fail-fast diagnostic
+root suite subsequently passed **225 tests** with 18 warnings in 600.36 seconds.
 
-- root Ruff repair/check was stable across 148 files, and the root suite passed
-  **224 tests** with 17 dirty-template warnings in 292.54 seconds;
+The final unmodified canonical command passed end to end:
+
+- root Ruff repair/check was stable across 150 files, and the root suite passed
+  **225 tests** with 18 dirty-template warnings in 662.91 seconds;
 - template cleanliness, fresh generation, complete Jinja rendering, generated
   bootstrap, and the downstream repair probe passed;
 - the generated gate reported **0 errors, 0 warnings** from BasedPyright;
   ownership, architecture, documentation, proof-contract, symbolic-core, and
   Import Linter checks passed;
-- generated tests passed **127 passed, 1 skipped, 3 deselected** with **95.65%
-  coverage** (90% required);
+- both generated gates passed **127 tests, 1 skipped, 3 deselected**, first in
+  57.96 seconds and then in 52.01 seconds, with **95.65% coverage** (90%
+  required);
 - missing-hook repair, tracked syntax rejection, clean and dirty doctor probes,
   and linked-worktree pre-commit/pre-push probes passed.
 
@@ -58,9 +69,13 @@ fault-injection probes.
 ## Remaining risks and portability notes
 
 - Full validation ran on Linux x86_64 only. macOS and Windows remain
-  unexercised; their subprocess, filesystem, and timing behavior can differ.
-- This fixture certifies its successful capability-local `probe` process and
-  required activation evidence. It deliberately makes no package-root command,
-  global product-catalog, or broader command error-protocol claim.
+  unexercised; their subprocess and filesystem behavior can differ.
+- The successful root suite took 662.91 seconds, 62.91 seconds beyond the
+  documented ten-minute warm-cache budget. The check passed, but concurrent
+  recursive generated gates now create measurable CPU contention that later
+  shape issues should avoid multiplying.
+- The real adapter is certified with deterministic injected transports, not a
+  live third-party service. Activation still relies on explicit evidence flags;
+  repoctl does not discover contract files automatically.
 - The remaining application-shape, mutation, composition, update-preservation,
-  and workflow-documentation cases are owned by issues #67–#73.
+  and workflow-documentation cases are owned by issues #68–#73.

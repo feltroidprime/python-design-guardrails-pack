@@ -1,0 +1,31 @@
+"""Fake and transport-backed adapters for the lookup port."""
+
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from @MODULE@.application.lookup import IntegrationUnavailableError
+from @MODULE@.domain.result import result_for_key
+
+type Transport = Callable[[str], str]
+
+
+class FakeLookupAdapter:
+    """Deterministic in-process adapter for callers and tests."""
+
+    def lookup(self, key: str) -> str:
+        """Return the same successful shape as the real adapter."""
+        return result_for_key(key)
+
+
+@dataclass(frozen=True, slots=True)
+class RealLookupAdapter:
+    """Translate transport behavior into the application-owned boundary."""
+
+    transport: Transport
+
+    def lookup(self, key: str) -> str:
+        """Return one transport result or raise the capability error."""
+        try:
+            return self.transport(key)
+        except OSError as error:
+            raise IntegrationUnavailableError("external lookup unavailable") from error

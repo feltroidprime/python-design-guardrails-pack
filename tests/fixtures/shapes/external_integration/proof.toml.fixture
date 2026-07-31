@@ -1,0 +1,17 @@
+schema_version = 1
+ownership_zone = "product"
+
+[[properties]]
+id = "@PROPERTY_ID@"
+title = "Lookup results preserve request keys"
+statement = "Every canonical successful lookup result contains its original request key."
+scope = "The pure successful-result constructor over arbitrary text keys."
+assumptions = []
+kind = "contract"
+strength = "normative"
+targets = ["@MODULE@.domain.result:result_for_key"]
+oracles = ["@MODULE@.domain.specifications:result_matches_key"]
+evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]
+crosshair_targets = ["@MODULE@.domain.result:result_for_key"]
+counterexample = "A successful result contains a different request key."
+failure_modes = ["request key lost or changed"]

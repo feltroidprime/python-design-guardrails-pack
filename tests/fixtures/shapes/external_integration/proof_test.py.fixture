@@ -1,0 +1,28 @@
+"""Executable evidence for the external-integration fixture's property."""
+
+from hypothesis import given, strategies as st
+import pytest
+
+from @MODULE@.api import result_for_key, result_matches_key
+from verification.harness.assertions import assert_falsifies, assert_property
+
+
+@pytest.mark.proof
+@pytest.mark.proves("@PROPERTY_ID@")
+@given(st.text())
+def test_lookup_result_preserves_key(key: str) -> None:
+    result = result_for_key(key)
+
+    assert_property(
+        condition=result_matches_key(key, result),
+        property_id="@PROPERTY_ID@",
+    )
+
+
+@pytest.mark.proof
+@pytest.mark.falsifies("@PROPERTY_ID@")
+def test_changed_key_is_a_real_counterexample() -> None:
+    assert_falsifies(
+        condition=result_matches_key("requested", "status:different"),
+        property_id="@PROPERTY_ID@",
+    )

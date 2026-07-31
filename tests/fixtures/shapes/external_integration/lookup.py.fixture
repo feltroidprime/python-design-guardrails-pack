@@ -1,0 +1,20 @@
+"""Application-owned lookup port and use case."""
+
+from typing import Protocol
+
+
+class IntegrationUnavailableError(RuntimeError):
+    """The capability could not reach its external integration."""
+
+
+class LookupPort(Protocol):
+    """Application-owned boundary for one external lookup."""
+
+    def lookup(self, key: str) -> str:
+        """Return the integration result for one key."""
+        ...
+
+
+def lookup(port: LookupPort, key: str) -> str:
+    """Look up one key through the injected application port."""
+    return port.lookup(key)

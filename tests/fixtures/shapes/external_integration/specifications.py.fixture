@@ -1,0 +1,6 @@
+"""Pure specifications for external-integration results."""
+
+
+def result_matches_key(key: str, result: str) -> bool:
+    """Return whether an integration result preserves its request key."""
+    return result == f"status:{key}"

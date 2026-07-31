@@ -1,0 +1,78 @@
+"""One shared behavioral contract for both lookup-port adapters."""
+
+from collections.abc import Callable
+
+import pytest
+
+from @MODULE@.api import (
+    FakeLookupAdapter,
+    IntegrationUnavailableError,
+    LookupPort,
+    RealLookupAdapter,
+    lookup,
+    result_matches_key,
+)
+
+pytestmark = pytest.mark.contract
+CONTRACT_KEYS = ("alpha", "beta")
+type AdapterFactory = Callable[[], LookupPort]
+
+
+def _fake_adapter() -> LookupPort:
+    return FakeLookupAdapter()
+
+
+def _successful_transport(key: str) -> str:
+    return f"status:{key}"
+
+
+def _real_adapter() -> LookupPort:
+    return RealLookupAdapter(transport=_successful_transport)
+
+
+ADAPTERS: tuple[tuple[str, AdapterFactory], ...] = (
+    ("fake", _fake_adapter),
+    ("real", _real_adapter),
+)
+CONTRACT_CASES = tuple(
+    (adapter_name, adapter_factory, key)
+    for adapter_name, adapter_factory in ADAPTERS
+    for key in CONTRACT_KEYS
+)
+
+
+@pytest.mark.parametrize(("adapter_name", "adapter_factory", "key"), CONTRACT_CASES)
+def test_lookup_port_contract(
+    adapter_name: str,
+    adapter_factory: AdapterFactory,
+    key: str,
+) -> None:
+    _ = adapter_name
+    result = lookup(adapter_factory(), key)
+
+    assert result_matches_key(key, result)
+
+
+def test_contract_case_table_is_balanced() -> None:
+    expected = len(CONTRACT_KEYS)
+    counts = tuple(
+        sum(case_adapter == adapter_name for case_adapter, _, _ in CONTRACT_CASES)
+        for adapter_name, _ in ADAPTERS
+    )
+
+    assert counts == (expected, expected)
+
+
+def _failing_transport(key: str) -> str:
+    _ = key
+    raise OSError("connection reset")
+
+
+def test_real_adapter_translates_transport_failure() -> None:
+    adapter = RealLookupAdapter(transport=_failing_transport)
+
+    with pytest.raises(IntegrationUnavailableError) as caught:
+        _ = lookup(adapter, "alpha")
+
+    assert type(caught.value) is IntegrationUnavailableError
+    assert type(caught.value.__cause__) is OSError

@@ -1,0 +1,18 @@
+"""Pure result construction shared by deterministic integration adapters."""
+
+import icontract
+
+from @MODULE@.domain.specifications import result_matches_key
+
+
+def _result_matches_key(result: str, key: str) -> bool:
+    return result_matches_key(key, result)
+
+
+@icontract.ensure(
+    _result_matches_key,
+    description="PROPERTY[@PROPERTY_ID@]: lookup result preserves its request key",
+)
+def result_for_key(key: str) -> str:
+    """Build the canonical successful result for a request key."""
+    return f"status:{key}"

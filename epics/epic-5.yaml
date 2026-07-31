@@ -239,14 +239,18 @@ tasks:
     depends_on: [recursive_acceptance_harness]
     risk: novel
     lane:
+      - VALIDATION.md
+      - epics/epic-5.yaml
       - tests/fixtures/shapes/external_integration/**
+      - tests/recursive/shape_support.py
+      - tests/recursive/test_shape_cli_capability.py
       - tests/recursive/test_shape_external_integration.py
     forbidden_paths: [tests/recursive/harness.py]
     acceptance_criteria:
       - "`pytest -q tests/recursive/test_shape_external_integration.py` passes and the capability reaches status active."
       - "One shared contract suite runs against both the fake and the real adapter, and a test asserts both executed the same case count."
       - "A test injects a transport failure into the real adapter and asserts the caller sees the capability's own named error, not the underlying exception type."
-      - "Activation is refused when the port has no behavioral contract, demonstrated by temporarily removing the contract registration."
+      - "Before the shared behavioral contract is registered, detached activation without `--port-contract` is refused with `missing_evidence` naming `port_contract`; after registration, complete activation succeeds."
     required_checks: [pack-tests, pack-validate]
     done_artifacts:
       - tests/recursive/test_shape_external_integration.py

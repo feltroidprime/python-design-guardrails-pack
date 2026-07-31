@@ -1,0 +1,20 @@
+"""Stable public surface of the external-integration shape fixture."""
+
+from @MODULE@.application.lookup import (
+    IntegrationUnavailableError,
+    LookupPort,
+    lookup,
+)
+from @MODULE@.adapters.outbound.lookup import FakeLookupAdapter, RealLookupAdapter
+from @MODULE@.domain.result import result_for_key
+from @MODULE@.domain.specifications import result_matches_key
+
+__all__ = [
+    "FakeLookupAdapter",
+    "IntegrationUnavailableError",
+    "LookupPort",
+    "RealLookupAdapter",
+    "lookup",
+    "result_for_key",
+    "result_matches_key",
+]

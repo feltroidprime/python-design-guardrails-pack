@@ -1,4 +1,4 @@
-"""Recursive acceptance for a capability-owned command boundary."""
+"""Recursive acceptance for an outbound integration boundary."""
 
 from pathlib import Path
 import subprocess
@@ -7,7 +7,6 @@ from typing import cast
 from tests.recursive.harness import (
     ACTIVATION_EVIDENCE,
     ALPHA,
-    PACKAGE,
     REPOCTL_PREFIX,
     run_recursive_walk,
 )
@@ -19,35 +18,44 @@ from tests.recursive.shape_support import (
     select_capability,
 )
 
-FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "shapes" / "cli_capability"
-PROPERTY_ID = "ALPHA::PROBE-READY"
+FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "shapes" / "external_integration"
+PROPERTY_ID = "ALPHA::LOOKUP-PRESERVES-KEY"
 IMPLEMENTATION_ASSETS = (
-    ("module_main.py.fixture", "src/{package}/modules/{capability}/__main__.py"),
     ("api.py.fixture", "src/{package}/modules/{capability}/api.py"),
-    (
-        "probe.py.fixture",
-        "src/{package}/modules/{capability}/domain/probe.py",
-    ),
     (
         "specifications.py.fixture",
         "src/{package}/modules/{capability}/domain/specifications.py",
     ),
     (
-        "cli_catalog.py.fixture",
-        "src/{package}/modules/{capability}/adapters/inbound/cli_catalog.py",
+        "result.py.fixture",
+        "src/{package}/modules/{capability}/domain/result.py",
+    ),
+    (
+        "lookup.py.fixture",
+        "src/{package}/modules/{capability}/application/lookup.py",
+    ),
+    (
+        "adapters.py.fixture",
+        "src/{package}/modules/{capability}/adapters/outbound/lookup.py",
     ),
 )
-EVIDENCE_ASSETS = (
+PROPERTY_EVIDENCE_ASSETS = (
     ("proof.toml.fixture", "proof/modules/{capability}.toml"),
     (
         "proof_test.py.fixture",
-        "verification/modules/{capability}/test_probe_property.py",
+        "verification/modules/{capability}/test_lookup_property.py",
+    ),
+)
+PORT_CONTRACT_ASSETS = (
+    (
+        "contract_test.py.fixture",
+        "tests/modules/{capability}/test_lookup_port_contract.py",
     ),
 )
 
 
-class CliCapabilityFixture:
-    """Install one proof-carrying CLI capability through the recursive seam."""
+class ExternalIntegrationFixture:
+    """Install one proof-carrying outbound integration through the recursive seam."""
 
     property_id = PROPERTY_ID
 
@@ -56,8 +64,7 @@ class CliCapabilityFixture:
         repository: Path,
         *arguments: str,
     ) -> subprocess.CompletedProcess[str]:
-        command = (*REPOCTL_PREFIX, *arguments)
-        return run_detached(repository, command)
+        return run_detached(repository, (*REPOCTL_PREFIX, *arguments))
 
     def install_implementation(
         self,
@@ -65,13 +72,13 @@ class CliCapabilityFixture:
         package: str,
         capability: str,
     ) -> None:
-        plan = f".repo/plans/{capability}-cli.json"
+        plan = f".repo/plans/{capability}-external-integration.json"
         plan_command = (
             "capability",
             "plan",
             capability,
-            "--inbound",
-            "cli",
+            "--outbound",
+            "transport",
             "--output",
             plan,
         )
@@ -86,11 +93,8 @@ class CliCapabilityFixture:
         assert_success(observed, (*REPOCTL_PREFIX, "capabilities", "--limit", "100"))
         declaration = select_capability(json_object(observed.stdout), capability)
         boundaries = declaration["boundaries"]
-        activation = declaration["activation"]
         assert isinstance(boundaries, dict)
-        assert isinstance(activation, dict)
-        assert cast("dict[str, object]", boundaries)["inbound"] == ["cli"]
-        assert cast("dict[str, object]", activation)["cli_catalog"] == ""
+        assert cast("dict[str, object]", boundaries)["outbound"] == ["transport"]
 
         install_assets(
             repository,
@@ -113,17 +117,19 @@ class CliCapabilityFixture:
             package,
             capability,
             PROPERTY_ID,
-            EVIDENCE_ASSETS,
+            PROPERTY_EVIDENCE_ASSETS,
         )
-        evidence_without_cli = tuple(
-            flag for flag in ACTIVATION_EVIDENCE if flag != "--cli-process-evidence"
+        contract = repository / f"tests/modules/{capability}/test_lookup_port_contract.py"
+        assert not contract.exists()
+        evidence_without_port_contract = tuple(
+            flag for flag in ACTIVATION_EVIDENCE if flag != "--port-contract"
         )
         refused = self._repoctl(
             repository,
             "capability",
             "activate",
             capability,
-            *evidence_without_cli,
+            *evidence_without_port_contract,
         )
         assert refused.returncode == 3
         assert refused.stdout == ""
@@ -131,45 +137,40 @@ class CliCapabilityFixture:
         error = failure["error"]
         assert isinstance(error, dict)
         assert cast("dict[str, object]", error)["code"] == "missing_evidence"
-        assert "cli_process_evidence" in cast("dict[str, object]", error)["message"]
+        assert "port_contract" in cast("dict[str, object]", error)["message"]
+
+        observed = self._repoctl(repository, "capabilities", "--limit", "100")
+        assert_success(observed, (*REPOCTL_PREFIX, "capabilities", "--limit", "100"))
+        assert select_capability(json_object(observed.stdout), capability)["status"] == "draft"
+        install_assets(
+            repository,
+            FIXTURE_ROOT,
+            package,
+            capability,
+            PROPERTY_ID,
+            PORT_CONTRACT_ASSETS,
+        )
 
 
-def test_cli_capability_owns_a_detached_command_boundary(
+def test_external_integration_owns_and_certifies_its_port(
     tmp_path: Path,
 ) -> None:
-    fixture = CliCapabilityFixture()
-
-    recursive_walk = run_recursive_walk(tmp_path / "recursive-project", fixture)
+    recursive_walk = run_recursive_walk(
+        tmp_path / "recursive-project",
+        ExternalIntegrationFixture(),
+    )
 
     assert recursive_walk.runtime_capabilities == ("beta",)
-    assert not (recursive_walk.repository / "src" / PACKAGE / "__main__.py").exists()
+    assert "activate alpha" in recursive_walk.steps
 
-    command = (
-        "uv",
-        "run",
-        "python",
-        "-m",
-        f"{PACKAGE}.modules.{ALPHA}",
-        "probe",
-    )
-    completed = run_detached(recursive_walk.repository, command)
-    assert_success(completed, command)
-    assert completed.stderr == ""
-    assert json_object(completed.stdout) == {
-        "command": "probe",
-        "data": {"result": "ready"},
-        "schema_version": "1.0",
-    }
-
-    retired = run_detached(
+    observed = run_detached(
         recursive_walk.repository,
         (*REPOCTL_PREFIX, "capabilities", "--limit", "100"),
     )
     assert_success(
-        retired,
+        observed,
         (*REPOCTL_PREFIX, "capabilities", "--limit", "100"),
     )
-    declaration = select_capability(json_object(retired.stdout), ALPHA)
+    declaration = select_capability(json_object(observed.stdout), ALPHA)
     assert declaration["status"] == "retired"
-    assert cast("dict[str, object]", declaration["boundaries"])["inbound"] == ["cli"]
-    assert cast("dict[str, object]", declaration["activation"])["cli_catalog"] == ""
+    assert cast("dict[str, object]", declaration["boundaries"])["outbound"] == ["transport"]
