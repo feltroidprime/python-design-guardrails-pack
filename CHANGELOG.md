@@ -54,6 +54,10 @@ records the pack version that its last update carried.
   each run from an installed console script.
 - Rewrite every document against the vocabulary of `CONTEXT.md`, restore
   ADR-0002 and ADR-0004 as superseded records, and add ADR-0008.
+- Close the type and architecture backlog that the collapse exposed in nine
+  pack test modules, which the deleted root never analysed. The gate is green
+  on all twelve hooks, in the pack and in a project it starts. No ceiling was
+  raised, no rule removed and no finding suppressed.
 
 The unreleased entries that this section replaces described the tree that the
 refactor deleted. The released versions below are unchanged history.
