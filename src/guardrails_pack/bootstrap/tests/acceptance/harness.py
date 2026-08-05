@@ -1,9 +1,9 @@
 """Run commands, copy trees, and read the gate, for every assertion of #81.
 
 Nothing here states an assertion. This module gives each test module the same
-five services: one process runner, the git readings, a tree copier that keeps
-runtime output out of the copy, a reader of the gate outcome per hook, and the
-one environment every subprocess runs in.
+five services: one process runner, the git readings, a way to duplicate a tree
+without its runtime output, a reader of the gate outcome per hook, and the one
+environment every subprocess runs in.
 
 A subprocess must never inherit this test run's virtual environment, because a
 projected project has its own. `environment` therefore drops the four variables

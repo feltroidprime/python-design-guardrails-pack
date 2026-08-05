@@ -91,7 +91,7 @@ def test_leg_3_no_legacy_path_survives(root: Path, term: Project, legacy: str) -
     assert not (term.path / legacy).exists()
 
 
-def test_leg_3_no_generated_directory_under_a_package(root: Path, term: Project) -> None:
+def test_leg_3_no_derived_index_directory_under_a_package(root: Path, term: Project) -> None:
     """`LEG-3`: the derived index directory of the deleted control plane."""
     assert list((root / "src").glob(f"*/{GENERATED_DIRECTORY}")) == []
     assert list((term.path / "src").glob(f"*/{GENERATED_DIRECTORY}")) == []
