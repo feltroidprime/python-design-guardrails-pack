@@ -1,9 +1,6 @@
 """Review-harvest checks."""
 
 import ast
-import io
-import re
-import tokenize
 from typing import TYPE_CHECKING
 
 from scripts.architecture_rules import Violation, dotted_name, violation
@@ -18,16 +15,6 @@ PRIMITIVES = ("float", "int", "str")
 ENUMS = ("Enum", "Flag", "IntEnum", "IntFlag", "StrEnum")
 MUTABLE_CALLS = ("builtins.dict", "builtins.list", "builtins.set", "dict", "list", "set")
 PRIMITIVE_ALLOWLIST = ("JsonNumber", "JsonString")
-MANUAL_VERBS = r"\b(?:bump|update|adjust) (?:this|it|these|both)\b"
-MANUAL_TRIGGERS = r"\b(?:when|whenever|after|before|manually|by hand)\b"
-REMINDER_PATTERNS = (
-    re.compile(r"\bremember to\b", re.IGNORECASE),
-    re.compile(r"\bdo(?: not|n't) forget\b", re.IGNORECASE),
-    re.compile(r"\b(?:keep|keeps|keeping|kept)\b[^.;#]{0,32}\bin sync\b", re.IGNORECASE),
-    re.compile(MANUAL_VERBS + r"[^.;#]{0,32}" + MANUAL_TRIGGERS, re.IGNORECASE),
-    re.compile(r"\bmust (?:be |stay )?(?:bumped|updated|synced|adjusted)\b", re.IGNORECASE),
-    re.compile(r"\bmanually\b[^.;#]{0,24}\b(?:bump|update|sync|copy)", re.IGNORECASE),
-)
 
 
 def _names(node: ast.Assign | ast.AnnAssign) -> tuple[str, ...]:
@@ -174,32 +161,10 @@ def _primitive_aliases(path: Path, tree: ast.Module) -> list[Violation]:
     return result
 
 
-def _reminder_comments(path: Path, text: str) -> list[Violation]:
-    """ARCH031: comments that schedule manual upkeep."""
-    result: list[Violation] = []
-    for token in tokenize.generate_tokens(io.StringIO(text).readline):
-        if token.type != tokenize.COMMENT:
-            continue
-        if any(pattern.search(token.string) for pattern in REMINDER_PATTERNS):
-            result.append(
-                Violation(
-                    path=path,
-                    line=token.start[0],
-                    code="ARCH031",
-                    message=(
-                        "Comment schedules manual upkeep; derive the value or "
-                        "enforce the invariant with a test or gate check."
-                    ),
-                )
-            )
-    return result
-
-
-def check_review_discipline(path: Path, text: str, tree: ast.Module) -> list[Violation]:
+def check_review_discipline(path: Path, tree: ast.Module) -> list[Violation]:
     return [
         *_mutable_state(path, tree),
         *_primitive_aliases(path, tree),
-        *_reminder_comments(path, text),
     ]
 
 

@@ -23,6 +23,7 @@ module-name = "guardrails_pack"
 dev = [
   "basedpyright>=1.39.9",
   "crosshair-tool>=0.0.109",
+  "deptry>=0.23.1",
   "hypothesis>=6.161.5",
   "import-linter>=2.13",
   "prek>=0.4.9",

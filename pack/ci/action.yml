@@ -11,5 +11,5 @@ runs:
         enable-cache: true
     - run: uv sync --locked --all-groups
       shell: bash
-    - run: PYTHONPATH=pack uv run python pack/scripts/quality_gate.py
+    - run: uv run prek run --all-files -c pack/configs/prek.toml
       shell: bash

@@ -25,8 +25,19 @@ setup:
     uv run prek install -f -c "$PREK_CONFIG"
     just check
 
+# The one gate of the tree: twelve prek hooks. CI runs the same command.
 check:
-    uv run python pack/scripts/quality_gate.py --fix
+    uv run prek run --all-files -c "$PREK_CONFIG"
+
+# Deterministic local repairs. The gate itself never rewrites a file.
+fix:
+    uv run ruff check --fix --exit-zero --quiet .
+    uv run ruff format --quiet .
+
+# Record the current pack-owned bytes. Run this after you edit a pack-owned
+# file, or the `manifest` hook of the gate fails.
+manifest:
+    uv run python -m scripts.manifest_guard --write
 
 # Fast local proof loop: structural closure, bounded generators, symbolic core.
 prove:
