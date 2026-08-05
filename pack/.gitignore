@@ -1,0 +1,8 @@
+# Pack-owned, so this rule reaches every existing project through a Pack Update.
+# The root .gitignore is user-owned and frozen at init, and it can never carry a
+# rule a later release needs (conflict C11 of #85).
+#
+# A forced update saves the pack-owned bytes it replaces here, one file per
+# replaced path. The backups are recovery material for the owner of the project,
+# they are never release content, and no guardrail scan reads them.
+.drift/

@@ -119,16 +119,33 @@ partial-path rule still applies to every other module of every project.
 
 ## One proof catalog of exemptions: the capability that has no unit
 
-The `proof.toml` of the One-shot Bootstrap exempts all 21 of its public
+The `proof.toml` of the One-shot Bootstrap exempts all 48 of its public
 behaviors rather than proving them. This is the one such catalog in the tree,
 and the reason is the shape of the behavior, not its difficulty.
 
 Terminal Projection is a whole-tree effect. Its laws are byte parity between two
 trees, the absence of a token, the absence of a directory, and an overlay that
-only replaces. None of them is observable in one generated example, and all of
-them are observable in one comparison of two real trees. That comparison is the
-acceptance suite of #81: 53 assertions, run from the installed console script,
-which ticket I10 writes into the acceptance directory of the same capability.
+only replaces. Pack Update is the same shape: its laws are 0 changed user-owned
+bytes, an idempotent second run, a tree that a crash leaves unchanged, and a
+write plan that the ownership predicate admits. None of them is observable in
+one generated example, and all of them are observable in one comparison of two
+real trees. That comparison is the acceptance suite of #81: 53 assertions, run
+from the installed console script, which ticket I10 writes into the acceptance
+directory of the same capability.
 
 Each exemption carries a revisit date. Terminal Projection deletes the
 capability, so neither the catalog nor the suite reaches a user's project.
+
+## One pack-owned ignore rule: `pack/.gitignore`
+
+A forced Pack Update saves the pack-owned bytes it replaces under
+`pack/.drift/<path>`, and that directory must stay out of git. The rule lives in
+a new pack-owned `pack/.gitignore`, never in the root `.gitignore` (conflict C11
+of #85).
+
+The root file is user-owned and frozen at init, so a rule written there reaches
+no existing project. A rule under `pack/` is replaced whole by every later
+update, which is exactly what makes it reach one. The gate reads the same
+exclusion twice more, in the `exclude` pattern of `pack/configs/prek.toml` and
+in the ignore list of `pack/scripts/manifest_guard.py`, because a backup is
+recovery material and never release content.

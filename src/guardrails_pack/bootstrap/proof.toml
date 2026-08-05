@@ -120,3 +120,145 @@ revisit = "2027-08-05"
 target = "guardrails_pack.bootstrap.application.release:stage_and_build"
 reason = "Three commands over a real checkout, proved by assertions PAR-1 and TER-5."
 revisit = "2027-08-05"
+
+# The Pack Update. Its behavior is the same shape as the projection's: a
+# filesystem effect over a whole tree, whose evidence is a comparison of two
+# trees before and after one run. The `UPD` group of #81 is that evidence, and
+# ticket I10 writes it into `tests/acceptance/` of this capability. The pure
+# rules below are exempt for the same reason: each one states one clause of a
+# `UPD` assertion, and the assertion measures the clause end to end.
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.ports:CommandRunner.read"
+reason = "A Protocol method with no body; the adapters carry the effect."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.ownership:pack_owned"
+reason = "The one ownership predicate, proved per written path by assertion UPD-2."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.ownership:is_scanned"
+reason = "The runtime-output rule, proved by the idempotent second run of UPD-3."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.manifest:Manifest"
+reason = "A four-value record with no behavior of its own."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.manifest:digest"
+reason = "One call of hashlib.sha256, proved by every hash comparison of the UPD group."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.manifest:ordering"
+reason = "The forward-only version rule, proved by assertions UPD-8 and UPD-9."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.manifest:parse"
+reason = "One record shape, proved by the U1 and U8 cases of assertion UPD-8."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.manifest:entries"
+reason = "The one identity-aware step of an update, proved by assertions UPD-1 and UPD-2."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.manifest:shim_state"
+reason = "The shim report answer, proved by assertion UPD-13."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.plan:Plan"
+reason = "A three-list record with no behavior of its own."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.plan:Plan.written"
+reason = "One list join, proved by the written-path count of assertion UPD-2."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.plan:Plan.touched"
+reason = "One ordered list join, proved by the written-path count of assertion UPD-2."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.plan:build_plan"
+reason = "The classification of #85 section 3.5, proved by assertions UPD-3 and UPD-9."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.plan:drifted"
+reason = "The drift reading, proved by assertions UPD-5 and UPD-6."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.plan:check_ownership"
+reason = "Refusal U6 over the plan, proved by assertions UPD-2 and UPD-8."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.inspection:package_names"
+reason = "Refusal U2 reads it; the evidence is the U2 case of assertion UPD-8."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.inspection:pack_owned_hashes"
+reason = "A whole-zone filesystem reading, proved by assertions UPD-5 and UPD-10."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.inspection:read_text"
+reason = "One file reading; the evidence is the U1 case of assertion UPD-8."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.inspection:file_mode"
+reason = "One stat call, proved by the byte comparison of assertion UPD-1."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.transaction:Snapshot"
+reason = "A two-value record with no behavior of its own."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.transaction:Writer"
+reason = "A whole-tree effect; the evidence is the crash case of assertion UPD-4."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.transaction:Writer.write"
+reason = "One file effect; the evidence is the crash case of assertion UPD-4."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.transaction:Writer.remove"
+reason = "One file effect; the evidence is the crash case of assertion UPD-4."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.transaction:Writer.restore"
+reason = "The undo of every effect; the evidence is the crash case of assertion UPD-4."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.transaction:transaction"
+reason = "One context manager over the writer, proved by assertion UPD-4."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.update:UpdateRequest"
+reason = "A two-value record with no behavior of its own."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.update:update_project"
+reason = "A whole-tree effect; the evidence is assertions UPD-1 to UPD-13 and REM-6."
+revisit = "2027-08-05"

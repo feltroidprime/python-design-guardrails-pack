@@ -38,6 +38,7 @@ LOCAL_GIT_ENVIRONMENT = (
     "GIT_WORK_TREE",
 )
 LOCAL_GIT_PREFIXES = ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
+ENCODING = "utf-8"
 
 
 def _binds_to_caller(key: str) -> bool:
@@ -99,3 +100,7 @@ class LocalCommands:
     def succeeds(self, command: Sequence[str], directory: Path, /) -> bool:
         """Run one command and report whether it ended with zero."""
         return _completed(command, directory, capture=True).returncode == 0
+
+    def read(self, command: Sequence[str], directory: Path, /) -> str:
+        """Run one command and return its standard output as text."""
+        return output(command, directory).decode(ENCODING, errors="replace")

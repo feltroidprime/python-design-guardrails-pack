@@ -45,9 +45,26 @@ SHIMS = (
     Path("pyrightconfig.json"),
     Path(".github/workflows/quality.yml"),
 )
-# The gate ignores the staged projection blob and the forced-update backups.
-IGNORED_NAMES = frozenset({"__pycache__", ".drift", "_pack.tar"})
-IGNORED_SUFFIXES = (".pyc",)
+# Runtime output that lives inside a pack-owned zone and belongs to no release:
+# bytecode caches, the cache directory each tool writes beside its own config,
+# the forced-update backups, and the staged projection blob. A cache path in the
+# record makes the hook red on the next clean checkout, and it makes every later
+# Pack Update refuse a project that never drifted.
+IGNORED_NAMES = frozenset(
+    {
+        ".basedpyright",
+        ".drift",
+        ".hypothesis",
+        ".import_linter_cache",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".venv",
+        "__pycache__",
+        "_pack.tar",
+    }
+)
+IGNORED_SUFFIXES = (".pyc", ".pyo")
 REPAIR_COMMAND = "uv run python -m scripts.manifest_guard --write"
 USAGE = "Usage: python -m scripts.manifest_guard [--write]"
 

@@ -38,3 +38,7 @@ class CommandRunner(Protocol):
     def succeeds(self, command: Sequence[str], directory: Path, /) -> bool:
         """Run one command and report whether it ended with zero."""
         ...
+
+    def read(self, command: Sequence[str], directory: Path, /) -> str:
+        """Run one command and return its standard output as text."""
+        ...

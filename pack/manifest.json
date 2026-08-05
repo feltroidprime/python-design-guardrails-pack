@@ -11,10 +11,9 @@
     "py.typed": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
   "root": {
+    "pack/.gitignore": "e9b40f9c066930c99081d31f75b72678c9b7d994732559777550e7a8d0819703",
     "pack/architecture.toml": "91c5431ffbff6fbf3489cf1866047090f6dea6f9a28cff8b8f692d34bdc54b80",
     "pack/ci/action.yml": "dc19e284a7be35da09c6a8d4e5ccca44cb63a9aeb1bd143cae2d1168fcec8f7b",
-    "pack/configs/.ruff_cache/.gitignore": "9e3a60f1e6ec4ae60215c11d54b171392745ec25e9dded433d5bd921363af316",
-    "pack/configs/.ruff_cache/CACHEDIR.TAG": "5953156d7e0c564a427251316eaf26f8870e6483ae2197f916b630e4f93e31ae",
     "pack/configs/importlinter.ini": "d7776235e5621f8c3a88aa58b3ce2206238cc4f4827857a7a50d24758dd4dced",
     "pack/configs/prek.toml": "de058ab5a52b9ede7b1387cc0005707038cd0cff0c4fcaa52a26747fdc9087a5",
     "pack/configs/pyrightconfig.json": "89eb66c649ca35be3b5801aa9f71338dd43c4ae1412525815653f3b5f776e44e",
@@ -41,7 +40,7 @@
     "pack/scripts/doctor.py": "d07f7a6b05d6a617ce0ab2608a3ee73efc41235651c27398612c8139b7dafb12",
     "pack/scripts/identity.py": "57a6adeab754fc5cd0773a6788b893029de6677a5dc042207aa6a78d8846a26c",
     "pack/scripts/import_contracts.py": "73f8d849c085b219b3c2f940822fc8b29e6d74e6854e958bae8c97b3add34da0",
-    "pack/scripts/manifest_guard.py": "1d9e77faad83be124da6756f5817d5e5c6bef8bc7db002576dc41b1ee69658fe",
+    "pack/scripts/manifest_guard.py": "409b660ebdff964feccb6b707b681d0a882a3d7d4562146175e887d2337c0e00",
     "pack/scripts/none_discipline.py": "f5afeaba61fd20e1d7b4b2ef3a2518487bf5a501f8f084e85e8d2c8f41af5aa5",
     "pack/scripts/override_discipline.py": "db6c6d5537f140baec9ef561f2ed63a73d8184539b33260168a344a0e128ccb0",
     "pack/scripts/ownership.py": "d579d889339dbe3199a63e3af3fd543971a845190e8f83cf864c3b3ca498317d",
