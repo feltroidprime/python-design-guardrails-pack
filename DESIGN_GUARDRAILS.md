@@ -96,8 +96,8 @@ gate does not change. `.gitignore` keeps the archive out of every commit.
 
 The release step belongs to the One-shot Bootstrap capability, and never to a
 `just` recipe. A recipe in `pack/justfile` reaches every Terminal Project, and
-assertion TER-6 of #81 forbids a pack-only instruction there. `pyrepo bootstrap
-release` is that step, and it disappears with the capability.
+assertion TER-6 of #81 forbids a pack-only instruction there. The `release`
+function of that capability is the step, and it disappears with the capability.
 
 ## Three widened tool entries: a capability is real code
 
@@ -119,7 +119,7 @@ partial-path rule still applies to every other module of every project.
 
 ## One proof catalog of exemptions: the capability that has no unit
 
-`src/guardrails_pack/bootstrap/proof.toml` exempts all 21 of its public
+The `proof.toml` of the One-shot Bootstrap exempts all 21 of its public
 behaviors rather than proving them. This is the one such catalog in the tree,
 and the reason is the shape of the behavior, not its difficulty.
 
