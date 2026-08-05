@@ -9,7 +9,9 @@ from scripts.ownership import pack_owned
 from scripts.ownership_specifications import pack_owned_is_exact
 from verification.harness.assertions import assert_falsifies, assert_property
 
-PACKAGE = "my_product"
+# A stand-in package name that rule R2 of the projection can never admit, so
+# this pack-owned file cannot collide with its own project's identity.
+PACKAGE = "PLACEHOLDER_PACKAGE"
 SEGMENTS = st.text(alphabet=ascii_lowercase + digits + "_-.", min_size=1, max_size=24)
 USER_NAMES = st.text(alphabet=ascii_lowercase + digits + "-", min_size=1, max_size=24)
 PACK_OWNED_NAMES = st.one_of(USER_NAMES.map(lambda name: f"_{name}"), st.just("py.typed"))
@@ -70,7 +72,7 @@ def test_the_package_directory_itself_is_user_owned() -> None:
 
 
 def test_another_package_under_the_source_root_is_user_owned() -> None:
-    assert pack_owned("src/other_thing/_foundation/router.py", PACKAGE) is False
+    assert pack_owned("src/OTHER_PACKAGE/_foundation/router.py", PACKAGE) is False
 
 
 def test_a_user_owned_entry_point_is_not_pack_owned() -> None:

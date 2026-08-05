@@ -13,7 +13,10 @@ from scripts.ownership import pack_owned
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 TRACKED_NAMES_COMMAND = ("git", "ls-files", "-z", "--cached", "--exclude-standard")
-PACKAGE = "my_product"
+# A stand-in package name. Rule R2 of the projection admits a lower-case name
+# only, so no real project can hold this one, and this pack-owned file cannot
+# collide with the identity of the project that carries it.
+PACKAGE = "PLACEHOLDER_PACKAGE"
 PACK_OWNED_NAMES = (
     "pack",
     "pack/.gitignore",
@@ -38,7 +41,7 @@ USER_OWNED_NAMES = (
     f"src/{PACKAGE}/cli.py",
     f"src/{PACKAGE}/composition.py",
     f"src/{PACKAGE}/billing/api.py",
-    "src/other_thing/_foundation/router.py",
+    "src/OTHER_PACKAGE/_foundation/router.py",
 )
 
 

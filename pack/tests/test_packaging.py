@@ -34,10 +34,10 @@ BLOB_NAME = "_pack" + ".tar"
 # The two strings that assertion TER-1 of #81 counts in a Terminal Project's
 # `pyproject.toml`. The count must be zero.
 PACK_ONLY_MARKERS = ("force-include", "_pack")
-# A neutral identity, used to read the project file as a Terminal Project reads
-# it. Terminal Projection swaps the two identity values and nothing else.
-TERMINAL_DISTRIBUTION = "my-product"
-TERMINAL_PACKAGE = "my_product"
+# The neutral identity is derived, never written. Upper-casing this tree's own
+# two values gives a pair that rule R2 of the projection can never admit, so
+# this pack-owned file holds no identity of its own and cannot collide with the
+# identity of the project that carries it.
 
 
 def load(path: Path) -> dict[str, object]:
@@ -71,7 +71,7 @@ def projected_project_text() -> str:
     """The project file as a Terminal Project carries it, after the token swap."""
     distribution, package = identity()
     raw = (REPOSITORY_ROOT / PROJECT_FILE).read_text(encoding="utf-8")
-    return raw.replace(package, TERMINAL_PACKAGE).replace(distribution, TERMINAL_DISTRIBUTION)
+    return raw.replace(package, package.upper()).replace(distribution, distribution.upper())
 
 
 def test_the_build_backend_is_uv_build_at_the_pinned_version() -> None:
