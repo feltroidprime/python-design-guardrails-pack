@@ -88,7 +88,7 @@ def tracked_pack_files(root: Path) -> tuple[Path, ...]:
     the outcome table. A scan of `pack/` alone reports a name-blind tree while
     `_foundation/` names the package in an import.
     """
-    completed = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0007
+    completed = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0008
         TRACKED_NAMES_COMMAND,
         cwd=root,
         capture_output=True,

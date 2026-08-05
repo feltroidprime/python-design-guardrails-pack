@@ -14,9 +14,9 @@ be large, and contain sensitive prompts, source, and tool output. Conversion
 must preserve raw evidence, detect loss, remain deterministic, and avoid
 semantic inference.
 
-This capability is shared by every repository generated from the pack. Copying
-its implementation here would create one fork per generated repository and
-make native-format fixes impossible to roll out atomically.
+Every project that the pack starts shares this capability. Copying its
+implementation here would create one fork per project, and it would make a fix
+to a native format impossible to release at one time.
 
 ## Decision
 
@@ -24,8 +24,8 @@ Use the private `session-profiler-optimizer` Python package as the sole
 implementation. The opt-in `session-log` and `session-e2e` recipes inject it
 with `uv run --with` from Git over HTTPS at immutable commit
 `6ace879e8642777658576a47e0f53b32a1ddc0f7`. It is deliberately absent from the
-project dependency groups and lockfile, so standard bootstrap, quality checks,
-and CI remain usable without cross-repository credentials. Before an opt-in
+project dependency groups and lockfile, so the first setup, the quality checks
+and CI stay usable without credentials for a second repository. Before an opt-in
 session command, GitHub CLI configures the normal Git credential helper with
 `gh auth setup-git`; credentials are not recorded in this repository.
 
@@ -79,8 +79,8 @@ manifest check. Routine `just check` excludes this marker.
 
 ## Alternatives considered
 
-- **Copy the converter into every generated repository.** Rejected: fixes and
-  dependency pins would drift independently.
+- **Copy the converter into every project.** Rejected: fixes and dependency
+  pins would then drift apart.
 - **Parse both formats locally without Harbor.** Rejected: it duplicates an
   active normalizer and broadens native-format maintenance.
 - **Store ATIF only.** Rejected: normalized output cannot prove that an unknown
@@ -92,8 +92,8 @@ manifest check. Routine `just check` excludes this marker.
 
 ### Positive
 
-- All generated repositories share one reviewed implementation commit.
-- The generated repository keeps a tiny stable facade and simple command.
+- Every project shares one reviewed implementation commit.
+- Each project keeps a small stable facade and one simple command.
 - Raw evidence and identity checks make silent call/result loss visible.
 
 ### Negative / cost accepted
@@ -107,7 +107,7 @@ manifest check. Routine `just check` excludes this marker.
 ### Risks and mitigations
 
 - **Private dependency auth:** run `gh auth login` and `gh auth setup-git` before
-  an opt-in session command. Baseline bootstrap and CI never request the package.
+  an opt-in session command. The first setup and CI never request the package.
 - **Native-format drift:** the package fails closed and replays fixtures plus
   random real-session quintiles before a new commit is pinned.
 - **Credential leakage in evidence:** output is ignored by Git and private on
@@ -117,7 +117,7 @@ manifest check. Routine `just check` excludes this marker.
 
 The package repository owns deterministic fixtures, safety regressions, more
 than 90% branch coverage, and real-session E2E sampling. This repository keeps
-an opt-in generated consumer test proving that the pinned private dependency
+an opt-in consumer test that proves that the pinned private dependency
 resolves through the lazy facade, preserves raw bytes, emits ATIF-v1.7 and the
 exact fail-closed check vocabulary, reports Harbor 0.18.0, and produces the
 same bundle twice. The real-session E2E replays five size quantiles per agent

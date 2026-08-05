@@ -1,69 +1,65 @@
-# ADR-0001: N0 ships no product exemplar
+# ADR-0001: A new project ships no product exemplar
 
 - Status: accepted
-- Date: 2026-07-30
+- Date: 2026-08-05
 - Owners: repository maintainers
-- Revisit trigger: a declared product capability needs a reusable foundation
-  boundary that repository control does not already provide
+- Revisit trigger: two Product Capabilities need the same foundation boundary
+  that `_foundation/` does not already give them
 
 ## Context and forces
 
-A generated repository must be useful without inventing a business domain.
-A sample application makes its names, ports, and command surface look like
-template obligations even though only the repository user can choose those
-semantics.
+A new repository must be useful before it has a business domain. A sample
+application makes its names, its ports and its command surface look like
+obligations, and only the owner of the repository can choose those semantics.
 
 ## Decision
 
-N0 ships the repository-control capability, architecture policy, proof system,
-the package `_foundation` namespace, and empty derived indexes. It ships no
-product module or product command. The small package-level CLI declarations
-remain only because repository control imports them; they are compatibility
-protocols, not an application exemplar.
+A new project ships the architecture policy, the tool policy, the proof system,
+the gate, and the `_foundation` boundary of its package. It ships no Product
+Capability and no product command. `composition.py` exports an empty
+`CAPABILITIES` tuple, so the command line lists nothing until the owner
+composes the first capability.
 
-The first product capability is introduced through repository control and is
-immediately PRODUCT-owned. Its domain, ports, adapters, and lifecycle are
-chosen by the user rather than copied from a template placeholder.
+The first Product Capability is one directory that the owner adds directly
+under the package, plus one import line in `composition.py`. Its domain, its
+ports, its adapters and its public functions are the owner's decisions.
 
 ## Alternatives considered
 
 - **A sample domain with reusable infrastructure.** Rejected: the sample
-  becomes accidental product policy and widens every later migration.
-- **An empty package with no control plane.** Rejected: N0 must still prove
-  that its declaration, ownership, generation, and proof mechanisms work.
+  becomes accidental product policy, and it widens every later migration.
+- **An empty package with no shared boundary.** Rejected: the project must
+  still prove that its ownership, proof and command mechanisms work.
 
 ## Consequences
 
 ### Positive
 
-- The generated baseline contains only template-maintained foundation and
-  repository-control behavior.
-- Product semantics begin at an explicit declaration boundary.
+- The starting tree holds structure and policy only.
+- Product semantics begin where the owner puts them.
 
 ### Negative / cost accepted
 
-- N0 demonstrates repository generation rather than a business workflow.
+- A new project demonstrates no business workflow.
 
 ### Risks and mitigations
 
-- *Future capabilities recreate generic plumbing:* introduce a shared
-  foundation boundary only after a real capability supplies the force and an
-  ADR records it.
+- *A later capability rebuilds generic plumbing:* widen `_foundation/` only
+  after two capabilities supply the force, and record it in a new ADR.
 
 ## Validation
 
-The pack's ownership-zone regression check proves that generated N0 contains no
-PRODUCT root. `tests/foundation/test_cli_protocol.py` covers the retained compatibility
-protocol, while `tests/repoctl/test_draft_capsule.py` validates the sole system
-capability.
+`pack/tests/test_router.py` covers the command surface that a composed
+capability receives, and `pack/scripts/cli_surface.py` checks every `api.py`
+against `CLI001` to `CLI004`. The `import-contracts` hook reports a project
+with no capability as a fact rather than as a failure.
 
 ## Migration and rollback
 
-The template migration deletes the placeholder surface before a user creates a
-real capability. Restoring a shipped product exemplar would require a new ADR
-and a new declared ownership contract.
+Nothing to migrate: a fresh project starts in this state. To ship an exemplar
+again needs a new ADR and a new ownership rule.
 
 ## Removal / supersession criteria
 
-Supersede this decision only when a real, repeated foundation requirement is
-demonstrated by declared capabilities.
+Supersede this decision only when repeated and measured demand for a shared
+product boundary exists.

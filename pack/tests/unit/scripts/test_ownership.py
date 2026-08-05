@@ -46,7 +46,7 @@ USER_OWNED_NAMES = (
 
 
 def tracked_names(root: Path) -> tuple[str, ...]:
-    completed = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0007
+    completed = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0008
         TRACKED_NAMES_COMMAND,
         cwd=root,
         capture_output=True,
@@ -81,7 +81,7 @@ def test_the_predicate_reads_the_package_name_it_is_given() -> None:
     assert pack_owned("src/first/_foundation/router.py", "second") is False
 
 
-def test_this_repository_holds_exactly_two_ownership_zones() -> None:
+def test_this_repository_holds_exactly_two_ownership_surfaces() -> None:
     package = derive_package(REPOSITORY_ROOT / "src")
     names = tracked_names(REPOSITORY_ROOT)
     owned = tuple(name for name in names if pack_owned(name, package))
