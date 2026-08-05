@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from scripts.architecture_policy import load_policy
 from scripts.architecture_rules import Violation, check_source, python_files
 from scripts.cli_discipline import check_cli_discipline
+from scripts.cli_surface import check_capability_api
 from scripts.none_discipline import check_none_discipline
 from scripts.override_discipline import check_override_discipline
 from scripts.path_discipline import check_path_discipline
@@ -59,6 +60,7 @@ def check_files(paths: Iterable[Path], policy: Policy) -> list[Violation]:
         violations.extend(check_none_discipline(path, tree, policy))
         violations.extend(check_path_discipline(path, tree))
         violations.extend(check_cli_discipline(path, tree, policy))
+        violations.extend(check_capability_api(path, tree, policy))
         violations.extend(check_review_discipline(path, tree))
     modules = tuple((path, tree) for path, _text, tree in parsed)
     violations.extend(check_repository_review_discipline(modules))
