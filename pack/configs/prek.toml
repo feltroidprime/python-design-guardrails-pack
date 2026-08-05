@@ -18,16 +18,19 @@
 # __pycache__ directories through the source tree. `PYTHONPATH=pack` carries
 # the `scripts` and `verification` packages of the tree.
 #
-# The gate reads no staged projection blob and no forced-update backup:
-# `exclude` below drops `src/*/_pack.tar` and `pack/.drift/`. It also drops
-# three trees that this repository does not own or does not check:
-# `docs/vendored/` is a read-only third-party pin, `.agents/` holds externally
-# sourced agent skills, and no tool reads `scratch/`. A whitespace hook would
-# otherwise rewrite a pinned file and break its checksum.
+# The gate reads no staged projection payload and no forced-update backup:
+# `exclude` below drops every archive directly under a source package, and
+# `pack/.drift/`. The archive rule names the shape and never the file name,
+# because this file reaches a Terminal Project byte for byte and assertion
+# `TER-6` of #81 forbids the name there. It also drops three trees that this
+# repository does not own or does not check: `docs/vendored/` is a read-only
+# third-party pin, `.agents/` holds externally sourced agent skills, and no tool
+# reads `scratch/`. A whitespace hook would otherwise rewrite a pinned file and
+# break its checksum.
 minimum_prek_version = "0.4.9"
 default_install_hook_types = ["pre-commit", "pre-push"]
 default_language_version.python = "python3.14"
-exclude = '^(src/[^/]+/_pack\.tar|pack/\.drift/|docs/vendored/|\.agents/|scratch/)'
+exclude = '^(src/[^/]+/[^/]+\.tar|pack/\.drift/|docs/vendored/|\.agents/|scratch/)'
 
 [[repos]]
 repo = "https://github.com/pre-commit/pre-commit-hooks"

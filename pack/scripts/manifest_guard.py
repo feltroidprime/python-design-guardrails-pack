@@ -47,9 +47,9 @@ SHIMS = (
 )
 # Runtime output that lives inside a pack-owned zone and belongs to no release:
 # bytecode caches, the cache directory each tool writes beside its own config,
-# the forced-update backups, and the staged projection blob. A cache path in the
-# record makes the hook red on the next clean checkout, and it makes every later
-# Pack Update refuse a project that never drifted.
+# and the forced-update backups. A cache path in the record makes the hook red
+# on the next clean checkout, and it makes every later Pack Update refuse a
+# project that never drifted.
 IGNORED_NAMES = frozenset(
     {
         ".basedpyright",
@@ -61,10 +61,16 @@ IGNORED_NAMES = frozenset(
         ".ruff_cache",
         ".venv",
         "__pycache__",
-        "_pack.tar",
     }
 )
 IGNORED_SUFFIXES = (".pyc", ".pyo")
+# The staged projection payload is one archive under `src/`. It belongs to no
+# release, it is never committed, and an interrupted build can leave it behind.
+# This rule names the shape of that file and never its name, because a
+# pack-owned file reaches a Terminal Project byte for byte and assertion `TER-6`
+# of #81 forbids the name there. A name-blind rule also covers every archive an
+# interrupted build can leave, not one exact spelling.
+IGNORED_SOURCE_SUFFIX = ".tar"
 REPAIR_COMMAND = "uv run python -m scripts.manifest_guard --write"
 USAGE = "Usage: python -m scripts.manifest_guard [--write]"
 
@@ -94,6 +100,8 @@ def digest(path: Path) -> str:
 
 def _ignored(relative: Path) -> bool:
     if relative.suffix in IGNORED_SUFFIXES:
+        return True
+    if relative.suffix == IGNORED_SOURCE_SUFFIX and relative.parts[0] == SOURCE_DIRECTORY.name:
         return True
     return any(part in IGNORED_NAMES for part in relative.parts)
 
