@@ -8,6 +8,13 @@ Rules `R1` to `R4` live here, because each one is a statement about a name.
 `R3` needs the standard library module list and `R5` and `R6` need the
 filesystem, so the application layer supplies both. This module reads no
 external fact of its own.
+
+The four rules answer in two groups, and the split is deliberate. `R1` to `R3`
+read the request alone, so `check_request` answers them before anything opens
+the projection source. `R4` compares the request against the pack, so
+`check_tokens` needs the identity of the pack and cannot answer earlier. A
+refusal that reads a fact it does not use turns an unreadable payload into an
+unexpected failure, which is the defect that `TER-4` of #81 reports.
 """
 
 from dataclasses import dataclass
@@ -16,7 +23,7 @@ import re
 
 from guardrails_pack.bootstrap.domain.errors import refuse
 
-__all__ = ["Identity", "check_identity", "derive_package", "substitutions"]
+__all__ = ["Identity", "check_request", "check_tokens", "derive_package", "substitutions"]
 
 # The distribution name rule of the Python packaging specification. The router
 # turns the same name into the console script of the new project.
@@ -93,8 +100,12 @@ def _check_reserved(project: Identity, reserved: frozenset[str]) -> None:
         )
 
 
-def _check_tokens(project: Identity, pack: Identity) -> None:
-    """`R4`: neither new value equals a pack token."""
+def check_tokens(project: Identity, pack: Identity) -> None:
+    """`R4`: neither new value equals a pack token.
+
+    This is the one name rule that reads the pack, so a caller runs it after it
+    has read the identity of the projection source, and never before.
+    """
     tokens = {pack.project_name, pack.package}
     for value in (project.project_name, project.package):
         if value in tokens:
@@ -106,8 +117,11 @@ def _check_tokens(project: Identity, pack: Identity) -> None:
             )
 
 
-def check_identity(project: Identity, pack: Identity, reserved: frozenset[str]) -> None:
-    """Run `R1` to `R4` over one requested identity. Raise on the first refusal."""
+def check_request(project: Identity, reserved: frozenset[str]) -> None:
+    """Run `R1` to `R3` over one requested identity. Raise on the first refusal.
+
+    Every rule here reads the request alone, so all three answer before a caller
+    opens the projection source.
+    """
     _check_names(project)
     _check_reserved(project, reserved)
-    _check_tokens(project, pack)

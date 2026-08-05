@@ -3,19 +3,29 @@
 The order is the order of #85 section 3.3.
 
 ```
-1. run R1 to R6
-2. build the whole project in a temporary directory
-3. run R7 to R9
-4. move the tree into place as one operation
-5. git init, just setup, and the first commit
-6. prek install, which records the pack-owned config path in the git hook
-7. with --github, gh repo create and push
+1. run R1, R2, R3, R5 and R6, which read the request and the filesystem
+2. read the identity of the pack from the projection source
+3. run R4, the one rule that compares the request against that identity
+4. build the whole project in a temporary directory
+5. run R7 to R9
+6. move the tree into place as one operation
+7. git init, just setup, and the first commit
+8. prek install, which records the pack-owned config path in the git hook
+9. with --github, gh repo create and push
 ```
 
-Steps 1 to 4 never touch the network, and a failure in any of them leaves the
-destination absent. Step 7 is the one network step, and it is opt-in. No boolean
+Steps 1 to 6 never touch the network, and a failure in any of them leaves the
+destination absent. Step 9 is the one network step, and it is opt-in. No boolean
 flag defaults to `True` (clause A3 of #85), so `init` is testable offline and a
 new repository stays private until its owner says otherwise.
+
+Step 2 sits between two groups of refusals rather than before all of them, and
+that placement is the whole point. Reading the projection source can fail: an
+interrupted `release` leaves a staged archive that is not a readable archive at
+all. A refusal that reads the pack before it needs to would then answer that
+caller with an unexpected failure instead of with `R2` or `R5`. Assertion
+`TER-4` of #81 states the rule that forbids it, so every refusal here reads the
+narrowest fact that can answer it.
 """
 
 from dataclasses import dataclass
@@ -29,7 +39,12 @@ from guardrails_pack.bootstrap.application.pipeline import prepare_repository, p
 from guardrails_pack.bootstrap.application.ports import CommandRunner, ProjectionPayload
 from guardrails_pack.bootstrap.application.projection import build_project
 from guardrails_pack.bootstrap.domain.errors import refuse
-from guardrails_pack.bootstrap.domain.identity import Identity, check_identity, derive_package
+from guardrails_pack.bootstrap.domain.identity import (
+    Identity,
+    check_request,
+    check_tokens,
+    derive_package,
+)
 
 __all__ = ["Request", "create_project", "requested_identity"]
 
@@ -87,9 +102,10 @@ def create_project(
     payload: ProjectionPayload, runner: CommandRunner, request: Request
 ) -> dict[str, object]:
     """Project the pack once into one new Terminal Project, then set it up."""
-    pack = payload.identity()
-    check_identity(request.project, pack, frozenset(sys.stdlib_module_names))
+    check_request(request.project, frozenset(sys.stdlib_module_names))
     anchor = _check_destination(request.destination)
+    pack = payload.identity()
+    check_tokens(request.project, pack)
     _land(payload, request, pack, anchor)
     prepare_repository(runner, request.destination, request.project)
     if request.github:
