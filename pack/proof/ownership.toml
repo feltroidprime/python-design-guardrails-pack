@@ -1,0 +1,17 @@
+schema_version = 1
+ownership_zone = "foundation"
+
+[[properties]]
+id = "PACK::PACK-OWNED"
+title = "The predicate answers exactly the Pack-owned Surface"
+statement = "pack_owned is true for the pack directory and for a `_`-prefixed name or py.typed directly under src/<pkg>/, and false for every other repository-relative path."
+scope = "The one ownership predicate over one repository-relative POSIX path and one package name."
+assumptions = ["The path is repository-relative and uses POSIX separators."]
+kind = "invariant"
+strength = "normative"
+targets = ["scripts.ownership:pack_owned"]
+oracles = ["scripts.ownership_specifications:pack_owned_is_exact"]
+evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]
+crosshair_targets = ["scripts.ownership:pack_owned"]
+counterexample = "A user-owned path is answered pack-owned, or a pack-owned path is answered user-owned."
+failure_modes = ["a sibling of pack/ is answered pack-owned", "a user-owned name under src/<pkg>/ is answered pack-owned", "the package directory itself is answered pack-owned", "another package under src/ is answered pack-owned"]

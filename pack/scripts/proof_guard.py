@@ -4,7 +4,7 @@
 from pathlib import Path
 import sys
 
-from scripts.proof_catalog import CatalogError, ProofCatalog, load_catalog
+from scripts.proof_catalog import POLICY_RELATIVE, CatalogError, ProofCatalog, load_catalog
 from scripts.proof_discovery import (
     DiscoveryError,
     discover_behavior_targets,
@@ -34,7 +34,7 @@ def check(root: Path) -> tuple[ProofCatalog | None, tuple[Violation, ...]]:
             )
         )
     except (CatalogError, DiscoveryError, OSError, SyntaxError) as error:
-        return None, (violation(root / "proof" / "policy.toml", 1, "PROOF000", str(error)),)
+        return None, (violation(root / POLICY_RELATIVE, 1, "PROOF000", str(error)),)
     violations = [
         *closure_violations(catalog, behavior_targets),
         *property_target_violations(catalog, target_map),
@@ -66,7 +66,7 @@ def main(argv: list[str]) -> int:
     if argv not in ([], ["--report"]):
         print("Usage: python -m scripts.proof_guard [--report]", file=sys.stderr)
         return 2
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     catalog, violations = check(root)
     if violations:
         for violation in violations:

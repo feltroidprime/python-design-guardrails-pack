@@ -10,10 +10,7 @@ import tomllib
 from typing import Literal, cast
 
 from scripts.architecture_rules import Violation, is_under, violation
-from scripts.ownership import OwnershipPathError, classify_path
-from scripts.ownership_policy import OwnershipPolicyError, load_ownership_policy
 
-type CapabilityOwnership = Literal["FOUNDATION", "PRODUCT"]
 type CapabilityLayer = Literal["api", "domain", "application", "adapters", "bootstrap"]
 
 CAPABILITY_RULE_IDS = ("CAP001", "CAP002", "CAP003")
@@ -35,11 +32,11 @@ ALLOWED_DEPENDENCIES: tuple[tuple[CapabilityLayer, frozenset[CapabilityLayer]], 
     ("adapters", frozenset({"domain", "application", "adapters"})),
     ("bootstrap", CAPABILITY_LAYERS),
 )
-REPOSITORY_PYTHON_ROOTS = ("repoctl", "src", "tests", "verification", "scripts")
+REPOSITORY_PYTHON_ROOTS = ("src", "tests", "pack")
 
 
 class CapabilityConfigurationError(ValueError):
-    """Raised when a capability root or ownership argument is inconsistent."""
+    """Raised when a capability root is inconsistent."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -47,7 +44,6 @@ class Capability:
     repository_root: Path
     root: Path
     module: str
-    ownership: CapabilityOwnership
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -61,7 +57,6 @@ class ValidationReport:
 class CommandArguments:
     repository_root: Path
     root: Path
-    ownership: str | None
 
 
 def _module_parts(path: Path, repository_root: Path) -> tuple[str, ...]:
@@ -250,43 +245,20 @@ def public_surface_violations(capability: Capability) -> tuple[Violation, ...]:
     return tuple(violations)
 
 
-def _capability(
-    repository_root: Path,
-    root: Path,
-    requested_ownership: str | None,
-) -> Capability:
+def _capability(repository_root: Path, root: Path) -> Capability:
     resolved_repository = repository_root.resolve()
     resolved_root = root.resolve() if root.is_absolute() else (resolved_repository / root).resolve()
-    try:
-        relative = resolved_root.relative_to(resolved_repository)
-    except ValueError as error:
-        raise CapabilityConfigurationError(
-            "Capability root must be inside the repository."
-        ) from error
-    policy = load_ownership_policy(resolved_repository)
-    actual_ownership = str(classify_path(relative, policy))
-    if actual_ownership not in {"FOUNDATION", "PRODUCT"}:
-        raise CapabilityConfigurationError(
-            f"Capability root belongs to {actual_ownership}, expected FOUNDATION or PRODUCT."
-        )
-    if requested_ownership is not None and requested_ownership != actual_ownership:
-        raise CapabilityConfigurationError(
-            f"Requested {requested_ownership} ownership but {relative} is {actual_ownership}."
-        )
+    if not is_under(resolved_root, resolved_repository):
+        raise CapabilityConfigurationError("Capability root must be inside the repository.")
     return Capability(
         repository_root=resolved_repository,
         root=resolved_root,
         module=_capability_module(resolved_root, resolved_repository),
-        ownership=cast("CapabilityOwnership", actual_ownership),
     )
 
 
-def validate_capability(
-    repository_root: Path,
-    root: Path,
-    ownership: str | None = None,
-) -> ValidationReport:
-    capability = _capability(repository_root, root, ownership)
+def validate_capability(repository_root: Path, root: Path) -> ValidationReport:
+    capability = _capability(repository_root, root)
     violations = (
         *required_structure_violations(capability),
         *layer_direction_violations(capability),
@@ -301,20 +273,14 @@ def validate_capability(
     )
 
 
-def discovered_capabilities(
-    repository_root: Path,
-    package_root: Path,
-) -> tuple[tuple[Path, CapabilityOwnership], ...]:
-    parents: tuple[tuple[Path, CapabilityOwnership], ...] = (
-        (repository_root / "repoctl/modules", "FOUNDATION"),
-        (package_root / "modules", "PRODUCT"),
-    )
+def discovered_capabilities(package_root: Path) -> tuple[Path, ...]:
+    """A capability is one directory directly under the package (L1 of #85)."""
+    if not package_root.is_dir():
+        return ()
     return tuple(
-        (path, ownership)
-        for parent, ownership in parents
-        if parent.is_dir()
-        for path in sorted(parent.iterdir())
-        if path.is_dir() and not path.name.startswith((".", "__"))
+        path
+        for path in sorted(package_root.iterdir())
+        if path.is_dir() and not path.name.startswith((".", "_", "__"))
     )
 
 
@@ -324,8 +290,8 @@ def validate_repository_capabilities(
 ) -> tuple[Violation, ...]:
     return tuple(
         violation
-        for root, ownership in discovered_capabilities(repository_root, package_root)
-        for violation in validate_capability(repository_root, root, ownership).violations
+        for root in discovered_capabilities(package_root)
+        for violation in validate_capability(repository_root, root).violations
     )
 
 
@@ -334,44 +300,26 @@ def _arguments(argv: list[str]) -> CommandArguments:
     _ = parser.add_argument(
         "--repository-root",
         type=Path,
-        default=Path(__file__).resolve().parents[1],
+        default=Path(__file__).resolve().parents[2],
     )
     _ = parser.add_argument("--root", type=Path, required=True)
-    _ = parser.add_argument("--ownership", choices=("FOUNDATION", "PRODUCT"))
     values = cast("dict[str, object]", vars(parser.parse_args(argv)))
     repository_root = values["repository_root"]
     root = values["root"]
-    ownership = values["ownership"]
     if not isinstance(repository_root, Path) or not isinstance(root, Path):
         raise CapabilityConfigurationError("Repository and capability roots must be paths.")
-    if ownership is not None and not isinstance(ownership, str):
-        raise CapabilityConfigurationError("Capability ownership must be a string.")
-    return CommandArguments(
-        repository_root=repository_root,
-        root=root,
-        ownership=ownership,
-    )
+    return CommandArguments(repository_root=repository_root, root=root)
 
 
 def main(argv: list[str]) -> int:
     arguments = _arguments(argv)
     try:
-        report = validate_capability(
-            arguments.repository_root,
-            arguments.root,
-            arguments.ownership,
-        )
-    except (
-        OSError,
-        tomllib.TOMLDecodeError,
-        CapabilityConfigurationError,
-        OwnershipPathError,
-        OwnershipPolicyError,
-    ) as error:
+        report = validate_capability(arguments.repository_root, arguments.root)
+    except (OSError, tomllib.TOMLDecodeError, CapabilityConfigurationError) as error:
         print(f"Capability validation could not run: {error}", file=sys.stderr)
         return 2
     relative = report.capability.root.relative_to(report.capability.repository_root)
-    identity = f"root={relative} ownership={report.capability.ownership}"
+    identity = f"root={relative}"
     rules = ",".join(report.rule_ids)
     print(f"Capability validation: {identity} rules={rules}")
     if report.violations:

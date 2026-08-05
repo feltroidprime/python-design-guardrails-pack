@@ -1,74 +1,35 @@
-"""Adapt filesystem-shaped ownership policy to the pure domain classifier."""
+"""The one ownership predicate of the Root Pack.
 
-from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING
+**Pack-owned** is the `pack/` directory at the repository root, plus
+`_`-prefixed names and `py.typed` inside `src/<pkg>/`. **User-owned** is
+everything else. Two zones, one predicate, no path list.
 
-from scripts.path_classifier import (
-    AbsolutePathError,
-    AmbiguousOwnershipError,
-    DotPathSegmentError,
-    EmptyPathSegmentError,
-    NonCanonicalSeparatorError,
-    OwnershipPathError,
-    OwnershipRoot,
-    OwnershipZone,
-    OwnershipZoneRoots,
-    ParentPathError,
-    RepositoryPathCandidate,
-    UnclassifiedPathError,
-    UnicodeNormalizationPathError,
-    classify_path as classify_domain_path,
-    matching_zones as matching_domain_zones,
-    validated_segments,
+The predicate is total. It answers every repository-relative POSIX path and
+raises nothing, so a caller classifies a path without a catalog and without a
+declaration. Init and update evaluate it per path, over the write plan and over
+`git status --porcelain`.
+"""
+
+import icontract
+
+from scripts.ownership_specifications import pack_owned_is_exact
+
+__all__ = ["pack_owned"]
+
+
+def _pack_owned_is_exact(rel: str, pkg: str, *, result: bool) -> bool:
+    return pack_owned_is_exact(rel, pkg, result=result)
+
+
+@icontract.ensure(
+    _pack_owned_is_exact,
+    description="PROPERTY[PACK::PACK-OWNED]",
 )
-
-if TYPE_CHECKING:
-    from scripts.ownership_policy import OwnershipPolicy
-
-__all__ = [
-    "AbsolutePathError",
-    "AmbiguousOwnershipError",
-    "DotPathSegmentError",
-    "EmptyPathSegmentError",
-    "NonCanonicalSeparatorError",
-    "OwnershipPathError",
-    "OwnershipZone",
-    "ParentPathError",
-    "UnclassifiedPathError",
-    "UnicodeNormalizationPathError",
-    "classify_path",
-    "matching_zones",
-    "normalized_relative_path",
-]
-
-
-def _candidate(path: Path) -> RepositoryPathCandidate:
-    return RepositoryPathCandidate(value=path.as_posix())
-
-
-def _domain_zones(policy: OwnershipPolicy) -> tuple[OwnershipZoneRoots, ...]:
-    return tuple(
-        OwnershipZoneRoots(
-            name=OwnershipZone(zone.name),
-            roots=tuple(OwnershipRoot(value=root.as_posix()) for root in zone.roots),
-        )
-        for zone in policy.zones
-    )
-
-
-def normalized_relative_path(path: Path) -> PurePosixPath:
-    """Validate one path through the domain owner and expose its segments."""
-    return PurePosixPath(*validated_segments(_candidate(path)))
-
-
-def matching_zones(
-    path: Path,
-    policy: OwnershipPolicy,
-) -> tuple[OwnershipZone, ...]:
-    """Delegate ownership matching to the pure domain classifier."""
-    return matching_domain_zones(_candidate(path), _domain_zones(policy))
-
-
-def classify_path(path: Path, policy: OwnershipPolicy) -> OwnershipZone:
-    """Delegate sole-owner classification to the pure domain classifier."""
-    return classify_domain_path(_candidate(path), _domain_zones(policy))
+def pack_owned(rel: str, pkg: str) -> bool:
+    """Answer whether one repository-relative path belongs to the pack."""
+    parts = rel.split("/")
+    if parts[0] == "pack":
+        return True
+    if parts[:2] == ["src", pkg] and len(parts) > 2:
+        return parts[2].startswith("_") or parts[2] == "py.typed"
+    return False

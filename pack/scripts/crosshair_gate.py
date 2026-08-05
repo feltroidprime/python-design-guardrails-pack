@@ -246,7 +246,7 @@ def main(argv: list[str]) -> int:
         return 2
     profile = argv[0]
     property_ids = tuple(argv[1:])
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     try:
         catalog = load_catalog(root)
         targets = _symbolic_targets(catalog, property_ids)

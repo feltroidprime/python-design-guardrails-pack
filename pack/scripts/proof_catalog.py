@@ -1,10 +1,13 @@
-"""Public loader for the repository's policy-led proof catalog tree."""
+"""Public loader for the repository's policy-led proof catalog tree.
 
-from typing import TYPE_CHECKING
+The proof surface is pack-owned. Its policy and its catalogs live under
+`pack/proof/`, and every path in this module is resolved from the repository
+root, never from the pack root.
+"""
 
-if TYPE_CHECKING:
-    from pathlib import Path
+from pathlib import Path
 
+from scripts.architecture_policy import PACK_DIRECTORY, SOURCE_DIRECTORY, derive_package
 from scripts.proof_catalog_model import (
     ALLOWED_OWNERSHIP_ZONES,
     CATALOG_SCHEMA_VERSION,
@@ -30,6 +33,8 @@ from scripts.proof_catalog_schema import (
     table_array,
     text,
 )
+
+POLICY_RELATIVE = Path(PACK_DIRECTORY) / "proof" / "policy.toml"
 
 __all__ = [
     "CatalogEntry",
@@ -145,7 +150,8 @@ def _load_catalog_entry(entry: Path, ownership_zone: str) -> CatalogEntry:
 
 
 def load_catalog(root: Path) -> ProofCatalog:
-    policy_location = root / "proof" / "policy.toml"
+    """Load the proof surface of one repository root, from `pack/proof/`."""
+    policy_location = root / POLICY_RELATIVE
     raw = read_toml(policy_location, "proof policy")
     if raw.get("schema_version") != POLICY_SCHEMA_VERSION:
         raise CatalogError(
@@ -153,7 +159,7 @@ def load_catalog(root: Path) -> ProofCatalog:
         )
     if "properties" in raw or "exemptions" in raw:
         raise CatalogError("proof/policy.toml must not declare properties or exemptions")
-    policy = load_policy(root, raw)
+    policy = load_policy(root, derive_package(root / SOURCE_DIRECTORY), raw)
     catalogs = tuple(
         _load_catalog_entry(entry, ownership_zone)
         for entry, ownership_zone in _discover_catalogs(policy_location.parent, policy)

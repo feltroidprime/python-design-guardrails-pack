@@ -1,35 +1,11 @@
 [project]
-package = "guardrails_pack"
+# No package name here. `src/` holds exactly one directory and that directory
+# is the package, so this file stays byte-identical in every project.
 source_root = "src"
 profile = "system"
 
-[ownership.roots]
-# Ticket I2 replaces this whole block with the one ownership predicate of #85
-# section 4.2. Ticket I1 only removed the roots that named a deleted path and
-# repointed the surviving roots at pack/.
-FOUNDATION = [
-  ".github",
-  ".gitignore",
-  ".python-version",
-  ".vscode",
-  "AGENTS.md",
-  "CLAUDE.md",
-  "README.md",
-  "docs/README.md",
-  "docs/adr",
-  "justfile",
-  "pack",
-  "prek.toml",
-  "pyproject.toml",
-  "src/guardrails_pack/__init__.py",
-  "src/guardrails_pack/_foundation",
-  "src/guardrails_pack/py.typed",
-  "uv.lock",
-]
-PRODUCT = [
-  "src/guardrails_pack/modules",
-  "docs/product",
-]
+# Ownership is not declared here. `pack/scripts/ownership.py` states the two
+# zones as one total predicate, so no path list can drift from the tree.
 
 [limits]
 max_module_lines = 650

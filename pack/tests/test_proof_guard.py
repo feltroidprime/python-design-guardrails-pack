@@ -17,12 +17,12 @@ schema_version = 2
 [policy]
 source_roots = ["src", "."]
 test_roots = ["verification/tests"]
-behavior_roots = ["demo.domain"]
+behavior_roots = ["domain"]
 excluded_module_stems = ["__init__", "errors", "specifications"]
 oracle_module_stems = ["specifications"]
 
 [catalogs]
-foundation = ["foundation.toml", "repoctl"]
+foundation = ["foundation.toml", "outside"]
 product = ["modules"]
 """
 
@@ -92,14 +92,18 @@ def test_changed_value_is_a_counterexample() -> None:
 """
 
 
+def proof_root(root: Path) -> Path:
+    """The proof surface is pack-owned; it lives under `pack/proof/`."""
+    return root / "pack" / "proof"
+
+
 def foundation_catalog(root: Path) -> Path:
-    return root / "proof" / "foundation.toml"
+    return proof_root(root) / "foundation.toml"
 
 
 def write_policy(root: Path, policy: str = POLICY_TOML) -> None:
-    proof_root = root / "proof"
-    proof_root.mkdir(parents=True, exist_ok=True)
-    (proof_root / "policy.toml").write_text(policy, encoding="utf-8")
+    proof_root(root).mkdir(parents=True, exist_ok=True)
+    (proof_root(root) / "policy.toml").write_text(policy, encoding="utf-8")
 
 
 def proof_project(tmp_path: Path) -> Path:
@@ -197,7 +201,7 @@ def test_public_facade_reexports_resolve_to_exact_proof_symbols(tmp_path: Path) 
 
 def test_loader_rejects_duplicate_property_id_across_catalogs(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    duplicate = root / "proof/modules/duplicate.toml"
+    duplicate = proof_root(root) / "modules/duplicate.toml"
     duplicate.parent.mkdir()
     duplicate.write_text(
         PROOF_TOML.replace('ownership_zone = "foundation"', 'ownership_zone = "product"'),
@@ -212,7 +216,7 @@ def test_loader_rejects_catalog_ownership_zone_that_disagrees_with_path(
     tmp_path: Path,
 ) -> None:
     root = proof_project(tmp_path)
-    misplaced = root / "proof/modules/misplaced.toml"
+    misplaced = proof_root(root) / "modules/misplaced.toml"
     misplaced.parent.mkdir()
     misplaced.write_text(
         'schema_version = 1\nownership_zone = "foundation"\n',
@@ -223,24 +227,24 @@ def test_loader_rejects_catalog_ownership_zone_that_disagrees_with_path(
         load_catalog(root)
 
 
-def test_one_policy_discovers_a_catalog_target_outside_src(tmp_path: Path) -> None:
+def test_one_policy_discovers_a_behavior_root_beside_the_domain(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
     write_policy(
         root,
-        POLICY_TOML.replace('behavior_roots = ["demo.domain"]', 'behavior_roots = ["repoctl"]'),
+        POLICY_TOML.replace('behavior_roots = ["domain"]', 'behavior_roots = ["outside"]'),
     )
     foundation_catalog(root).write_text(
-        PROOF_TOML.replace("demo.domain", "repoctl"),
+        PROOF_TOML.replace("demo.domain", "demo.outside"),
         encoding="utf-8",
     )
-    (root / "repoctl").mkdir()
-    (root / "repoctl/specifications.py").write_text(SPECIFICATION, encoding="utf-8")
-    (root / "repoctl/decisions.py").write_text(
-        DECISION.replace("demo.domain", "repoctl"),
+    (root / "src/demo/outside").mkdir()
+    (root / "src/demo/outside/specifications.py").write_text(SPECIFICATION, encoding="utf-8")
+    (root / "src/demo/outside/decisions.py").write_text(
+        DECISION.replace("demo.domain", "demo.outside"),
         encoding="utf-8",
     )
     (root / "verification/tests/test_properties.py").write_text(
-        EVIDENCE.replace("demo.domain", "repoctl"),
+        EVIDENCE.replace("demo.domain", "demo.outside"),
         encoding="utf-8",
     )
 
@@ -249,7 +253,7 @@ def test_one_policy_discovers_a_catalog_target_outside_src(tmp_path: Path) -> No
     assert violations == ()
     assert catalog is not None
     property_spec = catalog.by_id["DEMO-PRESERVES-VALUE"]
-    assert property_spec.targets == ("repoctl.decisions:identity",)
+    assert property_spec.targets == ("demo.outside.decisions:identity",)
     assert property_spec.evidence == frozenset(
         {"icontract", "hypothesis", "crosshair", "falsifier"}
     )
@@ -403,7 +407,7 @@ failure_modes = ["constructor-only evidence", "ambiguous callable alias"]
 '''
 
 CALLABLE_POLICY_TOML = POLICY_TOML.replace(
-    'behavior_roots = ["demo.domain"]', 'behavior_roots = ["demo.core"]'
+    'behavior_roots = ["domain"]', 'behavior_roots = ["core"]'
 ).replace(
     'excluded_module_stems = ["__init__", "errors", "specifications"]',
     'excluded_module_stems = ["__init__", "specifications", "callable_target"]',

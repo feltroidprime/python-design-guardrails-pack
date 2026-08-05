@@ -74,7 +74,7 @@ def check_files(paths: Iterable[Path], policy: Policy) -> list[Violation]:
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     policy = load_policy(root)
     violations = check_files(python_files(policy), policy)
     violations.extend(validate_repository_capabilities(root, policy.package_root))

@@ -159,10 +159,12 @@ def _catalog_locations(raw: dict[str, object]) -> tuple[CatalogLocation, ...]:
     return tuple(locations)
 
 
-def load_policy(root: Path, raw: dict[str, object]) -> ProofPolicy:
+def load_policy(root: Path, package: str, raw: dict[str, object]) -> ProofPolicy:
+    """Load one proof policy. Behavior roots are relative to the package."""
     policy = table(raw.get("policy"), "policy")
-    behavior_roots = text_tuple(policy.get("behavior_roots"), "policy.behavior_roots")
-    _validate_modules(behavior_roots, "policy.behavior_roots")
+    declared_roots = text_tuple(policy.get("behavior_roots"), "policy.behavior_roots")
+    _validate_modules(declared_roots, "policy.behavior_roots")
+    behavior_roots = tuple(f"{package}.{module}" for module in declared_roots)
     return ProofPolicy(
         source_roots=_policy_paths(root, policy.get("source_roots"), "policy.source_roots"),
         test_roots=_policy_paths(root, policy.get("test_roots"), "policy.test_roots"),

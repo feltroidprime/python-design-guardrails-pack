@@ -49,10 +49,6 @@ def checks() -> tuple[Check, ...]:
         Check(name="lint", command=("ruff", "check", ".")),
         Check(name="types", command=("basedpyright", "--project", "pyproject.toml")),
         Check(
-            name="ownership",
-            command=(sys.executable, "-m", "scripts.ownership_guard"),
-        ),
-        Check(
             name="architecture AST",
             command=(sys.executable, "-m", "scripts.architecture_guard"),
         ),

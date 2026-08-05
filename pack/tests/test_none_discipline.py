@@ -13,6 +13,7 @@ import pytest
 
 from scripts.architecture_guard import check_files
 from scripts.architecture_policy import Policy, load_policy
+from tests.policy_tree import write_policy_tree
 
 PACK = Path(__file__).resolve().parents[1]
 
@@ -20,11 +21,7 @@ PACK = Path(__file__).resolve().parents[1]
 @pytest.fixture
 def policy(tmp_path: Path) -> Policy:
     """The repository's real policy, instantiated for a package named `pkg`."""
-    manifest = (PACK / "architecture.toml").read_text(encoding="utf-8")
-    (tmp_path / "architecture.toml").write_text(
-        manifest.replace("guardrails_pack", "pkg"), encoding="utf-8"
-    )
-    return load_policy(tmp_path)
+    return load_policy(write_policy_tree(tmp_path))
 
 
 def run_check(policy: Policy, relative: str, source: str) -> list[str]:
