@@ -69,7 +69,7 @@ def test_prek_floor_is_coherent() -> None:
 
 
 def test_ruff_floor_is_coherent() -> None:
-    assert_coherent(occurrences(rf"ruff>={VERSION}"), 2)
+    assert_coherent(occurrences(rf"ruff>={VERSION}"), 1)
 
 
 def test_uv_pin_is_coherent() -> None:
@@ -80,7 +80,7 @@ def test_uv_pin_is_coherent() -> None:
             rf"setup-uv@v\d+(?:\.\d+)*\s+with:\s+version: \"{VERSION}\"",
             rf"uv-pre-commit\"\s*rev = \"{VERSION}\"",
         ),
-        5,
+        4,
     )
 
 

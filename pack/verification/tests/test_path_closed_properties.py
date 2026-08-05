@@ -158,7 +158,7 @@ def test_script_facade_has_no_second_classification_implementation() -> None:
     assert not any(isinstance(node, (ast.If, ast.Match)) for node in ast.walk(classifier))
     assert rule_tables == set()
     assert domain_source is not None
-    assert Path(domain_source).name == "ownership.py"
+    assert Path(domain_source).name == "path_classifier.py"
     assert Path(domain_source).read_text(encoding="utf-8") != source
 
 

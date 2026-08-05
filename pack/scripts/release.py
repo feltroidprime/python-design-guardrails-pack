@@ -7,7 +7,7 @@ import re
 import subprocess
 import sys
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 TAG_PATTERN = re.compile(r"v\d+\.\d+\.\d+\Z")
 LOCAL_GIT_ENVIRONMENT = (
     "GIT_ALTERNATE_OBJECT_DIRECTORIES",
