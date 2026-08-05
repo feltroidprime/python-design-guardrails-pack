@@ -10,8 +10,20 @@ readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = ["icontract>=2.7.3"]
 
+# The one console script of the tree. Its name is the distribution name, and it
+# names the user-owned shim, which names the pack-owned router. Every packaging
+# line in this file is true of a Terminal Project too, so projection changes the
+# two identity values and nothing else.
+[project.scripts]
+pyrepo = "guardrails_pack.cli:main"
+
 # The distribution name and the import package name are the two identity values
 # of the tree. They differ here, so the backend needs the module name.
+#
+# The backend includes what sits under the module root. Inclusion is by
+# presence, so the build needs no include table and no file list. The build
+# stages one archive of the last commit inside the package, and that archive is
+# the projection payload. See the packaging section of DESIGN_GUARDRAILS.md.
 [tool.uv.build-backend]
 module-name = "guardrails_pack"
 
