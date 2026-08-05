@@ -1,0 +1,111 @@
+# {{ project_name }}
+
+Python 3.14 repository starting at N0: a repository-control foundation with
+empty derived indexes and no shipped product capability.
+
+## Prerequisites
+
+- [`uv`](https://docs.astral.sh/uv/) — Python toolchain and dependencies.
+- [`just`](https://github.com/casey/just) — command runner.
+
+## Bootstrap
+
+`python-repo init` runs this recipe before its baseline commit. Run it again
+after cloning or after generating directly through Copier.
+
+```bash
+just bootstrap
+```
+
+{% if not workspace_member %}Prek installs the commit and pre-push shims in Git's shared hooks directory.
+Linked worktrees created with `git worktree add` therefore use the same hooks. Python hooks run
+with Python 3.14 so their parser matches the repository's supported language version.
+
+{% endif %}## Daily commands
+
+```bash
+just prove                 # proof closure + Hypothesis + bounded CrossHair
+just prove-one PROPERTY-ID # shortest loop for one changed law
+just check                 # deterministic repairs followed by the full gate
+just prove-deep            # larger generated/stateful/symbolic search
+just proof-report          # print the property/evidence matrix
+just doctor                # deployment and publication readiness verdict
+just session-log <transcript> [output] [agent]
+just update                # intentionally update dependencies and hook revisions
+```
+
+## N0 baseline
+
+`architecture.toml` assigns every path to FOUNDATION, PRODUCT, DERIVED, or
+DECLARATION. N0 contains FOUNDATION, DERIVED, and DECLARATION paths only:
+
+- `repoctl.modules.repository_generation` is the sole shipped system
+  capability.
+- `src/{{ package }}/_foundation/` is the template-maintained package boundary.
+- `src/{{ package }}/_generated/` and `proof/_generated/` are empty,
+  deterministic projections of declarations.
+- PRODUCT roots are absent until repository control materializes a declared
+  capability; scaffold updates must never overwrite them afterwards.
+
+The small declarations under `src/{{ package }}/adapters/inbound/` are retained
+only because repository control imports their machine envelope, outcome, and
+continuation types. They do not register a product command surface.
+
+## Repository control
+
+Use `repoctl` to inspect N0 and introduce real product capabilities:
+
+```bash
+uv run python -m repoctl status
+uv run python -m repoctl capabilities
+uv run python -m repoctl capability plan NAME --output .repo/plans/NAME.json
+uv run python -m repoctl capability apply .repo/plans/NAME.json
+uv run python -m repoctl proof-report
+```
+
+{% if agents_contract != 'none' %}Coding agents should follow the
+[harness-verified capability lifecycle](AGENTS.md#capability-lifecycle-workflow)
+in the repository operating contract.
+
+{% endif %}Planning is pure over explicit declarations, ownership roots, and prior file
+digests. Applying an inspected plan is durable and replays as `already_applied`.
+Activation and retirement update declarations while preserving PRODUCT bytes.
+See `docs/adr/0002-agent-native-cli-protocol.md`,
+`docs/adr/0004-agent-input-retry-and-composition-contract.md`, and
+`docs/adr/0007-ownership-zones-replace-the-example-application.md`.
+
+## Proof and architecture
+
+`proof/policy.toml` is the shared proof configuration. N0's active laws are
+under `proof/repoctl/`; the proof report therefore describes repository control
+until a real capability adds its own catalog. `just prove` also requires
+CrossHair to refute the deliberately false
+`verification/harness/symbolic_canary.py` contract.
+
+The full gate checks ownership, architecture, documentation, imports, types,
+tests, and the unchanged 90% coverage floor. Read
+`docs/architecture/README.md` before reshaping boundaries and
+`docs/architecture/PROVABILITY.md` before changing a law.
+
+## Coding-agent session evidence
+
+Preserve a complete Claude Code or Codex CLI session for harness analysis:
+
+```bash
+# Codex: use a rollout, never ~/.codex/history.jsonl
+just session-log ~/.codex/sessions/YYYY/MM/DD/rollout-SESSION.jsonl .agent-sessions/codex
+
+# Claude: the matching session-stem/subagents tree is included recursively
+just session-log ~/.claude/projects/PROJECT/SESSION.jsonl .agent-sessions/claude
+```
+
+`just session-e2e` is an opt-in local importer check. Standard bootstrap and
+the quality gate do not inspect personal logs or resolve the private profiler
+dependency. `docs/adr/0003-agent-session-evidence.md` owns that format and
+its privacy constraints.
+
+## Documentation
+
+`docs/README.md` maps the repository documentation. {% if agents_contract != 'none' %}Read
+`AGENTS.md` before changing code; {% endif %}record new decisions under `docs/adr/`
+and keep cited paths valid so the documentation guard can verify them.

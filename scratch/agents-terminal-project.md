@@ -1,0 +1,163 @@
+# AGENTS.md — repository operating contract
+
+Normative for every coding agent and human contributor.
+
+## Objective hierarchy
+
+When goals conflict, the higher rule wins:
+
+1. Preserve explicit ownership and repository correctness.
+2. Preserve dependency direction and proof closure.
+3. Keep the smallest coherent design that satisfies the requirement.
+4. Optimize readability for the next human reader.
+5. Optimize speed only after the first four hold.
+
+## N0 baseline
+
+This repository starts at N0. It contains repository control, architecture and
+proof guards, `{{ package }}._foundation`, and empty derived indexes. It
+contains no product capability and PRODUCT roots may be absent.
+
+`repoctl.modules.repository_generation` is the sole shipped system capability.
+Its `api.py` is the stable public surface. The package declarations under
+`src/{{ package }}/adapters/inbound/` remain only because repository control
+imports them; do not turn them into a second command implementation or a
+generic framework.
+
+## Before editing
+
+1. Read this file, `architecture.toml`, `proof/policy.toml`, the relevant
+   declaration catalog, and the owning ADR.
+2. Classify every changed path as FOUNDATION, PRODUCT, DERIVED, or
+   DECLARATION. `architecture.toml` is the only ownership-root declaration.
+3. State the capability, property, exact scope, external assumptions, and one
+   plausible counterexample before changing implementation.
+4. Trace existing imports and call paths. Prefer deletion or the existing
+   canonical boundary over a parallel abstraction.
+5. For a new product capability, use repository control to make the declared
+   intent explicit; never invent product semantics in N0.
+
+## While editing
+
+1. Make one coherent vertical change with the smallest necessary surface.
+2. Keep pure decisions deterministic, explicit-input driven, and free of
+   ambient I/O, clocks, randomness, environment reads, and hidden state.
+3. Keep repository-control behavior inside its existing capability boundary;
+   do not bypass its `api.py` from another capability or test.
+4. Preserve PRODUCT bytes during foundation changes. DERIVED output remains
+   replaceable and must retain its generated banner and source-state digest.
+5. Do not weaken a ceiling, coverage floor, ownership rule, or proof rule to
+   make an empty baseline pass.
+
+## Repository control
+
+`python -m repoctl` is N0's automation surface. It reports status and
+capabilities, plans and applies declared capabilities, changes lifecycle state,
+regenerates indexes, and prints proof evidence.
+
+- Keep plan creation pure over explicit snapshot data, ownership roots, and
+  prior digests.
+- Keep saved control plans outside the planning snapshot.
+- Apply an inspected plan through the repository port; replay completed work as
+  `already_applied` rather than writing state again.
+- Activation requires current evidence. Retirement changes declaration state
+  without targeting PRODUCT paths.
+- Keep machine output stable: success uses stdout, failure uses stderr, and
+  human output is explicit.
+
+Read `docs/adr/0002-agent-native-cli-protocol.md` and
+`docs/adr/0004-agent-input-retry-and-composition-contract.md` before changing
+the control process boundary.
+
+## Capability lifecycle workflow
+
+Use this sequence for one new capability. After apply, replace only the
+generated PRODUCT seeds with real behavior and add the capability's proof
+catalog and evidence. The activation flags are assertions that those named
+evidence forms now exist; never pass them speculatively.
+
+The executable lines are checked, in order, against the pack's recursive
+acceptance log. `NAME` and `PROPERTY-ID` are placeholders for the capability
+and one of its normative laws.
+
+<!-- capability-workflow:start -->
+```bash
+uv run python -m repoctl capabilities
+uv run python -m repoctl capability plan NAME --output .repo/plans/NAME.json
+uv run python -m repoctl capability apply .repo/plans/NAME.json
+# Implement NAME and add its proof catalog and evidence.
+git add --all
+uv run python -m repoctl capability activate NAME --architecture-contract --stable-surface --normative-property-evidence --port-contract --cli-process-evidence
+uv run python -m repoctl generate
+just prove-one PROPERTY-ID
+just check
+uv run python -m repoctl capability retire NAME
+uv run python -m repoctl generate
+git add --all
+just check
+```
+<!-- capability-workflow:end -->
+
+Activation and retirement change declaration state; each following `generate`
+refreshes DERIVED indexes. Neither lifecycle command may rewrite PRODUCT
+bytes.
+
+## Proof-carrying behavior
+
+`proof/policy.toml` and its catalogs are normative. N0's active catalog is
+`proof/repoctl/`; an empty foundation does not justify fabricated properties.
+
+- Each declared law must connect a production target, independent pure oracle,
+  `icontract` condition, Hypothesis evidence, falsifying canary, and CrossHair
+  target where appropriate.
+- Oracles accept explicit facts and return `bool`; they never import or call
+  the behavior they judge or perform I/O.
+- `verification/harness/symbolic_canary.py` is deliberately false. CrossHair
+  must refute it before symbolic silence counts as success.
+- Add a product law only with a real declared capability, not as a placeholder.
+
+Read `docs/architecture/PROVABILITY.md` before adding or changing a property.
+
+## Check loop
+
+1. Run `just prove-one PROPERTY-ID` for one law, or `just prove` for a
+   coherent repository-control or capability change.
+2. Run `just check` before handoff. It performs deterministic repairs and the
+   full acceptance gate.
+3. Resolve the first remaining failure and rerun the same command. Do not
+   suppress or weaken a normative rule.
+4. Use `just prove-deep` for riskier stateful or symbolic changes.
+5. Run `just doctor` immediately before deployment or publication.
+{% if agents_contract == 'hooks-first' %}6. Commit and push only after the gate and pre-push hooks succeed.
+{% endif %}
+
+## Documentation and decisions
+
+`docs/README.md` is the documentation map. Cite real paths so the docs guard
+can keep them true. A new document claims a map row in the same change. Record
+an ADR for a new foundation abstraction, a new external boundary, a new
+ownership class, or a material protocol change.
+
+## Type, state, and boundary discipline
+
+- Use fully typed functions and methods. Avoid `Any`, implicit unknowns,
+  blanket ignores, and unparameterized generics.
+- Use a function unless identity, protected mutable state, a stable varying
+  protocol, lifecycle ownership, or a real invariant requires a class.
+- Model closed variants explicitly. Parse raw external input at the boundary;
+  do not propagate uncertain or loosely shaped data inward.
+- Keep filesystem locations as `pathlib.Path` once they enter the system.
+- Do not create `utils.py`, `helpers.py`, `common.py`, or `misc.py` dumping
+  grounds. Do not add a framework, event bus, DI container, or plugin system
+  without an ADR and a demonstrated force.
+
+## Testing and review
+
+- Test observable behavior and independent laws, not private structure.
+- Unit and proof tests perform no network access; the runner disables sockets
+  by default.
+- A bug fix begins with a failing regression test. Strengthen a property when
+  the defect generalizes.
+- Coverage is a floor, never proof that the correct law was expressed.
+- Report changed property IDs, counterexamples considered, ownership impact,
+  commands actually run, and remaining risks at handoff.
