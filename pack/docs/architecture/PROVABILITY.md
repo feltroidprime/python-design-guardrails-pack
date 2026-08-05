@@ -3,10 +3,10 @@
 ## N0 proof surface
 
 N0 proves the repository-control capability, not an invented product domain.
-`proof/policy.toml` supplies the shared discovery configuration and
-`proof/repoctl/` declares the active laws. The generated package
-`guardrails_pack._foundation` is an empty behavior boundary until a real
-capability exists.
+`pack/proof/policy.toml` supplies the shared discovery configuration and
+`pack/proof/ownership.toml` declares the active laws. The package's
+`_foundation` boundary holds no proven behavior until a real capability
+exists.
 
 Each declared law names its production target, scope, assumptions, independent
 oracle, `icontract` condition, Hypothesis evidence, and CrossHair target. The

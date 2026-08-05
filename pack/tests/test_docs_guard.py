@@ -11,6 +11,7 @@ from pathlib import Path
 
 from scripts.architecture_policy import load_policy
 from scripts.docs_guard import check_documentation
+from tests.policy_tree import write_policy_tree
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACK = REPO_ROOT / "pack"
@@ -25,10 +26,7 @@ MINIMAL_MAP = (
 
 def make_repo(tmp_path: Path) -> Path:
     """A minimal repository the guard accepts: manifest, map, ADR template."""
-    manifest = (PACK / "architecture.toml").read_text(encoding="utf-8")
-    (tmp_path / "architecture.toml").write_text(
-        manifest.replace("guardrails_pack", "pkg"), encoding="utf-8"
-    )
+    _ = write_policy_tree(tmp_path)
     adr_dir = tmp_path / "docs" / "adr"
     adr_dir.mkdir(parents=True)
     form = (REPO_ROOT / "docs" / "adr" / "0000-template.md").read_text(encoding="utf-8")

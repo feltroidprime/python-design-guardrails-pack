@@ -6,8 +6,8 @@ baseline.
 
 | Design intent | Enforced by |
 |---|---|
-| Start without accidental product semantics | `architecture.toml` declares product roots while the template owns no product capability; `tests/test_ownership_zones.py` verifies that product source roots are absent and that `repoctl/` is the only shipped control root. |
-| Keep template, owner, and generated output distinct | Ownership zones in `architecture.toml`, `scripts/ownership_guard.py`, and `scripts/architecture_guard.py`. |
+| Start without accidental product semantics | The tree ships no product capability. A capability is one directory the owner adds under the package. |
+| Keep pack-owned and user-owned files distinct | Two ownership zones, stated as one predicate in `pack/scripts/ownership.py`. Pack-owned is `pack/`, plus `_`-prefixed names and `py.typed` in the package. User-owned is everything else. `pack/proof/ownership.toml` owns the law, and no file holds a list of ownership roots. |
 | Keep dependency direction explicit | Import Linter contracts, the architecture guard, and package entry points. |
 | Make repository evolution inspectable | `repoctl/` owns repository-generation plans, declarations, lifecycle decisions, and the machine-readable command protocol. |
 | Require executable evidence for critical decisions | `proof/policy.toml`, proof catalogs, `scripts/proof_guard.py`, Hypothesis checks, and bounded CrossHair checks. |

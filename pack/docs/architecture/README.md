@@ -9,9 +9,16 @@ repoctl.modules.repository_generation
   domain ← application ← adapters
 ```
 
-The generated package contains only `guardrails_pack._foundation`, empty
-`guardrails_pack._generated` indexes, and the small compatibility declarations
-that repository control imports. PRODUCT roots are intentionally absent.
+The package contains only its `_foundation` boundary. No document here names
+the package, because every file under `pack/` is byte-identical in every
+project.
+
+## Ownership
+
+Two zones, and one predicate states them. Pack-owned is the `pack/` directory,
+plus `_`-prefixed names and `py.typed` inside the package. User-owned is
+everything else. `pack/scripts/ownership.py` holds the predicate, and no file
+holds a list of ownership roots.
 
 A future product capability is declared and materialized by repository control.
 It owns its own domain, application, adapters, API, proof catalog, and derived
@@ -19,21 +26,17 @@ registration; N0 does not guess any of them.
 
 ## Stable seams
 
-- `architecture.toml` is the sole ownership map.
+- `pack/architecture.toml` is the sole limit, convention, and domain-purity
+  declaration. It declares no package name and no ownership root.
 - `repoctl.modules.repository_generation.api` is the public surface of the
   shipped capability.
-- `proof/policy.toml` discovers the common proof system; `proof/repoctl/`
-  owns N0's laws.
-- `src/guardrails_pack/_generated/` is deterministic, replaceable declaration
-  output.
+- `pack/proof/policy.toml` discovers the common proof system;
+  `pack/proof/ownership.toml` owns the ownership law.
 
 ## Fitness functions
 
-- Import Linter keeps `guardrails_pack._foundation` and
-  `guardrails_pack._generated` independent.
-- `scripts/ownership_guard.py` and `scripts/architecture_guard.py` enforce
-  ownership, structure, and source rules.
-- `scripts/capability_validator.py` applies CAP001–CAP003 to repository control
+- `pack/scripts/architecture_guard.py` enforces structure and source rules.
+- `pack/scripts/capability_validator.py` applies CAP001–CAP003 to repository control
   and future capabilities alike.
 - `scripts/proof_guard.py`, Hypothesis, and `scripts/crosshair_gate.py` keep
   the repository-control proof chain closed and refute the symbolic canary.

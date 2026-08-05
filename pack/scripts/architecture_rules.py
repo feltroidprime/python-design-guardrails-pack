@@ -16,56 +16,7 @@ if TYPE_CHECKING:
 TYPE_IGNORE_TOKEN = "type:" + " ignore"
 PYRIGHT_IGNORE_TOKEN = "pyright:" + " ignore"
 NOQA_TOKEN = "no" + "qa"
-REPOSITORY_GENERATION_APPLICATION_SCOPE = "Repository-generation application"
-REPOSITORY_GENERATION_DOMAIN_SCOPE = "Repository-generation domain"
-REPOSITORY_GENERATION_DOMAIN_IMPORT_ROOTS = frozenset(
-    {
-        "dataclasses",
-        "hashlib",
-        "icontract",
-        "json",
-        "keyword",
-        "re",
-        "repoctl",
-        "typing",
-        "unicodedata",
-    }
-)
-REPOSITORY_GENERATION_APPLICATION_IMPORT_ROOTS = frozenset(
-    {
-        "dataclasses",
-        "hashlib",
-        "json",
-        "repoctl",
-        "typing",
-    }
-)
-REPOSITORY_GENERATION_APPLICATION_EFFECT_ROOTS = frozenset(
-    {
-        "aiohttp",
-        "asyncio",
-        "concurrent",
-        "django",
-        "fastapi",
-        "flask",
-        "httpx",
-        "logging",
-        "multiprocessing",
-        "os",
-        "pathlib",
-        "random",
-        "requests",
-        "secrets",
-        "shutil",
-        "socket",
-        "sqlalchemy",
-        "subprocess",
-        "sys",
-        "threading",
-        "time",
-        "urllib",
-    }
-)
+DOMAIN_SCOPE = "Domain"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -85,6 +36,11 @@ def is_under(path: Path, parent: Path) -> bool:
     except ValueError:
         return False
     return True
+
+
+def is_test_source(path: Path, policy: Policy) -> bool:
+    """Both test trees: the user's `tests/` and the pack's own test roots."""
+    return any(is_under(path, root) for root in policy.test_roots)
 
 
 def dotted_name(node: ast.expr) -> str:
@@ -177,7 +133,7 @@ def check_init_file(path: Path, text: str, policy: Policy) -> list[Violation]:
     """
     if path.name != "__init__.py":
         return []
-    if is_under(path, policy.root / "tests"):
+    if is_test_source(path, policy):
         return [
             Violation(
                 path=path,
@@ -203,7 +159,7 @@ def check_init_file(path: Path, text: str, policy: Policy) -> list[Violation]:
 
 def check_module_shape(path: Path, line_count: int, policy: Policy) -> list[Violation]:
     violations: list[Violation] = []
-    is_test = is_under(path, policy.root / "tests")
+    is_test = is_test_source(path, policy)
     maximum = policy.max_test_module_lines if is_test else policy.max_module_lines
     if path.stem in policy.forbidden_module_stems:
         violations.append(
@@ -307,19 +263,7 @@ def check_import(
 ) -> list[Violation]:
     violations: list[Violation] = []
     if ambient_effect_scope is not None:
-        imported_roots = import_roots(node)
-        allowed_roots = (
-            REPOSITORY_GENERATION_APPLICATION_IMPORT_ROOTS
-            if ambient_effect_scope == REPOSITORY_GENERATION_APPLICATION_SCOPE
-            else REPOSITORY_GENERATION_DOMAIN_IMPORT_ROOTS
-            if ambient_effect_scope == REPOSITORY_GENERATION_DOMAIN_SCOPE
-            else None
-        )
-        forbidden_roots = (
-            imported_roots - allowed_roots
-            if allowed_roots is not None
-            else imported_roots & policy.forbidden_import_roots
-        )
+        forbidden_roots = import_roots(node) & policy.forbidden_import_roots
         violations.extend(
             violation(
                 path,
@@ -353,11 +297,7 @@ def check_call(
     if ambient_effect_scope is None:
         return []
     name = dotted_name(node.func)
-    forbidden = (
-        name.split(".", maxsplit=1)[0] in REPOSITORY_GENERATION_APPLICATION_EFFECT_ROOTS
-        if ambient_effect_scope == REPOSITORY_GENERATION_APPLICATION_SCOPE
-        else False
-    ) or any(
+    forbidden = any(
         name == suffix or name.endswith(f".{suffix}") for suffix in policy.forbidden_call_suffixes
     )
     if not forbidden:
@@ -374,27 +314,15 @@ def check_call(
 
 
 def is_domain_source(path: Path, policy: Policy) -> bool:
-    """Recognize the domain layer in the product package and system capabilities."""
-    production_roots = (policy.package_root, policy.root / "repoctl")
-    return any(
-        is_under(path, root) and policy.domain_root.name in path.relative_to(root).parts[:-1]
-        for root in production_roots
+    """Recognize the domain layer of one capability in the package."""
+    return is_under(path, policy.package_root) and (
+        policy.domain_root.name in path.relative_to(policy.package_root).parts[:-1]
     )
 
 
 def ambient_effect_scope(path: Path, policy: Policy) -> str | None:
     """Name source layers whose decisions must remain free of ambient effects."""
-    repository_generation_domain = policy.root / "repoctl/modules/repository_generation/domain"
-    repository_generation_application = (
-        policy.root / "repoctl/modules/repository_generation/application"
-    )
-    if is_under(path, repository_generation_domain):
-        return REPOSITORY_GENERATION_DOMAIN_SCOPE
-    if is_under(path, repository_generation_application):
-        return REPOSITORY_GENERATION_APPLICATION_SCOPE
-    if is_domain_source(path, policy):
-        return "Domain"
-    return None
+    return DOMAIN_SCOPE if is_domain_source(path, policy) else None
 
 
 def check_tree(path: Path, tree: ast.AST, policy: Policy) -> list[Violation]:
@@ -428,10 +356,8 @@ def check_source(path: Path, text: str, tree: ast.Module, policy: Policy) -> lis
 
 
 def python_files(policy: Policy) -> list[Path]:
-    roots = [
-        policy.root / "repoctl",
-        policy.source_root,
-        policy.root / "tests",
-        policy.root / "scripts",
-    ]
-    return sorted(path for root in roots for path in root.rglob("*.py") if path.is_file())
+    """Every Python file the guard owns: the package, the pack, and the tests."""
+    roots = [policy.source_root, policy.root / "tests", policy.pack_root]
+    return sorted(
+        path for root in roots if root.is_dir() for path in root.rglob("*.py") if path.is_file()
+    )

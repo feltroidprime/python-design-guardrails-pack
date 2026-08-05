@@ -49,12 +49,18 @@ class DocViolation:
         return f"{self.path.relative_to(root)}:{self.line}: {self.code} {self.message}"
 
 
-def markdown_files(root: Path) -> list[Path]:
-    """Every prose document the guard owns: root-level, docs/, and .github/."""
+def markdown_files(policy: Policy) -> list[Path]:
+    """Every prose document the guard owns, in both ownership zones.
+
+    The user-owned documents are the root-level files, `docs/` and `.github/`.
+    The pack-owned documents are `pack/docs/`.
+    """
+    root = policy.root
     candidates = (
         *root.glob("*.md"),
         *(root / "docs").rglob("*.md"),
         *(root / ".github").rglob("*.md"),
+        *(policy.pack_root / "docs").rglob("*.md"),
     )
     return sorted(
         path for path in candidates if GENERATED_DIRECTORY_NAME not in path.relative_to(root).parts
@@ -186,7 +192,7 @@ def check_adr_numbering(root: Path) -> Iterator[DocViolation]:
 def check_exception_markers(policy: Policy, adr_numbers: frozenset[int]) -> Iterator[DocViolation]:
     """Every concrete `ARCH-EXCEPTION: ADR-NNNN` marker must point at a real ADR."""
     marker = re.compile(re.escape(policy.exception_marker) + r"(\d{4})")
-    for path in (*python_files(policy), *markdown_files(policy.root)):
+    for path in (*python_files(policy), *markdown_files(policy)):
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
             for match in marker.finditer(line):
                 if int(match.group(1)) not in adr_numbers:
@@ -239,7 +245,7 @@ def check_registration(
 
 def check_documentation(policy: Policy) -> list[DocViolation]:
     root = policy.root
-    documents = markdown_files(root)
+    documents = markdown_files(policy)
     adr_numbers = frozenset(
         int(name.group(1))
         for path in (root / ADR_RELATIVE).glob("*.md")
@@ -258,7 +264,7 @@ def check_documentation(policy: Policy) -> list[DocViolation]:
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     violations = check_documentation(load_policy(root))
     if violations:
         for item in violations:

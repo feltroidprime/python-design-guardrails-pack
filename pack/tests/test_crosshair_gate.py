@@ -32,11 +32,14 @@ failure_modes = ["duplicate effect"]
 
 
 def crosshair_project(tmp_path: Path, manifest: str) -> Path:
+    """A project shaped like the real tree: guard scripts and proof under `pack/`."""
     root = tmp_path / "crosshair-project"
-    scripts = root / "scripts"
+    scripts = root / "pack" / "scripts"
     scripts.mkdir(parents=True)
+    (root / "src" / "demo").mkdir(parents=True)
     (scripts / "__init__.py").write_text("", encoding="utf-8")
     for name in (
+        "architecture_policy.py",
         "crosshair_gate.py",
         "proof_catalog.py",
         "proof_catalog_model.py",
@@ -46,7 +49,7 @@ def crosshair_project(tmp_path: Path, manifest: str) -> Path:
             (PACK_SCRIPTS / name).read_text(encoding="utf-8"),
             encoding="utf-8",
         )
-    proof_root = root / "proof"
+    proof_root = root / "pack" / "proof"
     proof_root.mkdir()
     (proof_root / "policy.toml").write_text(POLICY_TOML, encoding="utf-8")
     (proof_root / "foundation.toml").write_text(manifest, encoding="utf-8")
@@ -60,7 +63,7 @@ def run_gate(
 ) -> subprocess.CompletedProcess[str]:
     environment = dict(os.environ)
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
-    environment["PYTHONPATH"] = str(root)
+    environment["PYTHONPATH"] = str(root / "pack")
     if extra_environment is not None:
         environment.update(extra_environment)
     return subprocess.run(
@@ -195,7 +198,7 @@ def test_ci_canary_keeps_the_symbolic_minimum_budget(tmp_path: Path) -> None:
 def test_gate_builds_pythonpath_from_policy_source_roots(tmp_path: Path) -> None:
     manifest = PROOF_TOML.replace("demo.domain", "pack.demo")
     root = crosshair_project(tmp_path, manifest)
-    policy = root / "proof/policy.toml"
+    policy = root / "pack/proof/policy.toml"
     policy.write_text(
         POLICY_TOML.replace('source_roots = ["src", "."]', 'source_roots = ["control", "."]'),
         encoding="utf-8",
