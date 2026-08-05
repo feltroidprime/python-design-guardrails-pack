@@ -15,7 +15,7 @@ from dataclasses import dataclass
 import json
 from typing import TYPE_CHECKING, cast
 
-from guardrails_pack._foundation.cli_outcomes import OutcomeSpec, PublicDetailValue
+from .cli_outcomes import OutcomeSpec, PublicDetailValue
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

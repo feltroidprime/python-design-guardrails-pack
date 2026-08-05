@@ -6,8 +6,8 @@
     "_foundation/adapters/__init__.py": "ebb63079c205f1673dd9ab36c6a99d762286d2ae6f2d7b7ce11c017359388917",
     "_foundation/adapters/inbound/__init__.py": "f277fb296414416a232d4b5fde7c027026734f7fc56a674d00c2ee6e78403c37",
     "_foundation/cli_outcomes.py": "cf9bdb0acceea67bc2b0171767460556c640d19dce08c8573191391dbc55b759",
-    "_foundation/cli_protocol.py": "2e68931617a74d83e98477feecbda44cd8f8b0729794889691761f352d5e080b",
-    "_foundation/router.py": "a92320ed92f544f6d8b6023442d022e8db46e2cbd563ac48a801082339742cf0",
+    "_foundation/cli_protocol.py": "58223c563db54ec33f30f2a0e547963b5e9ec6c723a6787304d82fbc11a9eaeb",
+    "_foundation/router.py": "e164bb030c76ad70ced7263daab4f1ab7c3f2b08a673412d0e6d3bfad4b5f84b",
     "py.typed": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
   "root": {
@@ -19,7 +19,7 @@
     "pack/configs/prek.toml": "de058ab5a52b9ede7b1387cc0005707038cd0cff0c4fcaa52a26747fdc9087a5",
     "pack/configs/pyrightconfig.json": "89eb66c649ca35be3b5801aa9f71338dd43c4ae1412525815653f3b5f776e44e",
     "pack/configs/pytest.ini": "4eca7806cffb75eba9ecbc4a41cec6fdc702d865ca54c633f0be04b01b4fc0fb",
-    "pack/configs/ruff.toml": "228ab8ba6d01a718d960f847ec3a5d58786ef6b5495680ff75db2c428f96b097",
+    "pack/configs/ruff.toml": "7ea22f1fe1ab20476d670d630980d0fc0052aeb317e47f9add153720c99f80f7",
     "pack/docs/architecture/EXCEPTIONS.md": "28a5abccb697d5727765ac27f07fc399af5b1b365f20470239504f8bc35a8ad5",
     "pack/docs/architecture/MIGRATION_CHECKLIST.md": "caf9ac45e767e8c78702cdc1f8787c7147fa70655d01ea54553e466f62be8299",
     "pack/docs/architecture/PATTERN_ADMISSION.md": "55cecae03cf053c6e25b1827c60dd6164495d1616b22317e6e49dcfdc34eb78e",
@@ -77,7 +77,7 @@
     "pack/tests/test_cli_surface.py": "448a624be2a63595d211e6c52b59ed9136fc55494df0de9551027f3597d7885a",
     "pack/tests/test_crosshair_gate.py": "62fa8c66853812f1056ec4d1c8982f0dac503009e01f7ee831e5d90bafbe5a6e",
     "pack/tests/test_docs_guard.py": "055a9cc6547d347f7c5928b92f47e0f5ca38e791455a599c4b092cd86f1211e3",
-    "pack/tests/test_gate_definition.py": "fc6b89b20fec058770fb606f62feafdc44feadd7b46f7f599b8cdbb24cd1bdcc",
+    "pack/tests/test_gate_definition.py": "a6511e04972d409788c856f996a0d28a98f4c9c350b63716a94c9a4f860f17df",
     "pack/tests/test_import_contracts.py": "5276b890e12ea50176fc8c6ea0e8a582688e219e9653455cb106a729a5a76fc4",
     "pack/tests/test_none_discipline.py": "7850ac0007ffaee3f2a9e1e19d21f37e99ebab9a6beaeb7aab6a369ae4b0ca3f",
     "pack/tests/test_packaging.py": "d2dabc6b7585c4158eeaa5b7c836e326e5430e3d9b822a82e5ebc5c4d3be55df",

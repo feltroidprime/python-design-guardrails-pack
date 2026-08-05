@@ -32,7 +32,7 @@ import traceback
 from types import ModuleType, NoneType, UnionType
 from typing import NoReturn, TextIO, cast, get_args, get_origin, override
 
-from guardrails_pack._foundation.cli_outcomes import (
+from .cli_outcomes import (
     COMPOSITION_INVALID,
     DEPENDENCY_UNAVAILABLE,
     INVALID_CONTINUATION,
@@ -42,7 +42,7 @@ from guardrails_pack._foundation.cli_outcomes import (
     ExitCode,
     OutcomeSpec,
 )
-from guardrails_pack._foundation.cli_protocol import (
+from .cli_protocol import (
     FailureBody,
     InvalidContinuationError,
     decode_continuation,
