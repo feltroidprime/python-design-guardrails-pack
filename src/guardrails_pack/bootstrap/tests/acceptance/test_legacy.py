@@ -61,14 +61,14 @@ def exempt(line: str, *names: str) -> bool:
 
 def test_leg_1_no_legacy_identifier_in_the_pack(root: Path) -> None:
     """`LEG-1` on `ROOT`: Code B, list 1, including the three coverage strings."""
-    found = grep(root, IDENTIFIER_PATTERN, "--exclude-dir=.venv")
+    found = grep(root, IDENTIFIER_PATTERN)
 
     assert [line for line in found if not exempt(line, SOURCE_FILE, *EXEMPT_IN_PACK)] == []
 
 
 def test_leg_1_no_legacy_identifier_in_a_project(term: Project) -> None:
     """`LEG-1` on `TERM`: a fresh project needs no exemption but the list itself."""
-    found = grep(term.path, IDENTIFIER_PATTERN, "--exclude-dir=.venv")
+    found = grep(term.path, IDENTIFIER_PATTERN)
 
     assert [line for line in found if not exempt(line, SOURCE_FILE)] == []
 
@@ -76,7 +76,7 @@ def test_leg_1_no_legacy_identifier_in_a_project(term: Project) -> None:
 def test_leg_2_no_legacy_prose_in_the_pack(root: Path) -> None:
     """`LEG-2` on `ROOT`: Code B, list 2, over Markdown and Python only."""
     includes = tuple(f"--include={suffix}" for suffix in PROSE_SUFFIXES)
-    found = grep(root, PROSE_PATTERN, "-i", "--exclude-dir=.venv", *includes)
+    found = grep(root, PROSE_PATTERN, "-i", *includes)
 
     assert [line for line in found if not exempt(line, SOURCE_FILE, *EXEMPT_IN_PACK)] == []
 
@@ -84,7 +84,7 @@ def test_leg_2_no_legacy_prose_in_the_pack(root: Path) -> None:
 def test_leg_2_no_legacy_prose_in_a_project(term: Project) -> None:
     """`LEG-2` on `TERM`: old vocabulary in documents that agents read."""
     includes = tuple(f"--include={suffix}" for suffix in PROSE_SUFFIXES)
-    found = grep(term.path, PROSE_PATTERN, "-i", "--exclude-dir=.venv", *includes)
+    found = grep(term.path, PROSE_PATTERN, "-i", *includes)
 
     assert [line for line in found if not exempt(line, SOURCE_FILE)] == []
 

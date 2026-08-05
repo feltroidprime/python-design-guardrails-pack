@@ -60,6 +60,19 @@ LOCAL_REPOSITORY = "local"
 PRIVATE_PREFIX = "_"
 TYPED_MARKER = "py.typed"
 PACK_DIRECTORY = "pack"
+# Git and every runtime output that a release does not carry. Each word scan of
+# #81 measures release content, and `.gitignore` names the same set.
+RUNTIME_TREES = (
+    ".git",
+    ".venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".hypothesis",
+    ".import_linter_cache",
+    ".basedpyright",
+    ".mypy_cache",
+)
 # Code D of #81. The projection must build a whole tree with this module on the
 # path, so a socket call is an immediate failure rather than a slow timeout.
 PROBE_MODULE = "sitecustomize.py"
@@ -224,9 +237,16 @@ def commit_digests(root: Path, destination: Path) -> Mapping[str, str]:
 
 
 def grep(tree: Path, pattern: str, *arguments: str) -> tuple[str, ...]:
-    """Every line of *tree* that matches *pattern*, git excluded."""
+    """Every line of release content of *tree* that matches *pattern*.
+
+    Every scan of #81 measures what a release carries. Git, the virtual
+    environment and the tool caches carry none of it, and a tool cache records
+    the name of every test it ran, so a word search of one would answer with the
+    test names rather than with the tree.
+    """
+    excluded = tuple(f"--exclude-dir={name}" for name in RUNTIME_TREES)
     completed = subprocess.run(
-        ("grep", "-rIn", "-E", pattern, str(tree), "--exclude-dir=.git", *arguments),
+        ("grep", "-rIn", "-E", pattern, str(tree), *excluded, *arguments),
         capture_output=True,
         text=True,
         check=False,
