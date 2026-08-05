@@ -8,7 +8,7 @@ script and reads the tree from the outside only.
 
 from pathlib import Path
 
-from guardrails_pack.bootstrap.tests.acceptance.code import pack_owned, status_paths
+from guardrails_pack.bootstrap.tests.acceptance.code import pack_owned, status_locations
 from guardrails_pack.bootstrap.tests.acceptance.conftest import Project
 from guardrails_pack.bootstrap.tests.acceptance.harness import (
     failing_hooks,
@@ -47,7 +47,7 @@ def test_upd_2_every_written_path_satisfies_the_predicate(old: Project, toolenv:
     report = update(toolenv, old.path)
 
     planned = report.planned
-    changed = status_paths(porcelain(old.path))
+    changed = status_locations(porcelain(old.path))
 
     assert report.outcome.code == 0, report.outcome.text
     assert planned
@@ -59,9 +59,9 @@ def test_upd_2_the_three_release_changes_are_real(old: Project, toolenv: Pack) -
     """`UPD-2`: the release under test carries one add, one replace and one delete."""
     report = update(toolenv, old.path)
 
-    assert report.paths("added") == (ADDED_BY_NEW,)
-    assert REPLACED_BY_NEW in report.paths("replaced")
-    assert report.paths("deleted") == (DELETED_BY_NEW,)
+    assert report.locations("added") == (ADDED_BY_NEW,)
+    assert REPLACED_BY_NEW in report.locations("replaced")
+    assert report.locations("deleted") == (DELETED_BY_NEW,)
 
 
 def test_upd_3_the_update_is_idempotent(old: Project, toolenv: Pack) -> None:
@@ -128,7 +128,7 @@ def test_upd_6_force_is_bounded_and_recoverable(old: Project, toolenv: Pack) -> 
     forced = update(toolenv, old.path, force=True)
 
     assert forced.outcome.code == 0, forced.outcome.text
-    changed = status_paths(porcelain(old.path))
+    changed = status_locations(porcelain(old.path))
     assert [path for path in changed if not pack_owned(path, old.tokens.package)] == []
     assert (old.path / DRIFT_DIRECTORY / DRIFTED_FILE).read_bytes() == replaced
 
@@ -147,5 +147,5 @@ def test_upd_7_the_drift_directory_is_ignored_by_a_pack_owned_file(
 
     assert DRIFT_RULE in pack_ignore
     assert ".drift" not in root_ignore
-    assert [path for path in status_paths(porcelain(old.path)) if DRIFT_DIRECTORY in path] == []
+    assert [path for path in status_locations(porcelain(old.path)) if DRIFT_DIRECTORY in path] == []
     assert failing_hooks(old.path) <= baseline

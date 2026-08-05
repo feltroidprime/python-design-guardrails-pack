@@ -58,7 +58,11 @@ def assert_coherent(found: list[tuple[str, str]], minimum: int) -> None:
 
 
 def test_icontract_floor_is_coherent() -> None:
-    assert_coherent(occurrences(rf"icontract>={VERSION}"), 3)
+    # One location, not three: the other two were the command of the mutation
+    # catalog and its expected form, which both named an ephemeral invocation of
+    # the deleted generator. Ticket I10 re-derived that catalog against the
+    # tree's own virtual environment, so the floor now lives in one file only.
+    assert_coherent(occurrences(rf"icontract>={VERSION}"), 1)
 
 
 def test_prek_floor_is_coherent() -> None:

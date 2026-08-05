@@ -11,10 +11,11 @@ here and the ten rules of #82 are covered together.
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 import pytest
 
-from guardrails_pack.bootstrap.tests.acceptance.code import CAPABILITY, status_paths
+from guardrails_pack.bootstrap.tests.acceptance.code import CAPABILITY, status_locations
 from guardrails_pack.bootstrap.tests.acceptance.conftest import Project, project_once
 from guardrails_pack.bootstrap.tests.acceptance.harness import (
     Outcome,
@@ -53,6 +54,7 @@ WIDE_SOURCE = (
     '"golf": 7, "hotel": 8, "india": 9}\n'
 )
 NOTHING_WAS_WRITTEN = "Nothing was written."
+ACCEPTANCE = "acceptance"
 
 
 def refused(outcome: Outcome, rule: str) -> bool:
@@ -131,7 +133,7 @@ def test_upd_8_u4_refuses_a_dirty_worktree(old: Project, toolenv: Pack) -> None:
     report = update(toolenv, old.path)
 
     assert refused(report.outcome, "U4"), report.outcome.text
-    assert status_paths(porcelain(old.path)) == ("README.md",)
+    assert status_locations(porcelain(old.path)) == ("README.md",)
 
 
 def test_upd_8_u6_refuses_a_plan_that_claims_a_user_owned_path(
@@ -243,7 +245,7 @@ def test_upd_13_a_customised_shim_is_reported_and_never_written(
 
     assert report.outcome.code == 0, report.outcome.text
     assert shim.read_text("utf-8") == mine
-    assert SHIM not in status_paths(porcelain(old.path))
+    assert SHIM not in status_locations(porcelain(old.path))
     reported = [line for line in report.shims if line.get("path") == SHIM]
     assert reported, report.shims
     assert reported[0].get("state") != "unchanged", report.shims
@@ -251,4 +253,6 @@ def test_upd_13_a_customised_shim_is_reported_and_never_written(
 
 def test_the_suite_is_marked_acceptance(request: pytest.FixtureRequest) -> None:
     """Rule `H3`: the `tests` hook of the gate runs `-m "not acceptance"`."""
-    assert request.node.get_closest_marker("acceptance") is not None
+    node = cast("pytest.Item", request.node)
+
+    assert {mark.name for mark in node.own_markers} >= {ACCEPTANCE}

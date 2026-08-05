@@ -12,9 +12,7 @@ from pathlib import Path
 import pytest
 
 from scripts.manifest_guard import (
-    IGNORED_SOURCE_SUFFIX as ARCHIVE_SUFFIX,
-)
-from scripts.manifest_guard import (
+    IGNORED_SOURCE_SUFFIX,
     MANIFEST,
     ManifestError,
     build,
@@ -83,7 +81,7 @@ def test_a_staged_archive_and_the_drift_backups_are_ignored(tmp_path: Path) -> N
     # The rule is name-blind: any archive under a source package is ignored, so
     # this pack-owned test can carry the shape without carrying the file name
     # that assertion `TER-6` of #81 forbids in a Terminal Project.
-    archive = f"payload{ARCHIVE_SUFFIX}"
+    archive = f"payload{IGNORED_SOURCE_SUFFIX}"
     make_tree(tmp_path)
     _ = (tmp_path / "src" / PACKAGE / archive).write_bytes(b"payload")
     (tmp_path / "pack" / ".drift" / "configs").mkdir(parents=True)

@@ -32,10 +32,10 @@ __all__ = [
     "hook_ids",
     "make_repository",
     "porcelain",
-    "present_files",
+    "present_locations",
     "run",
     "sync",
-    "tracked_files",
+    "tracked_locations",
 ]
 
 GATE_CONFIG = "pack/configs/prek.toml"
@@ -110,12 +110,12 @@ def porcelain(tree: Path) -> tuple[str, ...]:
     return tuple(line for line in outcome.out.splitlines() if line.strip())
 
 
-def tracked_files(tree: Path) -> tuple[str, ...]:
+def tracked_locations(tree: Path) -> tuple[str, ...]:
     """Every path git tracks, which is exactly what an archive of `HEAD` ships."""
     return tuple(sorted(line for line in git(tree, "ls-files").out.splitlines() if line))
 
 
-def present_files(tree: Path) -> tuple[str, ...]:
+def present_locations(tree: Path) -> tuple[str, ...]:
     """Every release file of *tree*: tracked or new, never ignored.
 
     A projected tree is measured before its first commit, so `--cached` can be
@@ -137,7 +137,7 @@ def release_bytes(tree: Path, prefix: str) -> dict[str, bytes]:
     head = f"{prefix}/"
     return {
         relative[len(head) :]: (tree / relative).read_bytes()
-        for relative in present_files(tree)
+        for relative in present_locations(tree)
         if relative.startswith(head)
     }
 

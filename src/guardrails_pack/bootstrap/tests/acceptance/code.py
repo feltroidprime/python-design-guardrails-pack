@@ -27,8 +27,8 @@ from typing import cast
 
 from guardrails_pack.bootstrap.tests.acceptance.harness import (
     GATE_CONFIG,
-    present_files,
-    tracked_files,
+    present_locations,
+    tracked_locations,
 )
 
 __all__ = [
@@ -170,10 +170,10 @@ def compare(root: Path, project: Path, pack: Tokens, made: Tokens) -> Parity:
     swaps = pack.swaps(made)
     expected = {
         renamed(relative, swaps): _source_content(root / relative, swaps)
-        for relative in tracked_files(root)
+        for relative in tracked_locations(root)
         if _kept(relative, pack)
     }
-    actual = {relative: _content(project / relative) for relative in present_files(project)}
+    actual = {relative: _content(project / relative) for relative in present_locations(project)}
     overlay = _overlay(root, pack, swaps)
     shared = expected.keys() & actual.keys()
     return Parity(
@@ -256,6 +256,6 @@ def pack_owned(rel: str, pkg: str) -> bool:
     return False
 
 
-def status_paths(lines: tuple[str, ...]) -> tuple[str, ...]:
+def status_locations(lines: tuple[str, ...]) -> tuple[str, ...]:
     """The repository-relative path of each `git status --porcelain` line."""
     return tuple(re.sub(r"^..\s+", "", line).strip('"') for line in lines)

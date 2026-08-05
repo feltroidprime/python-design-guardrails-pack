@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import cast
 
 from guardrails_pack.bootstrap.tests.acceptance.code import CAPABILITY, pack_owned
-from guardrails_pack.bootstrap.tests.acceptance.harness import Outcome, present_files, run
+from guardrails_pack.bootstrap.tests.acceptance.harness import Outcome, present_locations, run
 from guardrails_pack.bootstrap.tests.acceptance.packs import Pack
 
 __all__ = [
@@ -48,14 +48,14 @@ class Report:
         """One line per user-owned entry point, which the update never writes."""
         return tuple(cast("list[Mapping[str, object]]", self.data.get("shims", [])))
 
-    def paths(self, key: str) -> tuple[str, ...]:
+    def locations(self, key: str) -> tuple[str, ...]:
         """The `added`, `replaced` or `deleted` list of the report, as paths."""
         return tuple(str(item) for item in cast("list[object]", self.data.get(key, [])))
 
     @property
     def planned(self) -> tuple[str, ...]:
         """Every path the update planned to write or remove."""
-        return (*self.paths("added"), *self.paths("replaced"), *self.paths("deleted"))
+        return (*self.locations("added"), *self.locations("replaced"), *self.locations("deleted"))
 
 
 def update(pack: Pack, tree: Path, *, force: bool = False) -> Report:
@@ -74,7 +74,7 @@ def digests(tree: Path, package: str, *, owned: bool) -> dict[str, str]:
     """The sha256 of every release file of one ownership zone of *tree*."""
     return {
         relative: sha256((tree / relative).read_bytes()).hexdigest()
-        for relative in present_files(tree)
+        for relative in present_locations(tree)
         if pack_owned(relative, package) is owned and (tree / relative).is_file()
     }
 
