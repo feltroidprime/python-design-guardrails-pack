@@ -17,3 +17,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./pack/ci
+
+  # The acceptance suite of #81 runs from the installed console script of a
+  # freshly built wheel, so it is a separate job. The gate above runs
+  # `-m "not acceptance"` and never reaches it (rule H3 of #85 section 5).
+  # A Terminal Project carries neither the suite nor this job: projection
+  # deletes the capability that holds them, and it replaces this file whole.
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          version: "0.12.0"
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv sync --locked --all-groups
+        shell: bash
+      - run: uv run pytest -c pack/configs/pytest.ini --rootdir=. -m acceptance
+        shell: bash

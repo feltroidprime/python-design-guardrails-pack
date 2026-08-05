@@ -10,8 +10,9 @@ scans of #81 stay red until the last consumer removes this directory.
 
 | File | Owed to | What it is |
 |---|---|---|
-| `pack_validation.py` | I10 | The fault-injection half of the deleted pack validation script. |
-| `ownership_surface_tests.py` | I2 | The proof that the pack writes no user-owned file. |
+| `agents-terminal-project.md` | I11 | The agent contract a new project starts from. |
+| `readme-terminal-project.md` | I11 | The product document a new project starts from. |
+| `hook_policy_tests.py` | I11 | Contract tests for the local hook routing of the gate. |
 
 Ticket I8 took `bootstrap_pipeline.py` and `bootstrap_cli_tests.py`. The
 pipeline is now `application/pipeline.py` of the capability, with the recipe
@@ -26,5 +27,7 @@ the declarations, and the derived indexes that file drove are all deleted.
 Each consumer must delete the file it took. When the table is empty, delete this
 directory.
 
-The five capability shapes stay at `tests/fixtures/shapes/`. Ticket I10 moves
-them to the acceptance fixtures of the bootstrap capability.
+Ticket I10 took `pack_validation.py`. The fault injection it carried is now the
+acceptance suite at `src/guardrails_pack/bootstrap/tests/acceptance/`, which
+runs from the installed console script instead of a source checkout. The same
+ticket moved the five capability shapes to the fixtures of that suite.

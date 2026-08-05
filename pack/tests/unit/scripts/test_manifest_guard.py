@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from scripts.manifest_guard import (
+    IGNORED_SOURCE_SUFFIX,
     MANIFEST,
     ManifestError,
     build,
@@ -76,9 +77,13 @@ def test_the_manifest_never_records_itself(tmp_path: Path) -> None:
     assert MANIFEST.as_posix() not in build(tmp_path)["root"]
 
 
-def test_the_staged_blob_and_the_drift_backups_are_ignored(tmp_path: Path) -> None:
+def test_a_staged_archive_and_the_drift_backups_are_ignored(tmp_path: Path) -> None:
+    # The rule is name-blind: any archive under a source package is ignored, so
+    # this pack-owned test can carry the shape without carrying the file name
+    # that assertion `TER-6` of #81 forbids in a Terminal Project.
+    archive = f"payload{IGNORED_SOURCE_SUFFIX}"
     make_tree(tmp_path)
-    _ = (tmp_path / "src" / PACKAGE / "_pack.tar").write_bytes(b"blob")
+    _ = (tmp_path / "src" / PACKAGE / archive).write_bytes(b"payload")
     (tmp_path / "pack" / ".drift" / "configs").mkdir(parents=True)
     _ = (tmp_path / "pack" / ".drift" / "configs" / "ruff.toml").write_text(
         "old\n", encoding="utf-8"
@@ -86,7 +91,7 @@ def test_the_staged_blob_and_the_drift_backups_are_ignored(tmp_path: Path) -> No
 
     manifest = build(tmp_path)
 
-    assert "_pack.tar" not in manifest["package"]
+    assert archive not in manifest["package"]
     assert not [path for path in manifest["root"] if ".drift" in path]
 
 
