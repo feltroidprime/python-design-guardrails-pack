@@ -14,10 +14,13 @@ import subprocess
 import tomllib
 from typing import cast
 
+from scripts.identity import discover_package
+from scripts.ownership import pack_owned
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 GATE = Path("pack/configs/prek.toml")
 PROJECT_FILE = "pyproject.toml"
-TRACKED_NAMES_COMMAND = ("git", "ls-files", "-z", "--cached", "--exclude-standard", "--", "pack")
+TRACKED_NAMES_COMMAND = ("git", "ls-files", "-z", "--cached", "--exclude-standard")
 TWELVE_HOOKS = frozenset(
     {
         "lockfile",
@@ -77,13 +80,26 @@ def identity_tokens(root: Path) -> tuple[str, ...]:
 
 
 def tracked_pack_files(root: Path) -> tuple[Path, ...]:
+    """Every tracked file the ownership predicate calls pack-owned.
+
+    The predicate has two halves, and this reads both. The `pack/` half is the
+    obvious one. The other half is `_`-prefixed names and `py.typed` under
+    `src/<pkg>/`, and it is the half that carries the router, the envelopes and
+    the outcome table. A scan of `pack/` alone reports a name-blind tree while
+    `_foundation/` names the package in an import.
+    """
     completed = subprocess.run(  # noqa: S603  # ARCH-EXCEPTION: ADR-0007
         TRACKED_NAMES_COMMAND,
         cwd=root,
         capture_output=True,
         check=True,
     )
-    return tuple(root / raw.decode() for raw in completed.stdout.split(b"\0") if raw)
+    package = discover_package(root)
+    return tuple(
+        root / name
+        for raw in completed.stdout.split(b"\0")
+        if raw and pack_owned((name := raw.decode()), package)
+    )
 
 
 def test_the_gate_is_exactly_twelve_local_hooks() -> None:

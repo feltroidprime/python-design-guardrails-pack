@@ -86,6 +86,9 @@ def test_uv_pin_is_coherent() -> None:
 
 
 def test_session_profiler_commit_is_coherent() -> None:
+    # Two locations, not three: the third was a copy of the deleted generator's
+    # tests, which ticket I8 took off the scratch path. The pin now lives in the
+    # recipe that installs it and in the ADR that states why it is pinned.
     marker = "session-profiler" + "-optimizer"
     found = [
         (relative, match.group(0))
@@ -93,4 +96,4 @@ def test_session_profiler_commit_is_coherent() -> None:
         if marker in text
         for match in COMMIT.finditer(text)
     ]
-    assert_coherent(found, 3)
+    assert_coherent(found, 2)

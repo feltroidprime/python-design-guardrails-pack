@@ -1,0 +1,122 @@
+schema_version = 1
+
+# The proof catalog of the One-shot Bootstrap.
+#
+# Every public behavior of a capability's `domain/` and `application/` layer is
+# owned by a property or exempted here. This capability exempts all of them, for
+# one reason and one reason only: its behavior is a filesystem effect over a
+# whole tree, and the evidence for it is an end-to-end comparison of two trees,
+# not a generated example.
+#
+# That evidence exists. It is the acceptance suite of #81: 53 assertions in six
+# groups, run from the installed console script, which ticket I10 writes into
+# `tests/acceptance/` of this capability. Terminal Projection deletes this
+# capability, so neither the suite nor this catalog reaches a user's project.
+#
+# The revisit date is the date I10 must have made this catalog unnecessary by,
+# or replaced these rows with properties of the pure rules in `domain/`.
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.identity:Identity"
+reason = "A two-value record with no behavior of its own."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.identity:derive_package"
+reason = "One separator swap, proved end to end by assertion PAR-9 of the acceptance suite."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.identity:substitutions"
+reason = "One ordered pair list, proved end to end by assertions PAR-4 and PAR-6."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.identity:check_identity"
+reason = "Refusals R1 to R4, proved case by case by assertion PAR-11."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.projection:rename_components"
+reason = "The rename of every matching path component, proved by assertions PAR-5 and PAR-9."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.projection:swap_tokens"
+reason = "The byte swap of both tokens, proved by assertions PAR-4 and PAR-6."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.projection:found_tokens"
+reason = "The read-back form of refusal R7, proved by assertions PAR-4 and PAR-11."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.projection:is_staged_blob"
+reason = "The blob exclusion of conflict C15, proved by assertion TER-5."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.ports:ProjectionPayload"
+reason = "A Protocol with no body; the adapters carry the effect."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.ports:ProjectionPayload.identity"
+reason = "A Protocol method with no body; the adapters carry the effect."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.ports:ProjectionPayload.unpack"
+reason = "A Protocol method with no body; the adapters carry the effect."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.ports:CommandRunner"
+reason = "A Protocol with no body; the adapters carry the effect."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.ports:CommandRunner.run"
+reason = "A Protocol method with no body; the adapters carry the effect."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.ports:CommandRunner.succeeds"
+reason = "A Protocol method with no body; the adapters carry the effect."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.projection:build_project"
+reason = "A whole-tree effect; the evidence is the tree comparison of PAR-5 to PAR-9."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.creation:Request"
+reason = "A four-value record with no behavior of its own."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.creation:requested_identity"
+reason = "One default, proved end to end by the --package case of the acceptance suite."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.creation:create_project"
+reason = "A whole-tree effect; the evidence is assertions PAR-4, PAR-6, PAR-9, PAR-11 and REM-1."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.pipeline:prepare_repository"
+reason = "One ordered command list, proved by the ordering tests of this capability."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.pipeline:publish"
+reason = "The one network step, proved by the ordering tests of this capability."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.application.release:stage_and_build"
+reason = "Three commands over a real checkout, proved by assertions PAR-1 and TER-5."
+revisit = "2027-08-05"

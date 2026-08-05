@@ -10,11 +10,14 @@ scans of #81 stay red until the last consumer removes this directory.
 
 | File | Owed to | What it is |
 |---|---|---|
-| `bootstrap_pipeline.py` | I8 | The git, `just`, commit, and `gh` pipeline of the deleted generator. |
 | `pack_validation.py` | I10 | The fault-injection half of the deleted pack validation script. |
-| `bootstrap_cli_tests.py` | I8 | The `init` tests: name refusal, git and `gh` ordering, PATH-stubbed `gh`. |
 | `pack_update_tests.py` | I9 | The proof that a pack operation never rewrites a user-owned byte. |
 | `ownership_surface_tests.py` | I2 | The proof that the pack writes no user-owned file. |
+
+Ticket I8 took `bootstrap_pipeline.py` and `bootstrap_cli_tests.py`. The
+pipeline is now `application/pipeline.py` of the capability, with the recipe
+renamed to `setup` (C14) and `--no-github` and `--no-git` dropped (A3). The
+ordering tests are now `tests/test_pipeline.py` of the same capability.
 
 Each consumer must delete the file it took. When the table is empty, delete this
 directory.
