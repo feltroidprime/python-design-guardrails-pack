@@ -66,8 +66,8 @@ REPLACEMENT_LINE = "# The previous release of this policy.\n"
 # a user file of that name, so an update carries real policy onto real user
 # code. Loosening a global setting instead would reformat the pack itself.
 POLICY_FILE = "pack/configs/ruff.toml"
-POLICY_EXCLUSIONS = 'extend-exclude = ["../../scratch", "../../.agents"]'
-LOOSE_EXCLUSIONS = 'extend-exclude = ["../../scratch", "../../.agents", "wide_probe.py"]'
+POLICY_EXCLUSIONS = 'extend-exclude = ["../../.agents"]'
+LOOSE_EXCLUSIONS = 'extend-exclude = ["../../.agents", "wide_probe.py"]'
 POLICY_PROBE = "wide_probe.py"
 RETIRED_POLICY = "# A policy file that the next release deletes.\n"
 MANIFEST_PATH = "pack/manifest.json"
