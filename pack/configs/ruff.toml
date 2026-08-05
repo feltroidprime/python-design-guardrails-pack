@@ -57,6 +57,12 @@ select = [
   "TID",
   "UP",
 
+  # Comments that schedule manual upkeep. These two families replace the
+  # hand-written ARCH031 rule and its edit-time hook (conflict C18 of #85):
+  # a maintained tool carries the rule instead of pack code.
+  "FIX",
+  "TD",
+
   # Visible public return contracts. BasedPyright owns parameter types,
   # inferred value types, and `Any`; private helper return types stay optional
   # where inference is sufficient.
@@ -125,7 +131,7 @@ select = [
 "../../pack/scripts/**/*.py" = ["T201"]
 "../../pack/scripts/crosshair_gate.py" = ["S603"]
 "../../pack/scripts/doctor.py" = ["S603"]
-"../../pack/scripts/quality_gate.py" = ["S603"]
+"../../pack/scripts/import_contracts.py" = ["S603"]
 "../../pack/scripts/release.py" = ["S603", "S607"]
 
 [lint.flake8-type-checking]

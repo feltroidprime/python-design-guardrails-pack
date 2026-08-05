@@ -3,12 +3,31 @@
 # `prek run --all-files -c pack/configs/prek.toml`, and `prek install -c
 # pack/configs/prek.toml` records this path in the git hook.
 #
+# The gate is twelve local hooks, in this order:
+#
+#   lockfile  format  lint  types  dependencies  architecture
+#   docs  proof  symbolic  import-contracts  tests  manifest
+#
+# The gate is identical in the Root Pack and in every Terminal Project, and it
+# has no role-dependent branch. `manifest` runs last, because the hooks above
+# it can rewrite a pack-owned file.
+#
 # Every hook entry below runs from the repository root, because prek always
-# runs a hook from there. Ticket I4 replaces the hook list with the twelve
-# hooks of the gate.
+# runs a hook from there. `env PYTHONPYCACHEPREFIX=...` mirrors the justfile
+# export: hooks run outside just, and without it each commit would re-scatter
+# __pycache__ directories through the source tree. `PYTHONPATH=pack` carries
+# the `scripts` and `verification` packages of the tree.
+#
+# The gate reads no staged projection blob and no forced-update backup:
+# `exclude` below drops `src/*/_pack.tar` and `pack/.drift/`. It also drops
+# three trees that this repository does not own or does not check:
+# `docs/vendored/` is a read-only third-party pin, `.agents/` holds externally
+# sourced agent skills, and no tool reads `scratch/`. A whitespace hook would
+# otherwise rewrite a pinned file and break its checksum.
 minimum_prek_version = "0.4.9"
 default_install_hook_types = ["pre-commit", "pre-push"]
 default_language_version.python = "python3.14"
+exclude = '^(src/[^/]+/_pack\.tar|pack/\.drift/|docs/vendored/|\.agents/|scratch/)'
 
 [[repos]]
 repo = "https://github.com/pre-commit/pre-commit-hooks"
@@ -28,52 +47,109 @@ hooks = [
 ]
 
 [[repos]]
-repo = "https://github.com/astral-sh/uv-pre-commit"
-rev = "0.12.0"
-hooks = [{ id = "uv-lock" }]
-
-[[repos]]
 repo = "local"
 
-# Run ruff from the project venv (not a separately pinned hook repository) so
-# the hook, the CLI, and the quality gate always share one ruff version:
-# whatever uv.lock resolved for the floating dev group.
 [[repos.hooks]]
-id = "ruff-check"
-name = "ruff check"
-entry = "uv run ruff check --fix --exit-non-zero-on-fix"
+id = "lockfile"
+name = "lockfile"
+entry = "uv lock --check"
 language = "system"
-types_or = ["python", "pyi"]
+pass_filenames = false
+always_run = true
+
+# Ruff, BasedPyright and pytest run from the project venv, so the hook, the
+# command line and CI always share the one version that uv.lock resolved.
+[[repos.hooks]]
+id = "format"
+name = "format"
+entry = "uv run ruff format --check ."
+language = "system"
+pass_filenames = false
+always_run = true
 
 [[repos.hooks]]
-id = "ruff-format"
-name = "ruff format"
-entry = "uv run ruff format"
+id = "lint"
+name = "lint"
+entry = "uv run ruff check ."
 language = "system"
-types_or = ["python", "pyi"]
+pass_filenames = false
+always_run = true
 
-# `env PYTHONPYCACHEPREFIX=...` mirrors the justfile export: hooks run
-# outside just, and without it each commit would re-scatter __pycache__
-# directories through the source tree (hooks always run from repo root,
-# so the relative path resolves to the project venv).
+# `failOnWarnings` does not survive the BasedPyright `extends` chain, so this
+# flag names the pack-owned file directly rather than the root stub.
 [[repos.hooks]]
-id = "architecture-guard"
-name = "architecture guard"
+id = "types"
+name = "types"
+entry = "uv run basedpyright --project pack/configs/pyrightconfig.json"
+language = "system"
+pass_filenames = false
+always_run = true
+
+# `scripts` is the pack-owned package that pack/ carries on PYTHONPATH, so
+# deptry must not read it as a missing distribution.
+[[repos.hooks]]
+id = "dependencies"
+name = "dependencies"
+entry = "uv run deptry src pack/scripts --known-first-party scripts"
+language = "system"
+pass_filenames = false
+always_run = true
+
+[[repos.hooks]]
+id = "architecture"
+name = "architecture AST"
 entry = "env PYTHONPYCACHEPREFIX=.venv/pycache PYTHONPATH=pack uv run python -m scripts.architecture_guard"
 language = "system"
 pass_filenames = false
+always_run = true
 
 [[repos.hooks]]
-id = "proof-contract"
+id = "docs"
+name = "docs guard"
+entry = "env PYTHONPYCACHEPREFIX=.venv/pycache PYTHONPATH=pack uv run python -m scripts.docs_guard"
+language = "system"
+pass_filenames = false
+always_run = true
+
+[[repos.hooks]]
+id = "proof"
 name = "proof contract"
 entry = "env PYTHONPYCACHEPREFIX=.venv/pycache PYTHONPATH=pack uv run python -m scripts.proof_guard"
 language = "system"
 pass_filenames = false
+always_run = true
 
 [[repos.hooks]]
-id = "full-quality-gate"
-name = "full quality gate"
-entry = "env PYTHONPYCACHEPREFIX=.venv/pycache PYTHONPATH=pack uv run python pack/scripts/quality_gate.py"
+id = "symbolic"
+name = "symbolic core"
+entry = "env PYTHONPYCACHEPREFIX=.venv/pycache PYTHONPATH=pack uv run python -m scripts.crosshair_gate ci"
 language = "system"
 pass_filenames = false
-stages = ["pre-push"]
+always_run = true
+
+[[repos.hooks]]
+id = "import-contracts"
+name = "import contracts"
+entry = "env PYTHONPYCACHEPREFIX=.venv/pycache PYTHONPATH=pack uv run python -m scripts.import_contracts"
+language = "system"
+pass_filenames = false
+always_run = true
+
+# The acceptance suite runs from the installed console script, in its own job.
+# `not session_e2e` keeps the opt-in private-log conversion out of the gate,
+# which is the same exclusion that pack/configs/pytest.ini declares.
+[[repos.hooks]]
+id = "tests"
+name = "tests"
+entry = "uv run pytest -c pack/configs/pytest.ini --rootdir=. -m \"not acceptance and not session_e2e\""
+language = "system"
+pass_filenames = false
+always_run = true
+
+[[repos.hooks]]
+id = "manifest"
+name = "manifest"
+entry = "env PYTHONPYCACHEPREFIX=.venv/pycache PYTHONPATH=pack uv run python -m scripts.manifest_guard"
+language = "system"
+pass_filenames = false
+always_run = true
