@@ -81,7 +81,7 @@
     "pack/tests/test_none_discipline.py": "7850ac0007ffaee3f2a9e1e19d21f37e99ebab9a6beaeb7aab6a369ae4b0ca3f",
     "pack/tests/test_path_discipline.py": "d91539e4c5f602b30d78cfa2d1a60b470ecc74c699e1ba2688d07de69b77d80b",
     "pack/tests/test_pin_coherence.py": "a6df153c889bde8b88dcab6c3dc43a161466aa7e486b704e4b9fd2c21e98d908",
-    "pack/tests/test_proof_guard.py": "7e875d0dc5513f77a7a9866af254a98023eb880f98378422f4d002ff52a0720f",
+    "pack/tests/test_proof_guard.py": "dd272c92a4b83dc2acd38d2e96a83808a1d284d65b4047092a91ab693230345d",
     "pack/tests/test_release.py": "42aea2fa860d0214ec4df21254d36d2799f478e91af00d57aba098a6981074d2",
     "pack/tests/test_review_discipline.py": "d6545af750f6c1bd68ffb6eddfd99ddcc06402cacc08345a137cb24d4fe2d39e",
     "pack/tests/unit/scripts/test_import_contracts.py": "c63c7b2b785fe01a7d3d29d281126d893861c32bacc9ef4a21493be61dd00475",

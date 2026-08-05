@@ -105,12 +105,9 @@ def write_policy(root: Path, policy: str = POLICY_TOML) -> None:
     (proof_root(root) / "policy.toml").write_text(policy, encoding="utf-8")
 
 
-def write_capability_catalog(root: Path, capability: str) -> None:
+def write_capability_catalog(capability_root: Path) -> None:
     """Rule L1 of #85 gives every capability one `proof.toml`."""
-    (root / "src/demo" / capability / "proof.toml").write_text(
-        CAPABILITY_TOML,
-        encoding="utf-8",
-    )
+    (capability_root / "proof.toml").write_text(CAPABILITY_TOML, encoding="utf-8")
 
 
 def proof_project(tmp_path: Path) -> Path:
@@ -119,7 +116,7 @@ def proof_project(tmp_path: Path) -> Path:
     (root / "verification/tests").mkdir(parents=True)
     (root / "verification/harness").mkdir(parents=True)
     write_policy(root)
-    write_capability_catalog(root, "feature")
+    write_capability_catalog(root / "src/demo/feature")
     foundation_catalog(root).write_text(PROOF_TOML, encoding="utf-8")
     (root / "src/demo/feature/domain/specifications.py").write_text(
         SPECIFICATION,
@@ -495,7 +492,7 @@ def callable_project(tmp_path: Path, invocation: str) -> Path:
     (root / "verification/tests").mkdir(parents=True)
     (root / "verification/harness").mkdir(parents=True)
     write_policy(root, CALLABLE_POLICY_TOML)
-    write_capability_catalog(root, "core")
+    write_capability_catalog(root / "src/demo/core")
     foundation_catalog(root).write_text(CALLABLE_TOML, encoding="utf-8")
     (root / "src/demo/core/specifications.py").write_text(
         CALLABLE_SPECIFICATION,
