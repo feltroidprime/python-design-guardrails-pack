@@ -1,101 +1,67 @@
-# Validation record — 2026-07-31
+# Validation record — 2026-08-05
 
-Validated on Linux 6.8.0-136-generic (x86_64) with Python 3.14.6, uv 0.12.0,
-just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist 3.8.0, Ruff 0.16.1,
-and prek 0.4.11.
+Run on macOS 26.5 (Darwin 25.5.0, arm64) with Python 3.14.6, uv 0.12.0,
+just 1.57.0 and prek 0.4.12.
 
 ## Change validated
 
-This merge combines the macOS hook fix from PR #78 with the root-suite
-performance work already on `main`.
+The last ticket of the one-tree refactor: every document rewritten against the
+vocabulary of `CONTEXT.md`, the two word searches of the acceptance suite
+settled, and the temporary handover directory deleted.
 
-- Generated `prek.toml` pins Python-language hooks to Python 3.14, matching the
-  generated repository's interpreter and syntax contract.
-- The initializer suppresses Copier's expected `DirtyLocalWarning` when it
-  renders current editable-worktree changes; unrelated warnings remain visible.
-- The root pytest session removes an invoking hook's repository-local Git
-  variables so nested Git fixtures cannot target the pack checkout.
-- Four representative shape tests now prepare their active capability directly
-  through the real `repoctl` CLI and run one complete generated gate. The one
-  canonical 19-step N0 → N1 → N2 walk remains unchanged.
-- `just test` runs the canonical walk alone, six `repository_gate` tests across
-  five workers, and the complementary lightweight tests across five workers.
-  The pre-push hook advertises a seven-minute warm-cache budget.
+- `AGENTS.md` is one contract for one tree. The section that split it into a
+  maintainer contract and a downstream contract is deleted.
+- `README.md`, `CHANGELOG.md`, `DESIGN_GUARDRAILS.md`, `docs/README.md`, the
+  ADRs and `pack/docs/architecture/` describe the tree that exists.
+- ADR-0002 and ADR-0004 return as superseded records, so the ADR numbers are
+  contiguous again. ADR-0007 becomes superseded, and ADR-0008 records the two
+  ownership surfaces that replaced its four classes.
+- The prose word search now reads its terms from the `_Avoid_` lines of
+  `CONTEXT.md`, so the vocabulary and the ban list are one fact.
+- Two identifiers leave the identifier word search, with the reasoning in
+  `DESIGN_GUARDRAILS.md`. Each named a file that the deletion boundary keeps.
 
-## Focused and performance evidence
+## Evidence
 
-Before merging, the hook branch passed:
-
-- **2 focused hook/warning regressions** in 2.33 seconds;
-- the complete generator module, **56 tests**, in 42.45 seconds with uncaught
-  `DirtyLocalWarning` treated as an error;
-- the injected Git-hook-context reproduction, **57 tests**, in 11.69 seconds;
-- a real `python-repo init ... --no-github` smoke, including the generated
-  quality gate and every initial-commit hook;
-- its canonical `just validate`, including **245 root tests** and generated
-  gates of **127 passed, 1 skipped, 3 deselected** at **95.65% coverage**.
-
-Profiling on `main` found that three repeated generated gates consumed 183.03
-of a representative shape test's 195.18 seconds (93.8%). After removing those
-redundant lifecycle walks, the external-integration shape took 65.14 seconds.
-A warm-cache root run completed all 244 then-current tests in 370.44 seconds
-(6:10), versus the 541.04-second (9:01) baseline: 31.5% faster.
-
-The scheduling selectors were collected independently before merging:
-
-- canonical recursive walk: **1** node;
-- `repository_gate` phase: **6** nodes;
-- complementary lightweight phase: **237** nodes;
-- complete then-current suite: **244** nodes, with no overlap or omission.
-
-## Merged-state validation
-
-The resolved merge is validated with:
+Commands run from the repository root, in this order.
 
 ```bash
-just test-fast
-just validate
+PYTHONPATH=pack uv run python -m scripts.manifest_guard --write
+uv run prek run --all-files -c pack/configs/prek.toml
 ```
 
-`just test-fast` passed **14 tests** in 6.33 seconds after Ruff reported
-**154 files already formatted** with no lint violations. Direct collection
-selected **6/245** `repository_gate` tests and **238/245** complementary tests;
-with the separately selected canonical test, all 245 nodes are covered exactly
-once.
+The gate reported **ten of twelve hooks green**:
 
-The canonical `just validate` command passed end to end:
+| Hook | Result |
+|---|---|
+| `lockfile` `format` `lint` `dependencies` | passed |
+| `docs` `proof` `symbolic` `import-contracts` | passed |
+| `tests` `manifest` | passed |
+| `types` | **failed**, 0 errors and 122 warnings |
+| `architecture` | **failed**, 6 violations |
 
-- the root phases passed **1**, **6**, and **238** tests in 401.12, 291.01,
-  and 36.94 seconds respectively;
-- template cleanliness, fresh generation, complete Jinja rendering, bootstrap,
-  and the missing-hook repair probe passed;
-- BasedPyright reported **0 errors and 0 warnings**; ownership, architecture,
-  documentation, proof-contract, bounded CrossHair, and Import Linter checks
-  passed;
-- the two visible generated gates each passed **127 tests, 1 skipped,
-  3 deselected**, in 80.00 and 57.80 seconds, with **95.65% coverage**;
-- the generated initial commit passed every prek hook under the Python 3.14
-  policy;
-- tracked syntax rejection, clean and dirty doctor probes, and linked-worktree
-  pre-commit and pre-push probes passed.
+The `tests` hook reported **284 passed, 86 deselected** in 52.85 seconds. The
+`docs` hook reported `Documentation guard passed.` after 64 findings before the
+change.
 
-The root timings are a loaded-host correctness sample, not the warm-cache
-performance measurement: unrelated trading benchmarks were concurrently using
-multiple CPUs. The syntax and dirty-tree failures printed during validation are
-deliberate fault-injection probes.
+Both word searches of the acceptance suite print nothing over this tree, with
+the stated exemptions only.
 
 ## Remaining risks and portability notes
 
-- Full validation is executed on Linux x86_64. The reported hook failure was
-  macOS arm64; the fix uses prek's platform-independent Python toolchain
-  configuration, but this environment cannot rerun the final acceptance suite
-  on macOS.
-- Existing generated repositories retain their old `prek.toml`; regenerate or
-  add `default_language_version.python = "python3.14"`, then reinstall hooks
-  with `uv run prek install -f`.
-- The seven-minute performance budget assumes warm caches without another
-  CPU-intensive suite. Concurrent pushes or unrelated benchmarks can erase the
-  wall-clock gain.
-- The canonical recursive walk remains an irreducible roughly three-minute
-  floor because it intentionally executes the complete lifecycle and generated
-  quality gates.
+- **`types` and `architecture` are red, and this change did not cause it.** The
+  counts are the same before and after: 122 warnings and 6 violations, on nine
+  files of `pack/tests/` that the one-tree refactor moved. 88 warnings are an
+  unused call result, 32 are an implicit string concatenation, three violations
+  are a mutable module constant, two are a `str` parameter that names a path,
+  and one is a 1149-line module against a 500-line ceiling. A separate ticket
+  owns that debt. No rule was weakened to hide it.
+- **The gate is therefore still red, and two consequences follow.** `just setup`
+  ends with the gate, so `init` still stops before its first commit and reports
+  exit 4. The acceptance suite still commits such a tree itself. Both become
+  unnecessary when the debt ticket lands, and neither needs a change here.
+- **The 53 acceptance assertions were not run for this record.** They need a
+  built wheel, a throwaway tool install and two projections, and assertion
+  `LEG-5` reads the gate outcome that the row above already reports. The two
+  word searches were run directly against this tree instead.
+- Validation ran on macOS arm64 only.

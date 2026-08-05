@@ -15,7 +15,7 @@ What user/domain behavior changes?
 - Exact scope of each changed property:
 - Minimal counterexample for each changed property:
 - External assumptions that remain outside the pure proof boundary:
-- `proof/policy.toml` or an ownership-zone catalog changed: yes / no — why
+- `pack/proof/policy.toml` or a catalog beside it changed: yes / no — why
 
 ## Tests and evidence
 
@@ -27,8 +27,9 @@ What user/domain behavior changes?
 - [ ] Every contracted public function or method is a CrossHair target
 - [ ] Regression/example tests cover the concrete bug or user path
 - [ ] Port contract tests cover adapter changes
-- [ ] CLI catalog changes have independent input/query/retry/safety/outcome process cases
+- [ ] A changed `api.py` satisfies `CLI001` to `CLI004` and has a process case per outcome
 - [ ] `just prove-one PROPERTY-ID` (or `just prove`) and `just check` pass
+- [ ] `just manifest` was run if a pack-owned file changed
 
 ## Change amplification
 

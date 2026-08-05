@@ -1,172 +1,177 @@
-# AGENTS.md — maintainer contract for the template pack
+# AGENTS.md — the contract of this repository
 
-> **Superseded, 2026-08-05. Ticket I1 of #90 collapsed the two trees into one.**
-> Every rule below that names `template/`, `copier.yml`, `instantiate.py`,
-> `scripts/validate_pack.py`, or `just validate` describes a tree that no longer
-> exists. Those commands and paths are gone. The decision of record is the
-> `## Answer` comment of #85. Ticket I11 replaces this document.
->
-> Until then: the source of truth is one tree. `pack/` is the Pack-owned
-> Surface, and `src/guardrails_pack/` holds the package. `just check` runs the
-> gate, and the gate is red on purpose until ticket I10 passes.
-
-This file is normative for every coding agent and human working **on this
-repository**. It governs the meta-repository only.
+This file is normative for every coding agent and every human who changes this
+repository. There is one contract, and this is it. `CLAUDE.md` imports this
+file, so one document governs every agent.
 
 ## What this repository is
 
-This is a **meta-repository**. It does not ship an application; it generates
-opinionated Python 3.14 repositories. The generated repositories are the
-product.
+A Python 3.14 project with an executable architecture and quality contract. The
+structure, the tool policy and the gate are here from the first commit. The
+product model is your decision.
 
-- `copier.yml` defines the generation engine: typed and validated answers,
-  strict Jinja rendering, the `template/` subdirectory, and artifact exclusions.
-  `instantiate.py` is the stable adapter over pinned Copier and the module behind the
-  installable `python-repo` console script (`python-repo init <name>
-  [directory] [--package NAME] [--public] [--no-github] [--no-git]`); the
-  root `pyproject.toml` packages that CLI plus `template/` for
-  `uv tool install` and owns the pack's Ruff policy (see `just install` and
-  `just check`). The `init` subcommand also runs
-  `git init`, `just bootstrap` (dependency sync, prek hook installation, and
-  the generated quality gate), the initial commit, and
-  `gh repo create --private … --push`, in that order;
-  the legacy positional form stays purely local (no git, no gh, no network)
-  because the pack's tests and `validate_pack.py` depend on that. Tests for
-  the gh behavior must use a PATH-stubbed `gh`, never the real one.
-- `template/` is the canonical source of every generated repository. Files and
-  paths ending in `.jinja` are rendered by Copier; all others are copied verbatim.
+The tree holds two kinds of file, and one predicate divides them.
 
-## Two contracts, do not confuse them
+> **Pack-owned** is the `pack/` directory at the repository root, plus
+> `_`-prefixed names and `py.typed` inside `src/<package>/`.
+> **User-owned** is everything else.
 
-- **This file** tells you how to maintain the pack.
-- **The conditional `AGENTS.md` template under `template/` is downstream content,
-  not your operating contract.**
-  It is shipped to generated repositories and addresses agents working there.
-  Edit it deliberately as product content; never follow its workflow here
-  (there is no `uv run python scripts/quality_gate.py` at the root), and never
-  let root-only tooling or wording leak into it.
+`pack/scripts/ownership.py` holds that predicate, and it is the only ownership
+code in the tree. No file holds a list of ownership roots. ADR-0008 records the
+decision.
 
-The same applies to every file under `template/`: `template/justfile.jinja`,
-`template/pyproject.toml.jinja`, and `template/scripts/` describe the downstream
-repository, not this one.
+An update of the pack replaces whole pack-owned files, and it writes no
+user-owned file. So a change you make to a pack-owned file is a change to the
+pack: git records the drift, and the next update refuses until a human reverts
+it or passes `--force`.
+
+Four user-owned files at the root are thin entry points into `pack/`:
+
+| Entry point | It carries |
+|---|---|
+| `justfile` | one `import` of `pack/justfile`, which holds every recipe |
+| `pyrightconfig.json` | one `extends` of `pack/configs/pyrightconfig.json` |
+| `.python-version` | the 3.14 pin |
+| `.github/workflows/quality.yml` | one call of `pack/ci/action.yml` |
+
+An update reports a suggested change to each one and never writes it.
+
+## The one gate
+
+```bash
+just check
+```
+
+That runs `prek run --all-files -c pack/configs/prek.toml`: twelve hooks, in
+this order.
+
+```
+lockfile  format  lint  types  dependencies  architecture
+docs  proof  symbolic  import-contracts  tests  manifest
+```
+
+CI runs the same command, so a local run and a CI run cannot disagree. The gate
+never rewrites a file. `just fix` applies the deterministic repairs, and
+`just manifest` records the pack-owned bytes after you edit a pack-owned file.
+
+Every tool reads its policy from `pack/configs/`. That path is a stable ABI: a
+release can change the content of a file there, and never its name or its
+location. Do not add a second policy file beside it.
 
 ## Sources of truth
 
 | Concern | Source of truth |
 |---|---|
-| Everything a generated repository contains | `template/**` |
-| Copier questions, rendering policy, and artifact exclusion | `copier.yml` |
-| Stable generation and CLI behavior | `instantiate.py` |
-| `python-repo` CLI packaging and root Ruff policy | `pyproject.toml` (root) |
-| Downstream architecture policy | `template/architecture.toml.jinja` + `template/scripts/architecture_rules.py` |
-| Downstream agent contract | `template/{% if agents_contract != 'none' %}AGENTS.md{% endif %}.jinja` |
-| Downstream quality gate | `template/scripts/quality_gate.py.jinja` (mirrored by `template/.github/workflows/quality.yml.jinja` and the pre-push hook) |
-| Pack validation loop | `justfile` (root) + `scripts/validate_pack.py` + `tests/test_instantiate.py` |
+| Project identity | `pyproject.toml`, in two values: the project name and the package |
+| Which capabilities exist | the `CAPABILITIES` tuple of `src/<package>/composition.py` |
+| The command line | `_foundation/router.py`, which derives it from each `api.py` |
+| Limits, conventions and domain purity | `pack/architecture.toml` |
+| Import direction | the six contracts of `pack/configs/importlinter.ini` |
+| Tool policy | `pack/configs/` |
+| The gate | `pack/configs/prek.toml` |
+| Laws and their evidence | `pack/proof/policy.toml` and each `proof.toml` |
+| Ownership | `pack/scripts/ownership.py` |
+| The record of pack-owned bytes | `pack/manifest.json` |
+| Architecture rationale | `pack/docs/architecture/README.md` |
 | Design-to-guardrail rationale | `DESIGN_GUARDRAILS.md` |
-| Last executed validation record | `VALIDATION.md` |
+| Vocabulary | `CONTEXT.md` |
+
+## Add a capability
+
+A Product Capability is one directory directly under `src/<package>/`, plus one
+import line in `src/<package>/composition.py`.
+
+```
+src/<package>/orders/
+├── api.py                 the public functions, which become subcommands
+├── domain/                pure rules, with no I/O
+├── application/           the ordered steps
+├── adapters/inbound/      the ways in
+├── adapters/outbound/     the ways out
+├── proof.toml             the laws this capability owns
+└── tests/
+```
+
+Four rules hold, and the six `import-linter` contracts carry them.
+
+1. One directory per capability, directly under the package, with that layer
+   set. There is no container directory and no nesting.
+2. Layers point inward: `api`, `domain`, `application`, `adapters`.
+3. Reach a capability through its `api` module, never through its internals.
+4. A capability imports neither a sibling capability nor pack code. If it needs
+   a sibling, declare a `Protocol` port in its own domain layer, and let the
+   composition root inject the sibling's `api` as the adapter.
+
+Import the `api` module in `composition.py` and add it to `CAPABILITIES`. The
+command line then carries one subcommand for each public function of `api.py`.
+Nothing else records the capability. A directory that `composition.py` never
+imports is not composed yet, and the gate reports that as a fact.
+
+The router derives every group, option, help string, envelope, page and exit
+code from stdlib-typed signatures. So four rules hold over every `api.py`:
+`CLI001` rejects a reserved parameter name, `CLI002` a missing docstring,
+`CLI003` an annotation outside the closed set the router can render, and
+`CLI004` a `bool` parameter that does not default to `False`. A capability
+never selects an exit code.
 
 ## Change protocol
 
-1. **Fix the canonical source.** A defect observed in a generated repository is
-   fixed under `template/` (or in `instantiate.py`), never by patching a
-   generated copy. Generated copies are throwaway.
-2. **Keep the Copier dependency explicit and pinned.** The generator deliberately
-   depends on Copier: it replaces bespoke rendering with a maintained engine and
-   records provenance for downstream updates. The root remains venv-less and
-   lock-free; root generation entry points provision the exact pin with
-   `uv run --no-project --with`.
-3. **Never weaken a downstream guardrail silently.** Loosening any ceiling,
-   lint rule, type setting, coverage floor, or architecture rule in
-   `template/` requires an explicit rationale in the change description and an
-   update to `DESIGN_GUARDRAILS.md` when the mapping changes.
-4. **Keep version pins coherent.** Several pins deliberately exist in more
-   than one place (Copier, uv, the prek floor, and the private
-   session-profiler commit).
-   `tests/test_pin_coherence.py` discovers every occurrence by scanning the
-   tracked tree and fails `just test` when any copy disagrees, so there is no
-   location list to memorize: move a pin, then update the copies the test
-   reports until it passes, and register any new multi-location pin in that
-   test in the same change. Two release-time couplings remain judgment calls:
-   the root project version is the wheel fallback for Copier's `_commit`, so
-   release wheels must use the corresponding template tag version, and the
-   session-profiler commit stays out of the generated dependency groups and
-   lockfile so baseline bootstrap and CI remain credential-free.
-5. **No local artifacts in `template/`.** Runtime caches (`.ruff_cache`,
-   `__pycache__`, `.pytest_cache`, …) must never exist there; the authoritative
-   pattern list is `_exclude` in `copier.yml`. Note that
-   `template/.gitignore` hides such artifacts from `git status`, so a clean
-   status does **not** prove a clean template — `just validate` checks the
-   filesystem directly.
-6. **Jinja rendering.** Any template file whose content needs rendering must end
-   in `.jinja`; templated path components use Jinja directly. Strict undefined
-   makes unknown variables fail generation, and validation rejects stray Jinja
-   syntax or `.jinja` suffixes in generated output. Keep files containing other
-   template syntax, such as GitHub Actions `${{ }}`, verbatim unless they also
-   need Copier rendering.
-7. **Throwaway repositories stay out of the tree.** Generate validation or
-   experiment repositories only in temporary directories (the validation
-   script already does this), never inside this working tree.
+1. **Fix the source, never a copy.** Each fact has one owner. Change that file,
+   and let every other document link to it.
+2. **Never weaken a guardrail in silence.** To loosen a ceiling, a lint rule, a
+   type setting or an architecture rule, state the rationale in the change
+   description, and update `DESIGN_GUARDRAILS.md` in the same change.
+3. **Use the exception path instead of a wall.** A narrow suppression with an
+   `ARCH-EXCEPTION: ADR-NNNN` marker is legal, and
+   `pack/docs/architecture/EXCEPTIONS.md` is the ledger it must enter.
+4. **Keep version pins coherent.** Some pins deliberately exist in more than
+   one place. `pack/tests/test_pin_coherence.py` finds every occurrence by
+   scanning the tracked tree, so move a pin, then fix the copies that the test
+   reports. Register a new multi-location pin in that test in the same change.
+5. **Record a decision before you build the pattern.** A non-trivial pattern
+   needs an ADR under `docs/adr/`, and
+   `pack/docs/architecture/PATTERN_ADMISSION.md` is the form to copy into it.
+   ADR numbers are contiguous from 0000: supersede a record, never delete it.
+6. **Add a law with its evidence.** A new law needs its catalog entry, its
+   independent oracle, its `icontract` condition, its Hypothesis evidence and
+   its symbolic target, in one change.
 
-## Validation requirements
+## Proof
 
-The canonical command is:
-
-```bash
-just validate
-```
-
-It runs the generator unit tests, then instantiates a fresh repository in a
-temporary directory, verifies template cleanliness and complete Jinja
-rendering, resolves the pinned dependencies, runs the generated repository's
-own quality gate, and cleans up.
-
-Required before claiming completion:
-
-- change to `instantiate.py` or anything under `template/` → `just validate`;
-- change to root tests/validation scripts → `just validate`;
-- docs-only change at the root → no run required, but commands quoted in docs
-  must match the justfile and scripts.
-
-`just test` includes the real N0 → N1 → N2 recursive acceptance walk and has a
-seven-minute warm-cache budget; `just test-fast` is the sub-minute inner loop.
-Neither is a completion criterion for template changes.
-
-Prerequisites: `python3` (3.14), `uv`, `just`, and network access for the first
-dependency resolution. `uv run --no-project --with` supplies Copier, pytest,
-pytest-xdist, Ruff, and the icontract floor needed by the domain-owned
-repository path classifier. The root `pyproject.toml` keeps packaging metadata
-and the Ruff policy, while Copier remains its sole runtime dependency; root
-development tools are provisioned ephemerally, with no root virtualenv or lock
-file. IDE warnings about unresolved `pytest`/`validate_pack` imports are
-therefore expected. If you
-change what a wheel must ship (new top-level template asset, renamed
-generator), update the hatchling include/force-include sections in the root
-`pyproject.toml` in the same change.
+`just prove` is the fast local loop: structural closure, bounded generators,
+then the symbolic core. `just prove-one PROPERTY-ID` narrows it to one law.
+`just prove-deep` widens the search for a release candidate.
+`pack/docs/architecture/PROVABILITY.md` states what an oracle may do.
 
 ## Documentation synchronization
 
 When behavior changes, update the documents that state it, in the same change:
 
-- root `README.md`: maintainer commands and the instantiation walkthrough;
-- `template/README.md.jinja` and the conditional `AGENTS.md` template: downstream commands, only if
-  downstream behavior changed;
-- `DESIGN_GUARDRAILS.md`: when a guardrail is added, removed, or
-  materially changed;
-- `VALIDATION.md`: replace the record when you re-run full validation after a
-  material change; date it and state the environment honestly.
+- `README.md`: the daily commands and what the repository is;
+- `docs/README.md`: the documentation map, which every new document must join;
+- `DESIGN_GUARDRAILS.md`: when a guardrail is added, removed or materially
+  changed;
+- `pack/docs/architecture/`: when a seam, a fitness function or an exception
+  changes;
+- `CHANGELOG.md`: one entry per user-visible change, newest first;
+- `VALIDATION.md`: replace the record when you re-run the gate after a material
+  change. Date it, and state the environment honestly.
+
+The `docs` hook checks every path a document claims, so a rename fails the gate
+until the prose moves too.
 
 ## Completion reporting
 
 A completion report must state:
 
-- files changed and why;
+- files changed, and why;
 - tests added or updated;
-- exact commands executed and their actual results;
-- whether `just validate` was run and its outcome;
-- remaining risks or portability caveats.
+- exact commands run, and their actual results;
+- whether `just check` was run, and its outcome;
+- remaining risks or portability notes.
 
-Never claim a validation you did not execute. If the gate fails, report the
-failure verbatim rather than narrowing the claim.
+Never claim a check you did not run. If the gate fails, report the failure word
+for word rather than narrowing the claim.
 
 ## Agent skills
 

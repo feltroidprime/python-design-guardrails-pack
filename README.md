@@ -1,76 +1,86 @@
 # Python Design Guardrails Pack
 
-Generate a Python 3.14 repository that begins at **N0**: a valid repository
-with architecture, ownership, documentation, proof, and quality controls, but
-no shipped product capability. It supplies `repoctl` to inspect and evolve the
-repository; the product model remains the repository owner's decision.
+The Root Pack. It is one real Python 3.14 project, and it starts one more like
+itself. A new project receives the architecture policy, the tool policy, the
+proof system and the twelve-hook gate, and it chooses its own product model.
 
-## Start a repository
+There is one tree. The pack is the product, so a defect is fixed exactly once,
+and every tool checks the shipped files in place.
 
-Requires Python 3.14, [uv](https://docs.astral.sh/uv/), and
+## Start a project
+
+You need Python 3.14, [uv](https://docs.astral.sh/uv/) and
 [just](https://github.com/casey/just). Install
-[gh](https://cli.github.com/) when the initializer should create the GitHub
-repository too.
+[gh](https://cli.github.com/) as well when you want the pack to create the
+GitHub repository.
 
 ```bash
-just install
-python-repo init my-product .
+uv tool install pyrepo
+pyrepo bootstrap init my-product ./my-product
 cd my-product
+just check
 ```
 
-The normal initializer creates the project, initializes Git, runs
-`just bootstrap`, creates the initial commit, then creates and pushes a private
-GitHub repository. Use `--public`, `--no-github`, `--no-git`, or
-`--package NAME` when appropriate. The legacy positional form is local only;
-it does not initialize Git or contact GitHub.
+`init` refuses a bad name before it writes anything. It then builds the whole
+project in a temporary directory, checks the result, and moves it into place as
+one operation. After that it runs `git init`, `just setup`, and the first
+commit. A failure at any stage leaves your disk untouched.
 
-The generated repository starts with these useful commands:
+`init` never reaches the network. Add `--github` to create and push the
+repository, and `--public` to select its visibility. Add `--package NAME` to
+choose an import name other than the derived one.
+
+## Update a project
 
 ```bash
+pyrepo bootstrap update ./my-product
+```
+
+The update replaces whole pack-owned files and writes no user-owned file, so
+current tool policy reaches a project that already exists. It refuses a dirty
+worktree, a newer project version, and any local change to a pack-owned file.
+`--force` overwrites and saves the replaced bytes under a backup directory
+inside `pack/`. An update never runs the gate: a red gate on your own code
+afterwards is the intended signal.
+
+## What a new project owns
+
+```
+pack/                    pack-owned: configs, guards, proof policy, the gate
+src/<package>/
+  _foundation/           pack-owned: the router, the envelopes, the outcomes
+  cli.py                 yours: a two-line entry point
+  composition.py         yours: CAPABILITIES = ()
+justfile                 yours: one import of pack/justfile
+pyproject.toml           yours: identity, dependencies, packaging
+```
+
+A Product Capability is one directory directly under the package, plus one
+import line in `composition.py`. Nothing else records it. The router then
+derives the command line from the public functions of its `api.py`.
+
+## Work on the pack
+
+```bash
+just setup
 just check
-uv run python -m repoctl status
 just prove
 ```
 
-`repoctl` is the repository-control command surface. It can inspect repository
-state and manage future capabilities without choosing a product model for the
-owner.
+`just check` is the one gate, and CI runs the same command. The gate is
+identical in this repository and in every project the pack starts, and it has
+no branch that depends on which one it runs in.
 
-## What N0 owns
-
-N0 deliberately ships only shared structure:
-
-- `repoctl/` contains repository-control behavior.
-- `src/<package>/_foundation/` holds shared product-package protocol support.
-- `src/<package>/_generated/` holds replaceable generated indexes.
-- `architecture.toml`, `proof/`, `scripts/`, and the quality gate enforce
-  ownership, dependency, evidence, and documentation rules.
-
-Product capabilities belong under the product ownership roots declared in
-`architecture.toml`; none is preselected by the template.
-
-## Workspace members
-
-Set `workspace_member: true` for a uv workspace member. The workspace root then
-owns the lockfile, environment, development dependencies, and shared tool
-configuration. The generated member keeps its package metadata, ownership
-rules, and repository-control surface.
-
-## Maintaining this pack
-
-This is a meta-repository: `template/` is the generated product,
-`copier.yml` owns rendering, `instantiate.py` owns the CLI, and root
-`AGENTS.md` is the maintainer contract.
+The acceptance suite carries the 53 assertions of the refactor. It is capability
+code, it is marked `acceptance`, and it runs from an installed console script
+rather than from this checkout, because a source checkout hides a packaging
+defect. The `tests` hook of the gate excludes the marker, and a separate CI job
+runs it.
 
 ```bash
-just check
-just test
-just validate
+uv run pytest -c pack/configs/pytest.ini --rootdir=. -m acceptance
 ```
 
-Run `just validate` for changes to the template, generator, root tests, or
-validation scripts. It generates a throwaway N0 repository and runs its full
-quality gate. `just test` includes the real N0 → N1 → N2 acceptance walk and
-has a seven-minute warm-cache budget; use `just test-fast` for sub-minute
-feedback. See `DESIGN_GUARDRAILS.md` for the enforcement map and `VALIDATION.md`
-for the latest full-validation record.
+Read `AGENTS.md` for the contract this repository holds you to,
+`DESIGN_GUARDRAILS.md` for the design-to-guardrail map, `CONTEXT.md` for the
+vocabulary, and `docs/README.md` for the documentation map.
