@@ -1,56 +1,60 @@
-# Packaging metadata for the *generator only*: it exposes the `python-repo`
-# console script (uv tool install) and ships instantiate.py, copier.yml, and
-# template/. The root still has no virtualenv or lock file; pinned Copier is its
-# sole runtime dependency. Maintainer tooling is provisioned ephemerally by the
-# justfile, while its policy lives here beside the packaging metadata.
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build==0.12.0"]
+build-backend = "uv_build"
 
 [project]
-name = "python-design-guardrails-pack"
+name = "pyrepo"
 version = "0.3.0"
-description = "Generator CLI for the Python design-guardrails repository template"
-requires-python = ">=3.14"
-dependencies = ["copier==9.17.0"]
+description = "A Python 3.14 application with an executable architecture and quality contract."
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = ["icontract>=2.7.3"]
 
-[project.scripts]
-python-repo = "instantiate:cli"
+# The distribution name and the import package name are the two identity values
+# of the tree. They differ here, so the backend needs the module name.
+[tool.uv.build-backend]
+module-name = "guardrails_pack"
 
-[tool.hatch.build.targets.wheel]
-include = ["instantiate.py", "copier.yml"]
-
-# The template must sit next to instantiate.py and copier.yml in site-packages
-# so Path(__file__).parent remains the Copier template root in editable and
-# wheel installs. force-include bypasses ignore rules, so template/ ships
-# verbatim (dotfiles and Jinja-templated directories included).
-[tool.hatch.build.targets.wheel.force-include]
-"template" = "template"
-
-[tool.hatch.build.targets.sdist]
-include = ["instantiate.py", "copier.yml", "template", "README.md"]
-
-[tool.pytest.ini_options]
-markers = [
-  "repository_gate: tests that generate repositories and run heavyweight certification gates",
+# Dev tooling floats: floors are the last versions this repository's toolchain
+# was validated against, and the first `uv sync` resolves the latest releases.
+# Reproducibility comes from uv.lock (kept current by the uv-lock Git
+# hook), not from exact pins here.
+[dependency-groups]
+dev = [
+  "basedpyright>=1.39.9",
+  "coverage[toml]>=7.15.0",
+  "crosshair-tool>=0.0.109",
+  "hypothesis>=6.161.5",
+  "import-linter>=2.13",
+  "prek>=0.4.9",
+  "pytest>=9.1.1",
+  "pytest-cov>=7.1.0",
+  "pytest-socket>=0.8.0",
+  "pytest-xdist>=3.8.0",
+  "ruff>=0.15.21",
 ]
 
-# Keep the pack and the repositories it generates on one Ruff policy. The root
-# adds only path-shaped exceptions for its generator CLI and subprocess-heavy
-# acceptance harness; downstream policy remains canonical in the template.
+[tool.uv]
+required-version = ">=0.12.0,<0.13"
+# z3-solver 5.0.0.0 (a crosshair-tool dependency) ships a macOS arm64 wheel whose
+# internal WHEEL tag (macosx_13_3_arm64) disagrees with its filename tag, so uv
+# reinstalls it on every sync and `uv sync --check` never converges, which keeps
+# `just doctor` red. Drop this constraint once a later release is tagged correctly.
+constraint-dependencies = ["z3-solver!=5.0.0.0"]
+
+# Ruff is strict about defects and conservative about rewrites: it owns
+# correctness, security, and modern syntax, BasedPyright owns type semantics,
+# and the architecture guard owns structure. Rules that trade explicitness for
+# brevity, and rules that duplicate the formatter or the type checker, are
+# deliberately absent.
 [tool.ruff]
+# The Python version is derived from [project] requires-python.
 line-length = 100
-src = [
-  ".",
-  "scripts",
-  "tests",
-  "template/repoctl",
-  "template/src",
-  "template/tests",
-  "template/verification",
-  "template/scripts",
-]
+src = ["src", "pack", "pack/tests", "tests"]
 force-exclude = true
+# scratch/ holds material that a later ticket of #90 owns. No tool reads it.
+# .agents/ holds externally sourced agent skills that skills-lock.json pins.
+extend-exclude = ["scratch", ".agents"]
 
 [tool.ruff.lint]
 select = [
@@ -90,7 +94,9 @@ select = [
   "TID",
   "UP",
 
-  # Visible public return contracts.
+  # Visible public return contracts. BasedPyright owns parameter types,
+  # inferred value types, and `Any`; private helper return types stay optional
+  # where inference is sufficient.
   "ANN201",
   "ANN204",
   "ANN205",
@@ -106,7 +112,9 @@ select = [
   "PLR1736",
   "PLR5501",
 
-  # High-signal control-flow simplifications.
+  # High-signal control-flow simplifications. Rules that force ternaries,
+  # delete explanatory result variables, introduce helper functions, or
+  # optimize for statement count are deliberately excluded.
   "RET502",
   "RET503",
   "RET505",
@@ -145,23 +153,22 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# The root tests and generator run only controlled local commands. The generated
-# repository keeps the narrower downstream subprocess policy below.
-"tests/**/*.py" = ["ANN201", "S101", "S603", "S607"]
-"tests/test_ownership_zones.py" = ["S701"]
-"instantiate.py" = ["S603", "S607", "T201"]
-"scripts/**/*.py" = ["T201"]
-"scripts/release.py" = ["S603", "S607"]
-"scripts/validate_pack.py" = ["C901", "S603", "S607"]
-"template/tests/**/*.py" = ["ANN201", "S101"]
-"template/verification/tests/**/*.py" = ["ANN201", "S101"]
-"template/verification/repoctl/**/*.py" = ["ANN201", "S101"]
-"template/scripts/**/*.py" = ["T201"]
-"template/scripts/crosshair_gate.py" = ["S603"]
-"template/scripts/doctor.py" = ["S603"]
-"template/scripts/quality_gate.py.jinja" = ["S603"]
+"pack/tests/**/*.py" = ["ANN201", "S101"]
+# Three pack tests drive real local commands: git, uv, and the CrossHair gate.
+"pack/tests/test_crosshair_gate.py" = ["S603"]
+"pack/tests/test_pin_coherence.py" = ["S607"]
+"pack/tests/test_release.py" = ["S603", "S607"]
+"pack/verification/tests/**/*.py" = ["ANN201", "S101"]
+"pack/scripts/**/*.py" = ["T201"]
+"pack/scripts/crosshair_gate.py" = ["S603"]
+"pack/scripts/doctor.py" = ["S603"]
+"pack/scripts/quality_gate.py" = ["S603"]
+"pack/scripts/release.py" = ["S603", "S607"]
 
 [tool.ruff.lint.flake8-type-checking]
+# These decorators mark code whose annotations are read at run time:
+# `inspect.signature` (Hypothesis, pluggy) and CrossHair's icontract analysis
+# resolve them, so their imports must stay outside type-checking blocks.
 runtime-evaluated-decorators = [
   "hypothesis.given",
   "icontract.ensure",
@@ -172,13 +179,9 @@ runtime-evaluated-decorators = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = [
-  "instantiate",
-  "repoctl",
-  "scripts",
-  "tests",
-  "verification",
-]
+# "tests" is declared explicitly because namespace packages (no __init__.py)
+# are not auto-detected as first-party.
+known-first-party = ["guardrails_pack", "scripts", "tests", "verification"]
 combine-as-imports = true
 force-sort-within-sections = true
 
@@ -194,15 +197,88 @@ indent-style = "space"
 line-ending = "lf"
 docstring-code-format = true
 
-# The root ships the generator only (instantiate.py + scripts/). `template/` is
-# an uninstantiated scaffold: it holds Jinja expressions and
-# imports dependencies that are never installed at the root, so type-checking it
-# in place is meaningless — its correctness is proven by generating a real
-# project and running the full quality gate (`just validate`). Exclude it from
-# analysis so the editor stops reporting expected scaffold errors; keep scripts/
-# on the import path so first-party imports (validate_pack) resolve in tests.
 [tool.basedpyright]
-exclude = ["**/node_modules", "**/__pycache__", "**/.*", "template"]
-# "template" stays excluded from analysis (Jinja scaffold) but remains an
-# import root so tests importing scripts.* (the guard modules) resolve.
-extraPaths = ["scripts", "template"]
+include = ["src", "pack"]
+exclude = ["**/node_modules", "**/__pycache__", "**/.*", "scratch"]
+# pack/ carries the `scripts` and `verification` packages of the tree.
+extraPaths = ["pack"]
+pythonVersion = "3.14"
+
+# `recommended` enables the full diagnostic surface while keeping the
+# error/warning hierarchy readable in an editor. Warnings stay fatal in CI.
+typeCheckingMode = "recommended"
+failOnWarnings = true
+
+# Ruff owns these fast, syntax-local diagnostics and their automatic fixes.
+reportUnusedImport = "none"
+reportInvalidStringEscapeSequence = "none"
+
+# Contract-critical policies stay explicit for humans and coding agents. They
+# remain warnings in editors and still fail the quality gate.
+reportAny = "warning"
+reportExplicitAny = "warning"
+reportIgnoreCommentWithoutRule = "warning"
+reportImplicitOverride = "warning"
+reportImplicitStringConcatenation = "warning"
+reportMatchNotExhaustive = "warning"
+reportMissingParameterType = "warning"
+reportMissingTypeArgument = "error"
+reportPrivateUsage = "warning"
+reportUnannotatedClassAttribute = "warning"
+reportUnnecessaryTypeIgnoreComment = "warning"
+reportUnusedParameter = "warning"
+
+[tool.pytest.ini_options]
+minversion = "9.1"
+testpaths = ["pack/tests", "pack/verification/tests"]
+# Test packages are namespace packages (PEP 420): no __init__.py under tests/
+# (enforced by ARCH014). The repository root and pack/ on sys.path plus
+# namespace detection keep `tests.*` and `scripts.*` imports working.
+consider_namespace_packages = true
+pythonpath = [".", "pack"]
+norecursedirs = ["*.egg", ".*", "_darcs", "build", "CVS", "dist", "node_modules", "venv", "{arch}", "scratch", "docs"]
+addopts = [
+  "-ra",
+  "--strict-config",
+  "--strict-markers",
+  "--disable-socket",
+  "-m",
+  "not session_e2e",
+  "--cov=guardrails_pack",
+  "--cov-branch",
+  "--cov-report=term-missing:skip-covered",
+  "--cov-fail-under=90",
+]
+markers = [
+  "contract: shared behavioral contract for a port implementation",
+  "integration: deterministic integration test across real local components",
+  "proof: canonical executable evidence owned by the proof catalog tree",
+  "proves(id): one broad Hypothesis proof for a stable property ID",
+  "falsifies(id): one minimal canary demonstrating that a property is non-vacuous",
+  "stateful: Hypothesis RuleBasedStateMachine proof of a protocol",
+  "session_e2e: opt-in conversion of private Claude Code and Codex session logs",
+]
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["guardrails_pack"]
+relative_files = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+]
+
+# Ticket I4 writes the six contracts under pack/configs/importlinter.ini. The
+# one contract this section held layered _foundation over the deleted
+# _generated indexes, so it died with them.
+[tool.importlinter]
+root_package = "guardrails_pack"
+include_external_packages = false
+exclude_type_checking_imports = true

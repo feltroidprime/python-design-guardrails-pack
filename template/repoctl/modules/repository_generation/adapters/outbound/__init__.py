@@ -1,1 +1,0 @@
-"""Outbound repository-generation adapters."""

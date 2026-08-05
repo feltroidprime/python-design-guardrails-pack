@@ -1,0 +1,84 @@
+[project]
+package = "guardrails_pack"
+source_root = "src"
+profile = "system"
+
+[ownership.roots]
+# Ticket I2 replaces this whole block with the one ownership predicate of #85
+# section 4.2. Ticket I1 only removed the roots that named a deleted path and
+# repointed the surviving roots at pack/.
+FOUNDATION = [
+  ".github",
+  ".gitignore",
+  ".python-version",
+  ".vscode",
+  "AGENTS.md",
+  "CLAUDE.md",
+  "README.md",
+  "docs/README.md",
+  "docs/adr",
+  "justfile",
+  "pack",
+  "prek.toml",
+  "pyproject.toml",
+  "src/guardrails_pack/__init__.py",
+  "src/guardrails_pack/_foundation",
+  "src/guardrails_pack/py.typed",
+  "uv.lock",
+]
+PRODUCT = [
+  "src/guardrails_pack/modules",
+  "docs/product",
+]
+
+[limits]
+max_module_lines = 650
+max_test_module_lines = 500
+max_function_lines = 60
+max_class_lines = 250
+
+[conventions]
+forbidden_module_stems = ["utils", "helpers", "common", "misc"]
+exception_marker = "ARCH-EXCEPTION: ADR-"
+
+[domain]
+package = "domain"
+immutable_module_stems = ["entities", "events", "intents", "plans", "value_objects"]
+forbidden_import_roots = [
+  "aiohttp",
+  "asyncio",
+  "concurrent",
+  "django",
+  "fastapi",
+  "flask",
+  "httpx",
+  "logging",
+  "multiprocessing",
+  "os",
+  "pathlib",
+  "random",
+  "requests",
+  "secrets",
+  "socket",
+  "sqlalchemy",
+  "subprocess",
+  "sys",
+  "threading",
+  "time",
+  "urllib",
+]
+forbidden_call_suffixes = [
+  "date.today",
+  "datetime.now",
+  "datetime.utcnow",
+  "open",
+  "input",
+  "print",
+  "random",
+  "randint",
+  "randrange",
+  "time",
+  "time_ns",
+  "uuid1",
+  "uuid4",
+]
