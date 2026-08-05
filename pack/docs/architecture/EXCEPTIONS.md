@@ -1,44 +1,46 @@
 # Architecture exception ledger
 
-## Active exceptions
+Every suppression in code must name a narrow diagnostic and carry an
+`ARCH-EXCEPTION: ADR-NNNN` marker. Every entry below must state the ADR, the
+exact scope, the owner, the reason, the risk, an objective revisit trigger, and
+the removal criteria.
 
-### ADR-0002 — subprocess execution at the repository-control process seam
+## Active exceptions in code
 
-- Files/diagnostics: detached-process helpers under `tests/repoctl/`, Ruff
-  S603.
+### ADR-0008 — the pack tests read the tracked tree through `git`
+
+- Files and diagnostic: `pack/tests/test_gate_definition.py` and
+  `pack/tests/unit/scripts/test_ownership.py`, Ruff S603.
 - Owner: repository maintainers.
-- Reason: control commands must be observed through real stdin, streams, exit
-  status, and isolated working directories.
-- Risk: a future test could pass untrusted arguments to a helper.
+- Reason: the ownership predicate answers for a real tracked tree or it answers
+  for nothing, and `git ls-files -z` is the only source of that tree. The
+  command is a fixed constant, and no caller supplies an argument.
+- Risk: a later edit could pass caller input to the same helper.
 - Revisit trigger: the test runner supplies a typed process fixture that Ruff
-  recognizes as safe.
-- Removal criteria: replace the helpers with an equally complete seam that
-  needs no S603 suppression.
+  accepts as safe.
+- Removal criteria: read the tracked tree through a library call that needs no
+  suppression.
 
-### ADR-0002 — argparse override keeps its framework parameter name
+## Active narrowings in policy
 
-- File/diagnostic: `repoctl/modules/repository_generation/adapters/inbound/cli.py`,
-  ARCH019 on `_ContractParser._print_message`.
+A narrowing lives in a config file rather than in a comment, so it carries no
+marker. It must still be recorded here.
+
+### `BLE001` for the router
+
+- File and diagnostic: `_foundation/router.py`, Ruff BLE001, through a
+  directory glob in `pack/configs/ruff.toml`.
 - Owner: repository maintainers.
-- Reason: the protected argparse override must retain the base method's
-  keyword-compatible `file` parameter; it is an output stream, not a path.
-- Risk: readers could mistake the name for a filesystem location.
-- Revisit trigger: argparse exposes a public injected-output hook.
-- Removal criteria: delete the override or use an API without the conflicting
-  parameter name.
-
-### ADR-0002 — broad translation at the repository-control process boundary
-
-- File/diagnostic: `repoctl/modules/repository_generation/adapters/inbound/cli.py`,
-  Ruff BLE001.
-- Owner: repository maintainers.
-- Reason: the process protocol translates unexpected failures into one stable
-  machine envelope; explicit debug output preserves diagnostic access.
-- Risk: a programming defect is translated during ordinary CLI execution.
-- Revisit trigger: the supervisor gains a narrower common failure boundary.
-- Removal criteria: preserve stable unexpected-failure output without a broad
+- Reason: the last row of the router's exception table reads "anything else",
+  and the router answers it with one `unexpected_failure` envelope and exit 70.
+  A handler that catches every remaining exception is the rule in that one
+  module, and it is why a capability never selects an exit code.
+- Risk: a programming defect is translated into an envelope during an ordinary
+  run.
+- Revisit trigger: the standard library gains a narrower common failure class
+  that covers the same row.
+- Removal criteria: keep the stable unexpected-failure output without a broad
   catch.
 
-Each exception must include an ADR identifier, exact scope, owner, reason,
-risk, an objective revisit trigger, and removal criteria. Suppressions in code
-must use a narrow diagnostic and `ARCH-EXCEPTION: ADR-XXXX` marker.
+`DESIGN_GUARDRAILS.md` at the repository root states the same narrowing beside
+every other deliberate loosening.

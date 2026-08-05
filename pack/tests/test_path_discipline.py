@@ -13,7 +13,7 @@ import pytest
 
 from scripts.architecture_guard import check_files
 from scripts.architecture_policy import Policy, load_policy
-from tests.policy_tree import write_policy_tree
+from tests.policy_tree import EXCEPTION_MARKER, write_policy_tree
 
 PACK = Path(__file__).resolve().parents[1]
 
@@ -148,7 +148,7 @@ def test_inline_exception_marker_suppresses_a_finding(policy: Policy) -> None:
         policy,
         "src/pkg/adapters/outbound/exporter.py",
         "def export(\n"
-        "    config_file: str,  # ARCH-EXCEPTION: ADR-0099\n"
+        f"    config_file: str,  # {EXCEPTION_MARKER}0099\n"
         ") -> None:\n"
         "    print(config_file)\n",
     )

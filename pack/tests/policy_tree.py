@@ -6,6 +6,11 @@ from scripts.architecture_policy import PACK_DIRECTORY, POLICY_RELATIVE, SOURCE_
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_PACKAGE = "pkg"
+# The suppression marker without its number. A test builds a planted marker from
+# this prefix rather than writing one whole, because `DOC002` searches every
+# Python file of the tree for a whole marker and would then read a fixture as a
+# real claim on an ADR that does not exist.
+EXCEPTION_MARKER = "ARCH-EXCEPTION: ADR-"
 
 
 def write_policy_tree(root: Path, package: str = FIXTURE_PACKAGE) -> Path:

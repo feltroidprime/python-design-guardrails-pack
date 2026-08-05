@@ -1,95 +1,62 @@
-# Template changelog
+# Changelog
 
-Template releases use PEP 440 git tags in the form `vX.Y.Z`. Every release
-must have a matching `## [vX.Y.Z]` entry here before `just release vX.Y.Z`
-will create the tag. Entries describe changes that generated repositories can
-adopt, including accepted or rejected optimization-loop experiments.
+This file records the changes of this repository, newest first. It uses PEP 440
+release tags in the form `vX.Y.Z`, and every release needs a matching
+`## [vX.Y.Z]` heading here before `just release vX.Y.Z` creates the tag.
 
-Generation from a release must pin that tag with Copier's `vcs_ref`. Generation
-from a local working tree intentionally records a `git describe` development
-identity, including the dirty marker when the experiment has uncommitted changes.
+An entry describes a change that a project born from this pack can adopt. A
+project inherits the pack version it was born from, and `pack/manifest.json`
+records the pack version that its last update carried.
 
 ## [Unreleased]
 
-- Render N0 as a product-empty baseline. Generated repositories retain the
-  repository-control plane, guards, proof system, and generated indexes without
-  shipping a sample product capability; documentation and pack checks now
-  describe that boundary directly.
-- Remove the public `just scaffold-update` Copier workflow and its generated
-  documentation. Foundation migration remains deferred to the planned
-  repository update protocol; the synthetic ownership-preservation acceptance
-  test remains.
-- Make the prek commit and pre-push hook policy unconditional. The `precommit`
-  Copier question is removed: every standalone generated repository now ships
-  `prek.toml`, the `prek` dev dependency, and the `prek install`/`prek update`
-  steps in `just bootstrap`/`just update`. Workspace members still omit them,
-  because the workspace root owns hooks and the lockfile. Existing repositories
-  answering `precommit = false` need a future versioned migration to adopt the
-  hook policy.
-- Remove the end-to-end value benchmark harness (`benchmarks/`, its tests, and
-  the `just benchmark*`/`just bench-*` recipes) from the maintainer repository.
-  It never shipped to generated repositories, so downstream content is
-  unaffected.
-- Replace the generated repository's maximalist Ruff selection with a curated
-  one: Ruff stays strict on defects, security, and modern syntax, BasedPyright
-  owns type semantics, and the architecture guard owns structure. Families that
-  duplicate the formatter (`Q`, `W`, general `E`) or the type checker (`ARG`,
-  `SLF`, `ISC`, `ANN` beyond public return types) are dropped, and the
-  taste-driven families (`FURB`, `PERF`, `ICN`, blanket `SIM`/`RET`/`TRY`/`PL`)
-  are replaced by explicit high-signal rule lists. The Pylint size ceilings are
-  removed in favor of `C901 = 10` plus the guard's line ceilings; `TC` is
-  narrowed to `TC004`/`TC005`/`TC010` so `TYPE_CHECKING` blocks are validated
-  but never forced. BasedPyright keeps `recommended` with `failOnWarnings`, but
-  contract-critical diagnostics stay `warning` so editors keep a usable
-  severity hierarchy while CI fails identically. Redundant settings
-  (`target-version`, `fixable`/`unfixable`, `venvPath`/`venv`,
-  `pythonPlatform`) are gone.
-- Reorient generated repositories around a proof-carrying functional core. A
-  closed `proof.toml` catalog gives every critical public behavior a normative
-  property ID, exact scope, explicit assumptions, failure modes, counterexample,
-  production targets, and independent executable oracles.
-- Add `icontract` as the single runtime proof dependency, Hypothesis evidence
-  (including a reference `RuleBasedStateMachine` for idempotent retries), and
-  bounded CrossHair analysis over every pure contracted function or method.
-- Add `scripts/proof_guard.py`: it rejects unclassified core behavior, orphaned
-  or mismatched contracts, example-only evidence, missing falsifying canaries,
-  coupled, effectful, or non-boolean oracles, constructor-only method evidence,
-  same-named symbols from the wrong module, dead state-machine evidence, and
-  symbolic targets outside the contract.
-- Add fast/full/deep proof lanes: `just prove-one PROPERTY-ID`, `just prove`,
-  `just prove-deep`, and `just proof-report`; the normal quality gate runs the
-  structural proof contract and the bounded symbolic core before tests.
-- Freeze the reference entity and event state, extract pure create/rename/event
-  decisions, separate primitive specification predicates from implementation,
-  and document the design in ADR-0006 and `docs/architecture/PROVABILITY.md`.
-- Make the pack's pre-commit hook run the fast rendered-template, pin-coherence,
-  and hook-policy checks. Keep the complete pack and downstream validation at
-  pre-push through `just validate`.
-- Add ARCH031 to the generated architecture guard: reminder comments that
-  schedule manual upkeep ("bump this after each release", "keep in sync with",
-  "remember to", "must be updated") fail the gate. The check inspects comment
-  tokens only — string literals and docstrings are exempt — matches a closed
-  set of phrases recorded in ADR-0005, and accepts `ARCH-EXCEPTION: ADR-XXXX`.
-  Derive the value from its source of truth or enforce the invariant with a
-  test instead of asking a future editor to remember.
-- Remove the derived LikeC4 architecture model. Generated repositories no
-  longer ship `docs/architecture/likec4/`, `scripts/sync_architecture_diagrams.py`,
-  the gate's `diagram *` checks, `just diagrams`, the `grimp` dev dependency, or
-  the CI `setup-bun` step, and **Bun is no longer a prerequisite**. Import Linter
-  still enforces the layer contract.
-- Renumber the shipped foundation ADRs so previous 0002-0006 become 0001-0005
-  and add the proof-carrying-core decision as 0006. A future versioned
-  migration must handle local `ARCH-EXCEPTION: ADR-NNNN` markers accordingly.
-- Scope the docs guard's derived-documentation exclusion to any `generated/`
-  directory under `docs/`.
-- Harden `just check` as a mechanical gate: before any repair or acceptance
-  work it verifies the prek pre-commit and pre-push shims in Git's common hooks
-  directory, repairs missing or invalid shims with `uv run prek install -f`, and
-  syntax-compiles every tracked Python file, including files no test imports.
-- Add a bounded `just doctor` readiness command with stable statuses for hooks,
-  working-tree cleanliness, default-branch synchronization, GitHub CLI auth,
-  `uv sync --check`, and Python version. Unavailable remote checks warn; local
-  defects fail the verdict and return non-zero.
+### One tree, one contract
+
+- Collapse the two parallel trees into one Root Pack. The pack is now a real
+  installable Python 3.14 project, so every tool checks the shipped files in
+  place and a defect is fixed exactly once. The parallel product tree, its 157
+  rendered files, the rendering engine and its answers file are all deleted.
+- Replace the control plane inside every project with one command capability
+  that only the pack carries. A project it starts cannot start another one.
+  Plans, applied plans, declarations, lifecycle records and derived indexes are
+  deleted with it.
+- Start a project with `pyrepo bootstrap init NAME [DIRECTORY]` from an
+  installed console script. It refuses a bad name before it writes anything,
+  builds the whole tree in a temporary directory, checks it, and moves it into
+  place as one operation. It reaches no network unless `--github` is given.
+- Add `pyrepo bootstrap update DIRECTORY`. It replaces whole pack-owned files,
+  writes no user-owned file, refuses on local drift, and restores every path if
+  it fails. So current tool policy reaches a project that already exists.
+- Replace the four ownership classes and their roughly forty roots with two
+  surfaces and one predicate, recorded in ADR-0008. Three hand-written
+  validators are deleted.
+- Move every tool policy under `pack/configs/`, which is a stable path ABI. The
+  root `justfile`, `pyrightconfig.json`, `.python-version` and quality workflow
+  are now thin entry points that an update reports and never writes.
+- Replace the hand-written gate runner with twelve `prek` hooks. `just check`
+  and CI both run `prek run --all-files -c pack/configs/prek.toml`, and the gate
+  is identical in the pack and in every project.
+- Derive the command line from composition. `_foundation/router.py` reads the
+  `CAPABILITIES` tuple of the user-owned composition root and builds every
+  group, option, envelope and exit code from stdlib-typed signatures. The
+  command catalog and its registration rules are deleted.
+- Add a Product Capability as one directory plus one import line. Six
+  `import-linter` contracts carry the four layout rules that hand-written code
+  carried before.
+- Delete every coverage assertion. `DESIGN_GUARDRAILS.md` states the rationale,
+  and the acceptance suite proves that no coverage flag, plugin or table
+  returns.
+- Replace Ruff's deleted upkeep-comment rule with Ruff's own `TD` and `FIX`
+  families, and delete its edit-time hook.
+- Add `pack/manifest.json` and a `manifest` hook, so a stale record of the
+  pack-owned bytes fails at commit time rather than at update time.
+- Add the acceptance suite: 53 assertions in six groups, marked `acceptance`,
+  each run from an installed console script.
+- Rewrite every document against the vocabulary of `CONTEXT.md`, restore
+  ADR-0002 and ADR-0004 as superseded records, and add ADR-0008.
+
+The unreleased entries that this section replaces described the tree that the
+refactor deleted. The released versions below are unchanged history.
 
 ## [v0.2.0] - 2026-07-17
 

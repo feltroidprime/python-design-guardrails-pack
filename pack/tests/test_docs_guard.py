@@ -11,7 +11,7 @@ from pathlib import Path
 
 from scripts.architecture_policy import load_policy
 from scripts.docs_guard import check_documentation
-from tests.policy_tree import write_policy_tree
+from tests.policy_tree import EXCEPTION_MARKER, write_policy_tree
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACK = REPO_ROOT / "pack"
@@ -98,7 +98,7 @@ def test_doc002_fires_on_marker_referencing_missing_adr(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
     module = root / "src" / "pkg" / "domain" / "entities.py"
     module.parent.mkdir(parents=True)
-    module.write_text("location = None  # ARCH-EXCEPTION: ADR-0042\n", encoding="utf-8")
+    module.write_text(f"location = None  # {EXCEPTION_MARKER}0042\n", encoding="utf-8")
     assert run_guard(root) == ["DOC002"]
 
 
@@ -107,7 +107,7 @@ def test_doc002_accepts_marker_referencing_existing_adr(tmp_path: Path) -> None:
     write_adr(root, "0001-planted-decision.md", number="0001")
     module = root / "src" / "pkg" / "domain" / "entities.py"
     module.parent.mkdir(parents=True)
-    module.write_text("location = None  # ARCH-EXCEPTION: ADR-0001\n", encoding="utf-8")
+    module.write_text(f"location = None  # {EXCEPTION_MARKER}0001\n", encoding="utf-8")
     assert run_guard(root) == []
 
 

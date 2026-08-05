@@ -5,8 +5,9 @@ section 4.4, a green gate in both trees, and a gate definition that a pack updat
 can replace whole.
 
 `LEG-1` and `LEG-2` are the two ban lists of Code B. Every exemption is stated
-in `ban_lists.py`: that module itself, the two trees whose words this repository
-does not own, and, in the Root Pack only, `CHANGELOG.md`.
+in `ban_lists.py`: the two files that state the lists, the two trees whose words
+this repository does not own, and, in the Root Pack only, `CHANGELOG.md`. List 2
+is read from the `_Avoid_` terms of `CONTEXT.md` of the tree under scan.
 """
 
 from pathlib import Path
@@ -18,10 +19,10 @@ from guardrails_pack.bootstrap.tests.acceptance.ban_lists import (
     GENERATED_DIRECTORY,
     IDENTIFIER_PATTERN,
     LEGACY_PATHS,
-    PROSE_PATTERN,
     PROSE_SUFFIXES,
-    SOURCE_FILE,
+    SOURCE_FILES,
     UNOWNED_TREES,
+    prose_pattern,
 )
 from guardrails_pack.bootstrap.tests.acceptance.code import gate_hook_ids, grep
 from guardrails_pack.bootstrap.tests.acceptance.conftest import Project
@@ -46,8 +47,13 @@ TWELVE_HOOKS = frozenset(
 
 
 def exempt(line: str, *names: str) -> bool:
-    """Whether one grep line names a file that its own list exempts."""
-    return any(name in line for name in names)
+    """Whether one grep line names a file that its own list exempts.
+
+    A grep line is `path:number:content`. Only the path decides an exemption,
+    because a document that names an exempt file must not exempt itself.
+    """
+    path = line.split(":", 1)[0]
+    return any(name in path for name in names)
 
 
 def test_leg_1_no_legacy_identifier_in_the_pack(root: Path) -> None:
@@ -55,33 +61,33 @@ def test_leg_1_no_legacy_identifier_in_the_pack(root: Path) -> None:
     found = grep(root, IDENTIFIER_PATTERN)
 
     assert [
-        line for line in found if not exempt(line, SOURCE_FILE, *UNOWNED_TREES, *EXEMPT_IN_PACK)
+        line for line in found if not exempt(line, *SOURCE_FILES, *UNOWNED_TREES, *EXEMPT_IN_PACK)
     ] == []
 
 
 def test_leg_1_no_legacy_identifier_in_a_project(term: Project) -> None:
-    """`LEG-1` on `TERM`: a fresh project needs no exemption but the list itself."""
+    """`LEG-1` on `TERM`: a fresh project needs no exemption but the lists themselves."""
     found = grep(term.path, IDENTIFIER_PATTERN)
 
-    assert [line for line in found if not exempt(line, SOURCE_FILE, *UNOWNED_TREES)] == []
+    assert [line for line in found if not exempt(line, *SOURCE_FILES, *UNOWNED_TREES)] == []
 
 
 def test_leg_2_no_legacy_prose_in_the_pack(root: Path) -> None:
-    """`LEG-2` on `ROOT`: Code B, list 2, over Markdown and Python only."""
+    """`LEG-2` on `ROOT`: Code B, list 2, read from `CONTEXT.md` of the same tree."""
     includes = tuple(f"--include={suffix}" for suffix in PROSE_SUFFIXES)
-    found = grep(root, PROSE_PATTERN, "-i", *includes)
+    found = grep(root, prose_pattern(root), "-i", *includes)
 
     assert [
-        line for line in found if not exempt(line, SOURCE_FILE, *UNOWNED_TREES, *EXEMPT_IN_PACK)
+        line for line in found if not exempt(line, *SOURCE_FILES, *UNOWNED_TREES, *EXEMPT_IN_PACK)
     ] == []
 
 
 def test_leg_2_no_legacy_prose_in_a_project(term: Project) -> None:
     """`LEG-2` on `TERM`: old vocabulary in documents that agents read."""
     includes = tuple(f"--include={suffix}" for suffix in PROSE_SUFFIXES)
-    found = grep(term.path, PROSE_PATTERN, "-i", *includes)
+    found = grep(term.path, prose_pattern(term.path), "-i", *includes)
 
-    assert [line for line in found if not exempt(line, SOURCE_FILE, *UNOWNED_TREES)] == []
+    assert [line for line in found if not exempt(line, *SOURCE_FILES, *UNOWNED_TREES)] == []
 
 
 @pytest.mark.parametrize("legacy", LEGACY_PATHS)

@@ -1,11 +1,6 @@
 {
   "include": ["../../src", "../../pack"],
-  "exclude": [
-    "../../**/node_modules",
-    "../../**/__pycache__",
-    "../../**/.*",
-    "../../scratch"
-  ],
+  "exclude": ["../../**/node_modules", "../../**/__pycache__", "../../**/.*"],
   "extraPaths": ["../../pack"],
   "pythonVersion": "3.14",
   "typeCheckingMode": "recommended",

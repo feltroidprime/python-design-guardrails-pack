@@ -15,9 +15,8 @@
 line-length = 100
 src = ["../../src", "../../pack", "../../pack/tests", "../../tests"]
 force-exclude = true
-# scratch/ holds material that a later ticket of #90 owns. No tool reads it.
 # .agents/ holds externally sourced agent skills that skills-lock.json pins.
-extend-exclude = ["../../scratch", "../../.agents"]
+extend-exclude = ["../../.agents"]
 
 [lint]
 select = [

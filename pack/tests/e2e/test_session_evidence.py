@@ -1,4 +1,4 @@
-"""Prove the generated repository composes its opt-in private session tool."""
+"""Prove this repository composes its opt-in private session tool."""
 
 import json
 from typing import TYPE_CHECKING, cast

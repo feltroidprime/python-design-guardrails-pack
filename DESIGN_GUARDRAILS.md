@@ -1,17 +1,17 @@
 # Design guardrails
 
-The pack turns a small set of repository-design decisions into checks. It does
-not prescribe a product model: N0 contains a control plane and an empty product
-baseline.
+The pack turns a small set of repository-design decisions into checks. It
+prescribes no product model: a new project starts with zero Product
+Capabilities, and the owner adds the first one.
 
 | Design intent | Enforced by |
 |---|---|
 | Start without accidental product semantics | The tree ships no product capability. A capability is one directory the owner adds under the package. |
-| Keep pack-owned and user-owned files distinct | Two ownership zones, stated as one predicate in `pack/scripts/ownership.py`. Pack-owned is `pack/`, plus `_`-prefixed names and `py.typed` in the package. User-owned is everything else. `pack/proof/ownership.toml` owns the law, and no file holds a list of ownership roots. |
+| Keep pack-owned and user-owned files distinct | Two ownership surfaces, stated as one predicate in `pack/scripts/ownership.py`. Pack-owned is `pack/`, plus `_`-prefixed names and `py.typed` in the package. User-owned is everything else. `pack/proof/ownership.toml` owns the law, no file holds a list of ownership roots, and ADR-0008 records the decision. |
 | Keep dependency direction explicit | Six `import-linter` contracts in `pack/configs/importlinter.ini` carry capability rules L1 to L4: required layers that point inward, private internals, independent capabilities, a private `_foundation`, and a pure domain. `pack/scripts/import_contracts.py` injects the package name and the discovered capability list, and it holds no rule. |
 | Keep the capability layout checkable by a maintained tool | The three hand-written capability rules are gone. Each one is now a contract, so a defect report comes from `import-linter` rather than from pack code. |
-| Make repository evolution inspectable | `repoctl/` owns repository-generation plans, declarations, lifecycle decisions, and the machine-readable command protocol. |
-| Require executable evidence for critical decisions | `pack/proof/policy.toml`, the proof catalogs, `pack/scripts/proof_guard.py`, Hypothesis checks, and bounded CrossHair checks. Catalog discovery is structural: every `*.toml` below `pack/proof/`, and the `proof.toml` of each capability. The policy holds no catalog root and no ownership zone, so no list can disagree with the tree. |
+| Carry current tool policy to a project that already exists | Policy is pack-owned, so a Pack Update replaces whole policy files and writes no user-owned file. It refuses a dirty worktree, a newer project version and any local change to a pack-owned file. It never runs the gate: a red gate on user code afterwards is the intended signal. |
+| Require executable evidence for critical decisions | `pack/proof/policy.toml`, the catalogs beside it, `pack/scripts/proof_guard.py`, Hypothesis checks, and bounded CrossHair checks. Discovery is structural: every `*.toml` below `pack/proof/`, and the `proof.toml` of each capability. The policy holds no catalog root and no ownership root, so no list can disagree with the tree. |
 | Keep the command surface renderable by the router | `CLI001` to `CLI004` in `pack/scripts/cli_surface.py` check every `<cap>/api.py`, composed or not: a reserved parameter name, a missing docstring, an annotation outside the closed stdlib set, and a `bool` parameter without a `False` default. |
 | Keep the command seam pack-owned | `ARCH021` to `ARCH023` in `pack/scripts/cli_discipline.py` target `_foundation/`. `_foundation/router.py` is the one module that may reach an argument parser and the one module that may end the process. |
 | Keep the command line derived, never hand-written | `_foundation/router.py` imports one user-owned module, the composition root, and reads its `CAPABILITIES` tuple. Discovery is composition, never a filesystem scan. The router derives each group, subcommand, option, help text, envelope, page and exit code from stdlib-typed signatures and stdlib exceptions, so a capability writes no command-line code and never selects an exit code. |
@@ -20,11 +20,10 @@ baseline.
 | Keep comments free of scheduled manual upkeep | Ruff's `TD` and `FIX` families. They replace the hand-written upkeep-comment rule and its edit-time hook, so a maintained tool carries the rule instead of pack code. The two command-registration rules also go: the router derives the command surface, so no catalog registration remains to guard. |
 | Make a stale record of the Pack-owned Surface fail early | The `manifest` hook recomputes the sha256 of every pack-owned file and compares it with `pack/manifest.json`. A Pack Update reads that record to find local drift, so a stale record would hide a changed file. The hook moves that discovery from update time to commit time. |
 | Keep one project file that both projects can carry | The build backend is `uv_build`, and inclusion is by presence, so `pyproject.toml` holds no include table and no file list. The projection payload is one archive of the last commit, staged inside the package at build time. The gate drops that archive, and `.gitignore` keeps it out of every commit. `pack/tests/test_packaging.py` states the four facts. |
-| Certify recursive self-generation and teach only the exercised workflow | `tests/recursive/test_recursive_generation.py` drives one real N0 → N1 → N2 walk through `repoctl` and checks the downstream agent workflow against its ordered invocation log; `just test` isolates that subprocess-heavy walk, then runs the generated-gate matrix separately from the lightweight remainder so they do not contend, keeping the complete pre-push suite within a seven-minute warm-cache budget while pre-commit stays sub-minute. |
-| Keep the architecture neutral across representative application shapes | `tests/recursive/test_shape_*.py` creates pure-library, stateful-workflow, CLI, external-integration, and multi-capability-composition fixtures through the real repository CLI. |
-| Keep the required fault model tied to deterministic evidence | `tests/fixtures/mutation_catalog.json` maps all fourteen specification mutations to existing killers, and `tests/mutations/test_mutation_catalog.py` checks exact coverage, order, identifiers, mechanisms, commands, and collected tests. |
-| Prevent stale documentation from teaching a removed product model | `scripts/docs_guard.py` checks generated documentation paths and registry entries; `tests/test_instantiate.py::test_root_and_template_markdown_contain_no_removed_product_vocabulary` rejects retired exemplar vocabulary across root and template Markdown. |
-| Detect accidental template regressions | `tests/test_instantiate.py::test_expected_files_are_preserved` checks the N0 file contract; `just validate` renders a fresh repository and runs its full gate. |
+| Prove the whole claim from outside the tree | The acceptance suite carries the 53 assertions of #81. It is marked `acceptance`, the `tests` hook excludes the marker, and a separate CI job runs it. Every assertion runs from an installed console script, because a source checkout hides a packaging defect. Terminal Projection deletes the suite, so no project receives it. |
+| Keep the architecture neutral across representative application shapes | The suite builds a pure-library, a stateful-workflow, a CLI, an external-integration and a multi-capability shape from its own fixtures, and runs the one gate over each. |
+| Keep the required fault model tied to deterministic evidence | `pack/tests/fixtures/mutation_catalog.json` maps each surviving specification mutation to an existing killer, and `pack/tests/mutations/test_mutation_catalog.py` checks exact coverage, order, identifiers, mechanisms, commands and collected tests. |
+| Prevent stale documentation from teaching a removed model | `pack/scripts/docs_guard.py` checks every path a document claims, every ADR convention, and the registration of every document in `docs/README.md`. The acceptance suite adds two word searches: one over identifiers and one over the retired prose that `CONTEXT.md` names. |
 
 These checks are intentionally structural. They make ownership and evidence
 visible, while names, product behavior, and worthwhile abstractions remain
@@ -33,7 +32,7 @@ engineering decisions for the repository owner.
 ## One re-aimed guardrail: the mandatory proof root
 
 A behavior root is where the proof guard demands a property or an exemption. It
-was `_foundation/`. It is now the `domain/` and `application/` layer of each
+was `_foundation/`. It is now the domain and application layer of each
 discovered capability.
 
 `_foundation/` is pack-owned. A pack-owned catalog would have to write the
@@ -67,6 +66,35 @@ mutation catalog that must name a deterministic killer for each specification
 mutation. A floor beside those measures adds a number that a test can raise
 without proving anything, and it makes a legal work-in-progress capability fail
 its own gate.
+
+Nothing replaces the floor. Assertion `LEG-1` searches both trees for the
+coverage flag, the coverage plugin and the coverage configuration table, so the
+loosening is itself checked.
+
+## Two identifiers removed from the ban list
+
+Assertion `LEG-1` searches both trees for the identifiers of the deleted
+architecture. Section 1.5 of #85 wrote that list, and two entries of it name
+files that the same specification keeps.
+
+- `schema_version` is the first key of `pack/proof/policy.toml`, of every proof
+  catalog, of the `proof.toml` of each capability, and of the machine envelope
+  that `_foundation/cli_protocol.py` writes.
+- `proof_catalog` names three surviving modules of `pack/scripts/`, and ten more
+  files import them.
+
+Section 1.2 of #85 gives each of those files a surviving verdict. A deletion
+boundary cannot keep a file and ban its name at the same time, so one of the two
+clauses had to give way, and the ban list is the one that did. The deleted
+artifact that both entries aimed at is the derived index, whose own first key
+was `schema_version`. The list still bans the name of the directory that held
+that index, and that entry proves the index is gone, so the list loses no proof
+of deletion.
+
+The alternative was a rename: a new key in every catalog and every `proof.toml`,
+and a new field in a published envelope. That is a product change, and it would
+prove nothing about deletion. The acceptance suite records the same reasoning
+beside the list it holds.
 
 ## One packaging rule: the build ships the last commit
 
