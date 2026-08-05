@@ -4,12 +4,13 @@ Each function here answers one question and states no assertion. The test module
 that reads the answer holds the assertion, so an assertion always names the
 assertion id it carries.
 
-Two adaptations of Code A are worth stating, because both are forced by the tree
-rather than chosen. The projection payload is one archive of `HEAD`, so the file
-set of the Root Pack is what git tracks, not what the working directory holds; a
-virtual environment and every tool cache would otherwise enter the comparison.
-The projected tree is read the same way, through the `.gitignore` it carried, so
-both sides of the comparison hold release content and nothing else.
+Every reading of a tree here comes from the git index, and that is forced by the
+tree rather than chosen. The projection payload is one archive of `HEAD`, so the
+file set of the Root Pack is what git tracks, not what the working directory
+holds; a virtual environment and every tool cache would otherwise enter the
+comparison. The projected tree is read the same way, through the `.gitignore` it
+carried, so both sides hold release content and nothing else. `release_files`
+gives the word searches of Code B the same file set, for the same reason.
 
 The ownership predicate of Code E is restated here rather than imported. A
 measurement that reads the code it measures proves nothing.
@@ -45,6 +46,7 @@ __all__ = [
     "grep",
     "pack_owned",
     "pack_tokens",
+    "release_files",
     "renamed",
 ]
 
@@ -60,19 +62,6 @@ LOCAL_REPOSITORY = "local"
 PRIVATE_PREFIX = "_"
 TYPED_MARKER = "py.typed"
 PACK_DIRECTORY = "pack"
-# Git and every runtime output that a release does not carry. Each word scan of
-# #81 measures release content, and `.gitignore` names the same set.
-RUNTIME_TREES = (
-    ".git",
-    ".venv",
-    "__pycache__",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".hypothesis",
-    ".import_linter_cache",
-    ".basedpyright",
-    ".mypy_cache",
-)
 # Code D of #81. The projection must build a whole tree with this module on the
 # path, so a socket call is an immediate failure rather than a slow timeout.
 PROBE_MODULE = "sitecustomize.py"
@@ -236,17 +225,42 @@ def commit_digests(root: Path, destination: Path) -> Mapping[str, str]:
     return archive_digests(destination)
 
 
-def grep(tree: Path, pattern: str, *arguments: str) -> tuple[str, ...]:
+def release_files(tree: Path, suffixes: tuple[str, ...] = ()) -> tuple[Path, ...]:
+    """Every file of *tree* that a word search of #81 may read, relative to it.
+
+    The file set comes from the git index, never from a directory walk. A walk
+    reads whatever the working directory happens to hold: a virtual environment,
+    every tool cache, and every dependency inside them. Third-party source then
+    answers a question that was asked about this product, and no exemption list
+    can hold the vocabulary of a package the project did not write.
+
+    A symbolic link is left out. Its own content is the path it names, and the
+    file it names is already in this list when the release carries it.
+    """
+    found = tuple(
+        Path(relative)
+        for relative in present_locations(tree)
+        if not (tree / relative).is_symlink() and (not suffixes or relative.endswith(suffixes))
+    )
+    if not found:
+        raise OSError(f"'{tree}' lists no release file, so a word search would prove nothing.")
+    return found
+
+
+def grep(
+    tree: Path, pattern: str, *arguments: str, suffixes: tuple[str, ...] = ()
+) -> tuple[str, ...]:
     """Every line of release content of *tree* that matches *pattern*.
 
-    Every scan of #81 measures what a release carries. Git, the virtual
-    environment and the tool caches carry none of it, and a tool cache records
-    the name of every test it ran, so a word search of one would answer with the
-    test names rather than with the tree.
+    Every scan of #81 measures what a release carries, so the files come from
+    `release_files` and each reported path is relative to *tree*. *suffixes*
+    narrows the scan to one kind of file, which is how list 2 of Code B reaches
+    prose alone.
     """
-    excluded = tuple(f"--exclude-dir={name}" for name in RUNTIME_TREES)
+    files = release_files(tree, suffixes)
     completed = subprocess.run(
-        ("grep", "-rIn", "-E", pattern, str(tree), *excluded, *arguments),
+        ("grep", "-In", "-E", *arguments, "-e", pattern, "--", *(str(item) for item in files)),
+        cwd=tree,
         capture_output=True,
         text=True,
         check=False,
