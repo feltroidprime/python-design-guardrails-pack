@@ -1,3 +1,11 @@
+# The one gate definition of the tree. It is pack-owned and name-blind, so a
+# pack update can replace it whole. Local runs and CI both call
+# `prek run --all-files -c pack/configs/prek.toml`, and `prek install -c
+# pack/configs/prek.toml` records this path in the git hook.
+#
+# Every hook entry below runs from the repository root, because prek always
+# runs a hook from there. Ticket I4 replaces the hook list with the twelve
+# hooks of the gate.
 minimum_prek_version = "0.4.9"
 default_install_hook_types = ["pre-commit", "pre-push"]
 default_language_version.python = "python3.14"

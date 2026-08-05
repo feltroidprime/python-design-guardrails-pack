@@ -13,11 +13,9 @@ def test_release_refuses_version_missing_from_changelog(tmp_path: Path) -> None:
     git_env = environment_without_local_git_context()
     repository = tmp_path / "release-fixture"
     (repository / "pack" / "scripts").mkdir(parents=True)
-    shutil.copy(REPO_ROOT / "justfile", repository / "justfile")
-    shutil.copy(
-        REPO_ROOT / "pack" / "scripts" / "release.py",
-        repository / "pack" / "scripts" / "release.py",
-    )
+    # The root justfile is a shim, so the fixture needs the imported recipes too.
+    for relative in ("justfile", "pack/justfile", "pack/scripts/release.py"):
+        _ = shutil.copy(REPO_ROOT / relative, repository / relative)
     (repository / "CHANGELOG.md").write_text(
         "# Template changelog\n\n## [v0.1.0]\n\n- First release.\n",
         encoding="utf-8",

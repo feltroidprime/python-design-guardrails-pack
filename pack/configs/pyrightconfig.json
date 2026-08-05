@@ -1,0 +1,27 @@
+{
+  "include": ["../../src", "../../pack"],
+  "exclude": [
+    "../../**/node_modules",
+    "../../**/__pycache__",
+    "../../**/.*",
+    "../../scratch"
+  ],
+  "extraPaths": ["../../pack"],
+  "pythonVersion": "3.14",
+  "typeCheckingMode": "recommended",
+  "failOnWarnings": true,
+  "reportUnusedImport": "none",
+  "reportInvalidStringEscapeSequence": "none",
+  "reportAny": "warning",
+  "reportExplicitAny": "warning",
+  "reportIgnoreCommentWithoutRule": "warning",
+  "reportImplicitOverride": "warning",
+  "reportImplicitStringConcatenation": "warning",
+  "reportMatchNotExhaustive": "warning",
+  "reportMissingParameterType": "warning",
+  "reportMissingTypeArgument": "error",
+  "reportPrivateUsage": "warning",
+  "reportUnannotatedClassAttribute": "warning",
+  "reportUnnecessaryTypeIgnoreComment": "warning",
+  "reportUnusedParameter": "warning"
+}

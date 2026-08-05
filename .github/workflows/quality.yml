@@ -1,5 +1,8 @@
 name: quality
 
+# User-owned shim. The gate itself is the pack-owned composite action at
+# pack/ci/action.yml, which a pack update replaces whole.
+
 on:
   pull_request:
   push:
@@ -13,10 +16,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v9.0.0
-        with:
-          version: "0.12.0"
-          python-version: "3.14"
-          enable-cache: true
-      - run: uv sync --locked --all-groups
-      - run: PYTHONPATH=pack uv run python pack/scripts/quality_gate.py
+      - uses: ./pack/ci

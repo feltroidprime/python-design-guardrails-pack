@@ -7,7 +7,17 @@ from pathlib import Path
 import subprocess
 import sys
 
-HOOK_REPAIR_COMMAND = ("uv", "run", "prek", "install", "-f")
+# Every tool policy lives under pack/configs/. BasedPyright, pytest,
+# import-linter and prek take the path as a flag, and Ruff follows the
+# `[tool.ruff] extend` pointer in pyproject.toml. `failOnWarnings` does not
+# survive the BasedPyright `extends` chain, so `--project` names the pack-owned
+# file directly rather than the root stub.
+PREK_CONFIG = "pack/configs/prek.toml"
+PYRIGHT_CONFIG = "pack/configs/pyrightconfig.json"
+PYTEST_CONFIG = "pack/configs/pytest.ini"
+IMPORTLINTER_CONFIG = "pack/configs/importlinter.ini"
+
+HOOK_REPAIR_COMMAND = ("uv", "run", "prek", "install", "-f", "-c", PREK_CONFIG)
 REQUIRED_PREK_HOOKS = ("pre-commit", "pre-push")
 GIT_COMMON_DIR_COMMAND = ("git", "rev-parse", "--git-common-dir")
 TRACKED_PYTHON_COMMAND = ("git", "ls-files", "-z", "--", "*.py")
@@ -47,7 +57,7 @@ def checks() -> tuple[Check, ...]:
         Check(name="lockfile", command=("uv", "lock", "--check")),
         Check(name="format", command=("ruff", "format", "--check", ".")),
         Check(name="lint", command=("ruff", "check", ".")),
-        Check(name="types", command=("basedpyright", "--project", "pyproject.toml")),
+        Check(name="types", command=("basedpyright", "--project", PYRIGHT_CONFIG)),
         Check(
             name="architecture AST",
             command=(sys.executable, "-m", "scripts.architecture_guard"),
@@ -61,8 +71,11 @@ def checks() -> tuple[Check, ...]:
             name="symbolic core",
             command=(sys.executable, "-m", "scripts.crosshair_gate", "ci"),
         ),
-        Check(name="import contracts", command=("lint-imports",)),
-        Check(name="tests", command=("pytest",)),
+        Check(
+            name="import contracts",
+            command=("lint-imports", "--config", IMPORTLINTER_CONFIG),
+        ),
+        Check(name="tests", command=("pytest", "-c", PYTEST_CONFIG, "--rootdir=.")),
     )
 
 
@@ -78,7 +91,7 @@ def run(check: Check, root: Path) -> int:
 
 
 def inspect_prek_hooks(root: Path) -> HookInspection:
-    if not (root / "prek.toml").is_file():
+    if not (root / PREK_CONFIG).is_file():
         return HookInspection(
             configured=False,
             installed=True,
@@ -220,7 +233,7 @@ def requested_checks(argv: list[str]) -> tuple[Check, ...] | None:
         return checks()
     if argv == ["--fix"]:
         return (*repairs(), *checks())
-    print("Usage: python scripts/quality_gate.py [--fix]", file=sys.stderr)
+    print("Usage: python pack/scripts/quality_gate.py [--fix]", file=sys.stderr)
     return None
 
 
