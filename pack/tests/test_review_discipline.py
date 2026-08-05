@@ -6,7 +6,7 @@ import pytest
 
 from scripts.architecture_guard import check_files
 from scripts.architecture_policy import Policy, load_policy
-from tests.policy_tree import write_policy_tree
+from tests.policy_tree import EXCEPTION_MARKER, write_policy_tree
 
 PACK = Path(__file__).resolve().parents[1]
 
@@ -406,7 +406,7 @@ def test_arch026_through_arch030_share_adr_backed_marker_suppression(
     arch026 = run_check(
         policy,
         "tests/test_catalog.py",
-        "VALUES = []  # ARCH-EXCEPTION: ADR-0099\n",
+        f"VALUES = []  # {EXCEPTION_MARKER}0099\n",
     )
     arch027 = run_repository_check(
         policy,
@@ -418,7 +418,7 @@ def test_arch026_through_arch030_share_adr_backed_marker_suppression(
             (
                 "src/pkg/second.py",
                 "from enum import Enum\n"
-                "class State(Enum):  # ARCH-EXCEPTION: ADR-0099\n"
+                f"class State(Enum):  # {EXCEPTION_MARKER}0099\n"
                 "    READY = 'ready'\n",
             ),
         ),
@@ -427,13 +427,13 @@ def test_arch026_through_arch030_share_adr_backed_marker_suppression(
         policy,
         "src/pkg/evidence.py",
         "from pathlib import Path\n"
-        "def load(evidence: str) -> Path:  # ARCH-EXCEPTION: ADR-0099\n"
+        f"def load(evidence: str) -> Path:  # {EXCEPTION_MARKER}0099\n"
         "    return Path(evidence)\n",
     )
     arch029 = run_check(
         policy,
         "src/pkg/api.py",
-        "ApiBindHost = str  # ARCH-EXCEPTION: ADR-0099\ndef bind(host: ApiBindHost) -> None: ...\n",
+        f"ApiBindHost = str  # {EXCEPTION_MARKER}0099\ndef bind(host: ApiBindHost) -> None: ...\n",
     )
     arch030 = run_repository_check(
         policy,
@@ -443,7 +443,7 @@ def test_arch026_through_arch030_share_adr_backed_marker_suppression(
                 "src/pkg/child.py",
                 "from pkg.base import Base\n"
                 "class Child(Base):\n"
-                "    def run(self) -> None:  # ARCH-EXCEPTION: ADR-0099\n"
+                f"    def run(self) -> None:  # {EXCEPTION_MARKER}0099\n"
                 "        pass\n",
             ),
         ),

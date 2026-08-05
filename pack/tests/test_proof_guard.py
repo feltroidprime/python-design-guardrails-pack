@@ -1,4 +1,4 @@
-"""Fault-injection tests for the generated repository's closed proof contract."""
+"""Fault-injection tests for the closed proof contract of this repository."""
 
 from pathlib import Path
 
