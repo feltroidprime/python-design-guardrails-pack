@@ -13,10 +13,13 @@ record comes from the code the update tests measure.
 """
 
 from dataclasses import dataclass
+from hashlib import sha256
+import json
 from pathlib import Path
 import shutil
 import sys
 import tarfile
+from typing import cast
 
 from guardrails_pack.bootstrap.tests.acceptance.code import CAPABILITY, Tokens, pack_tokens
 from guardrails_pack.bootstrap.tests.acceptance.harness import (
@@ -64,6 +67,10 @@ POLICY_SETTING = "line-length = 100"
 LOOSE_POLICY_SETTING = "line-length = 200"
 POLICY_FILE = "pack/configs/ruff.toml"
 RETIRED_POLICY = "# A policy file that the next release deletes.\n"
+MANIFEST_PATH = "pack/manifest.json"
+# The user-owned path that the record of `claiming_release` names. It exists in
+# every project, and no update may ever write it.
+CLAIMED_PATH = "README.md"
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,6 +192,32 @@ def stale_release(root: Path, work: Path) -> Pack:
         root=tree,
         wheel=wheel,
         script=install_tool(wheel, work, "stale"),
+        tokens=pack_tokens(tree),
+    )
+
+
+def claiming_release(root: Path, work: Path) -> Pack:
+    """A pack whose record claims a user-owned path, for refusal `U6`.
+
+    The update reads the plan through the ownership predicate before it touches
+    a file, and a plan can hold a user-owned path only when the pack itself
+    ships a record that names one. The record of this release therefore names
+    the product document of every project.
+    """
+    tree = extract_commit(root, work / "claiming")
+    recorded = write_manifest(tree)
+    assert recorded.code == 0, recorded.text
+    manifest = tree / MANIFEST_PATH
+    record = cast("dict[str, object]", json.loads(manifest.read_text("utf-8")))
+    claimed = cast("dict[str, str]", record["root"])
+    claimed[CLAIMED_PATH] = sha256((tree / CLAIMED_PATH).read_bytes()).hexdigest()
+    _ = manifest.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", "utf-8")
+    _ = make_repository(tree, "A release that claims a user-owned path")
+    wheel = build_wheel(tree, work / "dist-claiming")
+    return Pack(
+        root=tree,
+        wheel=wheel,
+        script=install_tool(wheel, work, "claiming"),
         tokens=pack_tokens(tree),
     )
 

@@ -24,7 +24,7 @@ from guardrails_pack.bootstrap.tests.acceptance.harness import (
     run,
     sync,
 )
-from guardrails_pack.bootstrap.tests.acceptance.packs import Pack, stale_release
+from guardrails_pack.bootstrap.tests.acceptance.packs import Pack, claiming_release, stale_release
 from guardrails_pack.bootstrap.tests.acceptance.updates import (
     manifest_of,
     update,
@@ -80,14 +80,6 @@ def _u5(tree: Path) -> None:
     _ = target.write_text(target.read_text("utf-8") + "# One local edit.\n", encoding="utf-8")
 
 
-def _u6(tree: Path) -> None:
-    record = manifest_of(tree)
-    root = record["root"]
-    assert isinstance(root, dict)
-    root["README.md"] = "0" * 64  # pyright: ignore[reportUnknownMemberType]
-    _ = write_manifest_record(tree, record)
-
-
 def _u7(tree: Path, package: str) -> None:
     (tree / "src" / package / CAPABILITY).mkdir(parents=True)
 
@@ -97,7 +89,6 @@ REFUSALS: tuple[tuple[str, Callable[[Path, str], None]], ...] = (
     ("U2", lambda tree, _package: _u2(tree)),
     ("U3", lambda tree, _package: _u3(tree)),
     ("U5", lambda tree, _package: _u5(tree)),
-    ("U6", lambda tree, _package: _u6(tree)),
     ("U7", _u7),
 )
 
@@ -135,6 +126,18 @@ def test_upd_8_u4_refuses_a_dirty_worktree(old: Project, toolenv: Pack) -> None:
 
     assert refused(report.outcome, "U4"), report.outcome.text
     assert status_paths(porcelain(old.path)) == ("README.md",)
+
+
+def test_upd_8_u6_refuses_a_plan_that_claims_a_user_owned_path(
+    old: Project, root: Path, work: Path
+) -> None:
+    """`UPD-8`, `U6`: the plan is read through the predicate before any write."""
+    claiming = claiming_release(root, work)
+
+    report = update(claiming, old.path)
+
+    assert refused(report.outcome, "U6"), report.outcome.text
+    assert porcelain(old.path) == ()
 
 
 def test_upd_8_u8_refuses_a_pack_whose_record_is_stale(

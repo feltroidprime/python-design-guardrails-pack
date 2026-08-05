@@ -14,6 +14,11 @@ from guardrails_pack.bootstrap.tests.acceptance.harness import porcelain, run
 from guardrails_pack.bootstrap.tests.acceptance.packs import Pack
 
 UNKNOWN = "invalid_syntax"
+# The three trees whose words this repository does not own, which are the same
+# three that `exclude` of the gate definition drops: a read-only third-party
+# documentation pin, externally sourced agent skills, and the material that a
+# later ticket of #90 owns. `bootstrap` is an ordinary English word there.
+UNOWNED_TREES = ("docs/vendored", ".agents", "scratch")
 
 
 def test_rem_1_no_capability_directory_survives(term: Project) -> None:
@@ -29,8 +34,13 @@ def test_rem_2_the_capability_word_does_not_occur(term: Project) -> None:
         ("grep", "-rIn", "-w", CAPABILITY, str(term.path), "--exclude-dir=.git"),
         term.path,
     )
+    owned = [
+        line
+        for line in found.out.splitlines()
+        if not any(f"/{tree}/" in line for tree in UNOWNED_TREES)
+    ]
 
-    assert found.out.strip() == ""
+    assert owned == []
 
 
 def test_rem_3_the_module_is_gone(term: Project) -> None:

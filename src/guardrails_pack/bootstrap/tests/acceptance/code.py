@@ -146,15 +146,34 @@ def _overlay(root: Path, pack: Tokens, swaps: tuple[tuple[str, str], ...]) -> fr
     )
 
 
+def _source_content(path: Path, swaps: tuple[tuple[str, str], ...]) -> bytes:
+    """What the projection must write for one file of the Root Pack.
+
+    A symbolic link is release content too, and the projection recreates it with
+    both tokens swapped in its own target and every matching path component
+    renamed. Reading the link rather than following it is what makes a link to a
+    directory comparable at all.
+    """
+    if path.is_symlink():
+        literal = _swapped(str(path.readlink()).encode(), swaps).decode()
+        return renamed(literal, swaps).encode()
+    return _swapped(path.read_bytes(), swaps)
+
+
+def _content(path: Path) -> bytes:
+    """What one file of a Terminal Project holds, links read and never followed."""
+    return str(path.readlink()).encode() if path.is_symlink() else path.read_bytes()
+
+
 def compare(root: Path, project: Path, pack: Tokens, made: Tokens) -> Parity:
     """Code A: the path map, the byte parity, and the overlay closure."""
     swaps = pack.swaps(made)
     expected = {
-        renamed(relative, swaps): _swapped((root / relative).read_bytes(), swaps)
+        renamed(relative, swaps): _source_content(root / relative, swaps)
         for relative in tracked_files(root)
         if _kept(relative, pack)
     }
-    actual = {relative: (project / relative).read_bytes() for relative in present_files(project)}
+    actual = {relative: _content(project / relative) for relative in present_files(project)}
     overlay = _overlay(root, pack, swaps)
     shared = expected.keys() & actual.keys()
     return Parity(

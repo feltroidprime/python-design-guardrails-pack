@@ -34,7 +34,10 @@ COMPOSITION = "composition.py"
 PROOF_FILE = "proof.toml"
 API_FILE = "api.py"
 INITIALIZER = "__init__.py"
-PROOF_SOURCE = "# One capability with no property of its own yet.\n"
+# The proof catalog of one capability that declares no property yet. The key
+# below is what the catalog schema requires; the two ban lists of `LEG-1` also
+# hold it, which is a conflict that ticket I11 has to settle for the whole tree.
+PROOF_SOURCE = "schema_version = 1\n"
 API_SOURCE = '"""The public command surface of one capability."""\n'
 COMPOSED = "CAPABILITIES: tuple[object, ...] = ({name}_api,)\n"
 EMPTY_TUPLE = "CAPABILITIES: tuple[object, ...] = ()\n"

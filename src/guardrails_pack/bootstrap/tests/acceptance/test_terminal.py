@@ -74,13 +74,19 @@ def test_ter_2_the_terminal_wheel_carries_no_pack_tree(term: Project, tmp_path: 
 
 
 def test_ter_3_the_virtual_environment_carries_no_pack_tree(term: Project) -> None:
-    """`TER-3`: the same defect, which the wheel assertion alone misses."""
+    """`TER-3`: the same defect, which the wheel assertion alone misses.
+
+    The reading is the installed distribution under `.venv/lib`, which is what
+    `uv sync` writes. `.venv/pycache` holds the bytecode mirror that the tree
+    exports through `PYTHONPYCACHEPREFIX`, so it carries a compiled copy of the
+    tree's own pack scripts by design and states nothing about packaging.
+    """
     _ = sync(term.path)
 
     found = run(
         (
             "find",
-            str(term.path / ".venv"),
+            str(term.path / ".venv" / "lib"),
             "-name",
             f"*{ARCHIVE_SUFFIX}",
             "-o",
