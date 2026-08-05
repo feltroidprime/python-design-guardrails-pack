@@ -27,7 +27,7 @@ def policy(tmp_path: Path) -> Policy:
 def run_check(policy: Policy, relative: str, source: str) -> list[str]:
     path = policy.root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(source, encoding="utf-8")
+    _ = path.write_text(source, encoding="utf-8")
     return [item.code for item in check_files((path,), policy)]
 
 
@@ -35,10 +35,11 @@ def test_arch016_fires_on_none_defaulted_collection_field(policy: Policy) -> Non
     codes = run_check(
         policy,
         "src/pkg/application/use_cases.py",
-        "from dataclasses import dataclass\n"
-        "@dataclass\n"
-        "class Command:\n"
-        "    tags: list[str] | None = None\n",
+        """from dataclasses import dataclass
+@dataclass
+class Command:
+    tags: list[str] | None = None
+""",
     )
     assert codes == ["ARCH016"]
 
@@ -56,10 +57,11 @@ def test_arch016_ignores_non_collection_optionals_outside_domain(policy: Policy)
     codes = run_check(
         policy,
         "src/pkg/adapters/inbound/dto.py",
-        "from dataclasses import dataclass\n"
-        "@dataclass\n"
-        "class RawReading:\n"
-        "    battery: float | None = None\n",
+        """from dataclasses import dataclass
+@dataclass
+class RawReading:
+    battery: float | None = None
+""",
     )
     assert codes == []
 
@@ -68,9 +70,10 @@ def test_arch016_ignores_function_local_optionals(policy: Policy) -> None:
     codes = run_check(
         policy,
         "src/pkg/adapters/outbound/search.py",
-        "def scan(items: list[int]) -> int:\n"
-        "    found: list[int] | None = None\n"
-        "    return len(found or items)\n",
+        """def scan(items: list[int]) -> int:
+    found: list[int] | None = None
+    return len(found or items)
+""",
     )
     assert codes == []
 
@@ -79,10 +82,11 @@ def test_arch017_fires_on_optional_domain_field(policy: Policy) -> None:
     codes = run_check(
         policy,
         "src/pkg/domain/entities.py",
-        "from dataclasses import dataclass\n"
-        "@dataclass(frozen=True, slots=True, kw_only=True)\n"
-        "class Drone:\n"
-        "    location: str | None\n",
+        """from dataclasses import dataclass
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Drone:
+    location: str | None
+""",
     )
     assert codes == ["ARCH017"]
 
@@ -91,11 +95,12 @@ def test_arch017_fires_on_typing_optional_spelling(policy: Policy) -> None:
     codes = run_check(
         policy,
         "src/pkg/domain/entities.py",
-        "from dataclasses import dataclass\n"
-        "from typing import Optional\n"
-        "@dataclass(frozen=True, slots=True, kw_only=True)\n"
-        "class Drone:\n"
-        "    location: Optional[str]\n",
+        """from dataclasses import dataclass
+from typing import Optional
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Drone:
+    location: Optional[str]
+""",
     )
     assert "ARCH017" in codes
 
@@ -106,10 +111,11 @@ def test_arch016_and_arch017_both_fire_on_optional_domain_collection(policy: Pol
     codes = run_check(
         policy,
         "src/pkg/domain/entities.py",
-        "from dataclasses import dataclass\n"
-        "@dataclass(frozen=True, slots=True, kw_only=True)\n"
-        "class Delivery:\n"
-        "    avoid_zones: list[str] | None = None\n",
+        """from dataclasses import dataclass
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Delivery:
+    avoid_zones: list[str] | None = None
+""",
     )
     assert sorted(codes) == ["ARCH016", "ARCH017"]
 
@@ -118,8 +124,9 @@ def test_arch018_fires_on_optional_domain_return(policy: Policy) -> None:
     codes = run_check(
         policy,
         "src/pkg/domain/routing.py",
-        "def assign_route(capacity: int) -> str | None:\n"
-        "    return 'route' if capacity else None\n",
+        """def assign_route(capacity: int) -> str | None:
+    return 'route' if capacity else None
+""",
     )
     assert codes == ["ARCH018"]
 
@@ -128,9 +135,10 @@ def test_optional_port_returns_stay_legal_outside_domain(policy: Policy) -> None
     codes = run_check(
         policy,
         "src/pkg/application/ports.py",
-        "from typing import Protocol\n"
-        "class ItemRepository(Protocol):\n"
-        "    def get(self, item_id: str) -> str | None: ...\n",
+        """from typing import Protocol
+class ItemRepository(Protocol):
+    def get(self, item_id: str) -> str | None: ...
+""",
     )
     assert codes == []
 
@@ -139,10 +147,11 @@ def test_inline_exception_marker_suppresses_a_finding(policy: Policy) -> None:
     codes = run_check(
         policy,
         "src/pkg/domain/entities.py",
-        "from dataclasses import dataclass\n"
-        "@dataclass(frozen=True, slots=True, kw_only=True)\n"
-        "class Drone:\n"
-        f"    location: str | None  # {EXCEPTION_MARKER}0099\n",
+        f"""from dataclasses import dataclass
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Drone:
+    location: str | None  # {EXCEPTION_MARKER}0099
+""",
     )
     assert codes == []
 

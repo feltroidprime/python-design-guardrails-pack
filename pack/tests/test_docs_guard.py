@@ -30,29 +30,32 @@ def make_repo(tmp_path: Path) -> Path:
     adr_dir = tmp_path / "docs" / "adr"
     adr_dir.mkdir(parents=True)
     form = (REPO_ROOT / "docs" / "adr" / "0000-template.md").read_text(encoding="utf-8")
-    (adr_dir / "0000-template.md").write_text(form, encoding="utf-8")
-    (tmp_path / "docs" / "README.md").write_text(MINIMAL_MAP, encoding="utf-8")
+    _ = (adr_dir / "0000-template.md").write_text(form, encoding="utf-8")
+    _ = (tmp_path / "docs" / "README.md").write_text(MINIMAL_MAP, encoding="utf-8")
     return tmp_path
 
 
-def write_adr(root: Path, name: str, *, number: str, status: str = "accepted") -> None:
-    (root / "docs" / "adr" / name).write_text(
-        f"# ADR-{number}: Planted decision\n\n"
-        f"- Status: {status}\n"
-        "- Date: 2026-07-13\n"
-        "- Owners: tests\n"
-        "- Revisit trigger: never\n",
+def write_adr(record: Path, *, number: str, status: str = "accepted") -> None:
+    """Write one ADR at the given path. The caller builds the path."""
+    _ = record.write_text(
+        f"""# ADR-{number}: Planted decision
+
+- Status: {status}
+- Date: 2026-07-13
+- Owners: tests
+- Revisit trigger: never
+""",
         encoding="utf-8",
     )
 
 
-def add_doc(root: Path, name: str, body: str, *, registered: bool = True) -> None:
-    """Create docs/<name> and (by default) claim its row in the map."""
-    (root / "docs" / name).write_text(body, encoding="utf-8")
+def add_doc(document: Path, body: str, *, registered: bool = True) -> None:
+    """Write one document and (by default) claim its row in the map beside it."""
+    _ = document.write_text(body, encoding="utf-8")
     if registered:
-        map_path = root / "docs" / "README.md"
-        row = f"| [{name}]({name}) | tests | checked |\n"
-        map_path.write_text(map_path.read_text(encoding="utf-8") + row, encoding="utf-8")
+        map_path = document.parent / "README.md"
+        row = f"| [{document.name}]({document.name}) | tests | checked |\n"
+        _ = map_path.write_text(map_path.read_text(encoding="utf-8") + row, encoding="utf-8")
 
 
 def run_guard(root: Path) -> list[str]:
@@ -65,13 +68,13 @@ def test_minimal_repository_passes(tmp_path: Path) -> None:
 
 def test_doc001_fires_on_broken_inline_code_path(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    add_doc(root, "guide.md", "See `src/pkg/missing/module.py` for details.\n")
+    add_doc(root / "docs" / "guide.md", "See `src/pkg/missing/module.py` for details.\n")
     assert run_guard(root) == ["DOC001"]
 
 
 def test_doc001_fires_on_broken_markdown_link(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    add_doc(root, "guide.md", "See [the gone file](gone.md).\n")
+    add_doc(root / "docs" / "guide.md", "See [the gone file](gone.md).\n")
     assert run_guard(root) == ["DOC001"]
 
 
@@ -79,16 +82,15 @@ def test_doc001_resolves_paths_from_the_package_root(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
     module = root / "src" / "pkg" / "domain" / "entities.py"
     module.parent.mkdir(parents=True)
-    module.write_text("", encoding="utf-8")
-    add_doc(root, "guide.md", "Imitate `domain/entities.py`.\n")
+    _ = module.write_text("", encoding="utf-8")
+    add_doc(root / "docs" / "guide.md", "Imitate `domain/entities.py`.\n")
     assert run_guard(root) == []
 
 
 def test_doc001_ignores_fenced_code_blocks_and_urls(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
     add_doc(
-        root,
-        "guide.md",
+        root / "docs" / "guide.md",
         "See [uv](https://docs.astral.sh/uv/).\n\n```bash\ncat gone/file.py\n```\n",
     )
     assert run_guard(root) == []
@@ -98,34 +100,34 @@ def test_doc002_fires_on_marker_referencing_missing_adr(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
     module = root / "src" / "pkg" / "domain" / "entities.py"
     module.parent.mkdir(parents=True)
-    module.write_text(f"location = None  # {EXCEPTION_MARKER}0042\n", encoding="utf-8")
+    _ = module.write_text(f"location = None  # {EXCEPTION_MARKER}0042\n", encoding="utf-8")
     assert run_guard(root) == ["DOC002"]
 
 
 def test_doc002_accepts_marker_referencing_existing_adr(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    write_adr(root, "0001-planted-decision.md", number="0001")
+    write_adr(root / "docs" / "adr" / "0001-planted-decision.md", number="0001")
     module = root / "src" / "pkg" / "domain" / "entities.py"
     module.parent.mkdir(parents=True)
-    module.write_text(f"location = None  # {EXCEPTION_MARKER}0001\n", encoding="utf-8")
+    _ = module.write_text(f"location = None  # {EXCEPTION_MARKER}0001\n", encoding="utf-8")
     assert run_guard(root) == []
 
 
 def test_doc003_fires_on_bad_adr_file_name(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    write_adr(root, "my-decision.md", number="0001")
+    write_adr(root / "docs" / "adr" / "my-decision.md", number="0001")
     assert run_guard(root) == ["DOC003"]
 
 
 def test_doc004_fires_on_heading_not_matching_file_number(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    write_adr(root, "0001-planted-decision.md", number="0007")
+    write_adr(root / "docs" / "adr" / "0001-planted-decision.md", number="0007")
     assert run_guard(root) == ["DOC004"]
 
 
 def test_doc005_fires_on_missing_front_matter_key(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    (root / "docs" / "adr" / "0001-planted-decision.md").write_text(
+    _ = (root / "docs" / "adr" / "0001-planted-decision.md").write_text(
         "# ADR-0001: Planted decision\n\n- Status: accepted\n- Date: 2026-07-13\n",
         encoding="utf-8",
     )
@@ -134,33 +136,33 @@ def test_doc005_fires_on_missing_front_matter_key(tmp_path: Path) -> None:
 
 def test_doc005_fires_on_unknown_status(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    write_adr(root, "0001-planted-decision.md", number="0001", status="maybe")
+    write_adr(root / "docs" / "adr" / "0001-planted-decision.md", number="0001", status="maybe")
     assert run_guard(root) == ["DOC005"]
 
 
 def test_doc006_fires_on_numbering_gap(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    write_adr(root, "0002-planted-decision.md", number="0002")
+    write_adr(root / "docs" / "adr" / "0002-planted-decision.md", number="0002")
     assert run_guard(root) == ["DOC006"]
 
 
 def test_doc006_fires_on_duplicate_number(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    write_adr(root, "0001-planted-decision.md", number="0001")
-    write_adr(root, "0001-second-decision.md", number="0001")
+    write_adr(root / "docs" / "adr" / "0001-planted-decision.md", number="0001")
+    write_adr(root / "docs" / "adr" / "0001-second-decision.md", number="0001")
     assert run_guard(root) == ["DOC006"]
 
 
 def test_doc007_fires_on_unregistered_document(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    add_doc(root, "orphan.md", "No row claims this file.\n", registered=False)
+    add_doc(root / "docs" / "orphan.md", "No row claims this file.\n", registered=False)
     assert run_guard(root) == ["DOC007"]
 
 
 def test_doc007_directory_row_covers_contained_documents(tmp_path: Path) -> None:
     # The baseline map registers docs/adr/ as a directory; a second ADR needs no row.
     root = make_repo(tmp_path)
-    write_adr(root, "0001-planted-decision.md", number="0001")
+    write_adr(root / "docs" / "adr" / "0001-planted-decision.md", number="0001")
     assert run_guard(root) == []
 
 

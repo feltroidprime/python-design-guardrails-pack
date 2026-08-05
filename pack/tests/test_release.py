@@ -16,18 +16,18 @@ def test_release_refuses_version_missing_from_changelog(tmp_path: Path) -> None:
     # The root justfile is a shim, so the fixture needs the imported recipes too.
     for relative in ("justfile", "pack/justfile", "pack/scripts/release.py"):
         _ = shutil.copy(REPO_ROOT / relative, repository / relative)
-    (repository / "CHANGELOG.md").write_text(
+    _ = (repository / "CHANGELOG.md").write_text(
         "# Template changelog\n\n## [v0.1.0]\n\n- First release.\n",
         encoding="utf-8",
     )
-    subprocess.run(
+    _ = subprocess.run(
         ["git", "init", "--quiet", "--initial-branch=main"],
         cwd=repository,
         env=git_env,
         check=True,
     )
-    subprocess.run(["git", "add", "--all"], cwd=repository, env=git_env, check=True)
-    subprocess.run(
+    _ = subprocess.run(["git", "add", "--all"], cwd=repository, env=git_env, check=True)
+    _ = subprocess.run(
         [
             "git",
             "-c",

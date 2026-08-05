@@ -188,7 +188,7 @@ def policy(tmp_path: Path) -> Policy:
 def run_check(policy: Policy, relative: str, source: str) -> list[tuple[str, str]]:
     path = policy.root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(source, encoding="utf-8")
+    _ = path.write_text(source, encoding="utf-8")
     return [(item.code, item.message) for item in check_files((path,), policy)]
 
 
@@ -199,7 +199,7 @@ def run_repository_check(
     for relative, source in fixtures:
         path = policy.root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(source, encoding="utf-8")
+        _ = path.write_text(source, encoding="utf-8")
         paths.append(path)
     return [
         (item.path.relative_to(policy.root).as_posix(), item.code, item.message)
@@ -321,8 +321,12 @@ def test_arch028_recognizes_supported_path_uses(policy: Policy, use: str) -> Non
     violations = run_check(
         policy,
         "src/pkg/adapters/outbound/evidence.py",
-        "import os\nimport pathlib\nfrom pathlib import Path\n"
-        f"def handle(evidence: str) -> object:\n    return {use}\n",
+        f"""import os
+import pathlib
+from pathlib import Path
+def handle(evidence: str) -> object:
+    return {use}
+""",
     )
     assert [code for code, _message in violations] == ["ARCH028"]
 
@@ -331,9 +335,10 @@ def test_arch028_does_not_double_report_arch019_names(policy: Policy) -> None:
     violations = run_check(
         policy,
         "src/pkg/adapters/outbound/evidence.py",
-        "from pathlib import Path\n"
-        "def handle(config_file: str) -> Path:\n"
-        "    return Path(config_file)\n",
+        """from pathlib import Path
+def handle(config_file: str) -> Path:
+    return Path(config_file)
+""",
     )
     assert [code for code, _message in violations] == ["ARCH019"]
 
@@ -391,10 +396,11 @@ def test_arch030_does_not_resolve_an_external_base_by_simple_name(
         ("src/pkg/base.py", "class Base:\n    def run(self) -> None: ...\n"),
         (
             "src/pkg/child.py",
-            "from external import Base\n"
-            "class Child(Base):\n"
-            "    def run(self) -> None:\n"
-            "        pass\n",
+            """from external import Base
+class Child(Base):
+    def run(self) -> None:
+        pass
+""",
         ),
     )
     assert run_repository_check(policy, fixtures) == []
@@ -417,18 +423,20 @@ def test_arch026_through_arch030_share_adr_backed_marker_suppression(
             ),
             (
                 "src/pkg/second.py",
-                "from enum import Enum\n"
-                f"class State(Enum):  # {EXCEPTION_MARKER}0099\n"
-                "    READY = 'ready'\n",
+                f"""from enum import Enum
+class State(Enum):  # {EXCEPTION_MARKER}0099
+    READY = 'ready'
+""",
             ),
         ),
     )
     arch028 = run_check(
         policy,
         "src/pkg/evidence.py",
-        "from pathlib import Path\n"
-        f"def load(evidence: str) -> Path:  # {EXCEPTION_MARKER}0099\n"
-        "    return Path(evidence)\n",
+        f"""from pathlib import Path
+def load(evidence: str) -> Path:  # {EXCEPTION_MARKER}0099
+    return Path(evidence)
+""",
     )
     arch029 = run_check(
         policy,
@@ -441,10 +449,11 @@ def test_arch026_through_arch030_share_adr_backed_marker_suppression(
             ("src/pkg/base.py", "class Base:\n    def run(self) -> None: ...\n"),
             (
                 "src/pkg/child.py",
-                "from pkg.base import Base\n"
-                "class Child(Base):\n"
-                f"    def run(self) -> None:  # {EXCEPTION_MARKER}0099\n"
-                "        pass\n",
+                f"""from pkg.base import Base
+class Child(Base):
+    def run(self) -> None:  # {EXCEPTION_MARKER}0099
+        pass
+""",
             ),
         ),
     )
