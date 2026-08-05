@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "mutations": [
+    {
+      "spec_number": 1,
+      "id": "planner-absolute-path",
+      "mutation": "planner emits an absolute path",
+      "mechanism": "contract_test",
+      "context": "generated_repository",
+      "evidence": "tests/repoctl/unit/test_plan_models.py::test_operation_rejects_non_repository_relative_paths_with_named_contract",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" tests/repoctl/unit/test_plan_models.py::test_operation_rejects_non_repository_relative_paths_with_named_contract"
+    },
+    {
+      "spec_number": 2,
+      "id": "planner-parent-traversal",
+      "mutation": "planner emits ../",
+      "mechanism": "contract_test",
+      "context": "generated_repository",
+      "evidence": "tests/repoctl/unit/test_plan_models.py::test_operation_rejects_non_repository_relative_paths_with_named_contract",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" tests/repoctl/unit/test_plan_models.py::test_operation_rejects_non_repository_relative_paths_with_named_contract"
+    },
+    {
+      "spec_number": 3,
+      "id": "apply-product-overwrite",
+      "mutation": "apply overwrites an existing PRODUCT file",
+      "mechanism": "hypothesis_property",
+      "context": "generated_repository",
+      "evidence": "verification/repoctl/test_repository_state_machine.py::test_product_overwrite_mutation_has_a_short_reported_counterexample",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" verification/repoctl/test_repository_state_machine.py::test_product_overwrite_mutation_has_a_short_reported_counterexample"
+    },
+    {
+      "spec_number": 4,
+      "id": "apply-stale-digest",
+      "mutation": "apply ignores a stale digest",
+      "mechanism": "hypothesis_property",
+      "context": "generated_repository",
+      "evidence": "verification/repoctl/test_apply_state_machine.py::test_stale_plans_are_rejected_without_writes",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" verification/repoctl/test_apply_state_machine.py::test_stale_plans_are_rejected_without_writes"
+    },
+    {
+      "spec_number": 5,
+      "id": "apply-duplicate-declaration",
+      "mutation": "apply duplicates one declaration",
+      "mechanism": "hypothesis_property",
+      "context": "generated_repository",
+      "evidence": "verification/repoctl/test_repository_state_machine.py::test_repository_protocol_state_machine",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" verification/repoctl/test_repository_state_machine.py::test_repository_protocol_state_machine"
+    },
+    {
+      "spec_number": 6,
+      "id": "derived-omit-active",
+      "mutation": "derived compiler omits an active capability",
+      "mechanism": "hypothesis_property",
+      "context": "generated_repository",
+      "evidence": "verification/repoctl/test_derived_index_properties.py::test_compiled_membership_is_exactly_the_active_subset",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" verification/repoctl/test_derived_index_properties.py::test_compiled_membership_is_exactly_the_active_subset"
+    },
+    {
+      "spec_number": 7,
+      "id": "derived-include-retired",
+      "mutation": "derived compiler includes a retired capability",
+      "mechanism": "hypothesis_property",
+      "context": "generated_repository",
+      "evidence": "verification/repoctl/test_derived_index_properties.py::test_compiled_membership_is_exactly_the_active_subset",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" verification/repoctl/test_derived_index_properties.py::test_compiled_membership_is_exactly_the_active_subset"
+    },
+    {
+      "spec_number": 8,
+      "id": "activation-missing-proof-evidence",
+      "mutation": "activation ignores missing proof evidence",
+      "mechanism": "hypothesis_property",
+      "context": "generated_repository",
+      "evidence": "verification/repoctl/test_lifecycle_state_machine.py::test_activation_requires_current_complete_evidence",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" verification/repoctl/test_lifecycle_state_machine.py::test_activation_requires_current_complete_evidence"
+    },
+    {
+      "spec_number": 9,
+      "id": "retirement-delete-product",
+      "mutation": "retirement deletes product code",
+      "mechanism": "hypothesis_property",
+      "context": "generated_repository",
+      "evidence": "verification/repoctl/test_lifecycle_state_machine.py::test_retirement_preserves_product_files",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" verification/repoctl/test_lifecycle_state_machine.py::test_retirement_preserves_product_files"
+    },
+    {
+      "spec_number": 10,
+      "id": "nondeterministic-plan-id",
+      "mutation": "identical intents produce different plan IDs",
+      "mechanism": "hypothesis_property",
+      "context": "generated_repository",
+      "evidence": "verification/repoctl/test_plan_deterministic_properties.py::test_same_snapshot_and_intent_produce_identical_plan_bytes",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" verification/repoctl/test_plan_deterministic_properties.py::test_same_snapshot_and_intent_produce_identical_plan_bytes"
+    },
+    {
+      "spec_number": 11,
+      "id": "cross-capability-internal-import",
+      "mutation": "capability A imports capability B internals",
+      "mechanism": "guard",
+      "context": "generated_repository",
+      "evidence": "tests/unit/scripts/test_capability_validator.py::test_system_and_product_capabilities_obey_the_same_structural_contract",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" tests/unit/scripts/test_capability_validator.py::test_system_and_product_capabilities_obey_the_same_structural_contract"
+    },
+    {
+      "spec_number": 12,
+      "id": "cli-command-without-process-case",
+      "mutation": "a CLI command exists without an independent process case",
+      "mechanism": "contract_test",
+      "context": "generated_repository",
+      "evidence": "tests/repoctl/contract/test_repoctl_cli_contract.py::test_process_case_catalog_covers_every_control_plane_command",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" tests/repoctl/contract/test_repoctl_cli_contract.py::test_process_case_catalog_covers_every_control_plane_command"
+    },
+    {
+      "spec_number": 13,
+      "id": "oracle-always-true",
+      "mutation": "an oracle returns True",
+      "mechanism": "proof_gate",
+      "context": "generated_repository",
+      "evidence": "verification/repoctl/test_plan_deterministic_properties.py::test_different_plan_bytes_are_a_real_determinism_counterexample",
+      "command": "HYPOTHESIS_PROFILE=fast uv run pytest -q -o \"addopts=--strict-config --strict-markers --disable-socket\" verification/repoctl/test_plan_deterministic_properties.py::test_different_plan_bytes_are_a_real_determinism_counterexample"
+    },
+    {
+      "spec_number": 14,
+      "id": "pure-target-without-crosshair",
+      "mutation": "a pure target is removed from CrossHair coverage",
+      "mechanism": "proof_gate",
+      "context": "pack",
+      "evidence": "tests/test_proof_guard.py::test_pure_contracted_function_requires_crosshair_evidence",
+      "command": "uv run --no-project --python 3.14 --with pytest==9.1.1 --with copier==9.17.0 --with \"icontract>=2.7.3\" pytest -q tests/test_proof_guard.py::test_pure_contracted_function_requires_crosshair_evidence"
+    }
+  ]
+}

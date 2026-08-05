@@ -1,0 +1,1 @@
+"""Template-maintained foundation namespace."""
