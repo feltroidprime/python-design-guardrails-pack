@@ -89,9 +89,19 @@ def module_file(module: str, source_roots: SourceRoots) -> Path | None:
 
 
 def behavior_files(policy: ProofPolicy) -> tuple[Path, ...]:
+    """Every module below a behavior root that exists.
+
+    A behavior root is one core layer of one discovered capability, so a
+    capability that is missing that layer contributes nothing here. The layer
+    itself is a rule of the `import-linter` contracts, and the proof guard does
+    not repeat it (rules L1 and L2 of #85 section 4.3).
+    """
     files: set[Path] = set()
     for module in policy.behavior_roots:
-        path = _module_path(module, policy.source_root)
+        try:
+            path = _module_path(module, policy.source_root)
+        except DiscoveryError:
+            continue
         if path.is_file():
             files.add(path)
         else:

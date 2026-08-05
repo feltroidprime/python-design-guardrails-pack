@@ -1,5 +1,4 @@
 schema_version = 1
-ownership_zone = "product"
 
 [[properties]]
 id = "@PROPERTY_ID@"
