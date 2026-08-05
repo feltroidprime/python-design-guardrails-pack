@@ -1,59 +1,68 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set positional-arguments := true
 
 # Keep bytecode caches out of the source tree: every Python run through these
-# recipes (and the prek hooks, which call them) writes its __pycache__
-# mirror under .venv instead.
+# recipes writes its __pycache__ mirror under .venv instead.
 export PYTHONPYCACHEPREFIX := justfile_directory() / ".venv/pycache"
-
-ruff := 'uv run --no-project --python 3.14 --with "ruff>=0.15.21" ruff'
-ruff_sources := "instantiate.py scripts tests template"
-root_pytest := 'uv run --no-project --python 3.14 --with pytest==9.1.1 --with pytest-xdist==3.8.0 --with copier==9.17.0 --with "icontract>=2.7.3" pytest'
-recursive_acceptance := "tests/recursive/test_recursive_generation.py::test_recursive_walk_executes_the_specification_through_repoctl"
-repository_gate_marker := "repository_gate"
+# pack/ carries the `scripts` and `verification` packages of the tree.
+export PYTHONPATH := justfile_directory() / "pack"
+export SESSION_PROFILER_DEPENDENCY := "session-profiler-optimizer @ git+https://github.com/feltroidprime/session-profiler-optimizer.git@6ace879e8642777658576a47e0f53b32a1ddc0f7"
 
 default:
     @just --list
 
-# Apply the same Ruff floor and policy used by generated repositories, then
-# prove the repair is stable. Running from the pack root keeps its cache out of
-# template/, whose filesystem must remain artifact-free.
+bootstrap:
+    uv sync --all-groups
+    uv run prek install -f
+    just check
+
 check:
-    {{ruff}} check --fix --exit-zero --quiet {{ruff_sources}}
-    {{ruff}} format --quiet {{ruff_sources}}
-    {{ruff}} format --check {{ruff_sources}}
-    {{ruff}} check {{ruff_sources}}
+    uv run python pack/scripts/quality_gate.py --fix
 
-# Run the subprocess-heavy recursive walk alone, then keep the repository-gate
-# tests separate from the lightweight remainder so neither group slows the other.
-# Keep Copier coherent with pyproject.toml and copier.yml.
-test: check
-    {{root_pytest}} -q {{recursive_acceptance}}
-    {{root_pytest}} -q -n 5 --dist worksteal -m {{repository_gate_marker}} tests --deselect {{recursive_acceptance}}
-    {{root_pytest}} -q -n 5 --dist worksteal -m "not {{repository_gate_marker}}" tests --deselect {{recursive_acceptance}}
+# Fast local proof loop: structural closure, bounded generators, symbolic core.
+prove:
+    uv run python -m scripts.proof_guard
+    HYPOTHESIS_PROFILE=fast uv run pytest -q -m proof pack/verification -o addopts="--strict-config --strict-markers --disable-socket"
+    uv run python -m scripts.crosshair_gate fast
 
-# Fast pre-commit guard: render the complete default template, keep pins
-# coherent, and verify that pre-push owns the bounded full root suite while CI
-# retains canonical downstream validation.
-test-fast: check
-    uv run --no-project --python 3.14 --with pytest==9.1.1 --with copier==9.17.0 --with "icontract>=2.7.3" pytest -q tests/test_instantiate.py::test_expected_files_are_preserved tests/test_instantiate.py::test_no_unrendered_jinja_survives tests/test_instantiate.py::test_fast_recipe_renders_default_template_and_runs_policy_checks tests/test_pin_coherence.py tests/test_hook_policy.py tests/test_root_ruff_policy.py
+# Sub-second-to-seconds feedback on one changed law; the structural catalog still closes globally.
+prove-one property_id:
+    uv run python -m scripts.proof_guard
+    HYPOTHESIS_PROFILE=fast uv run pytest -q -m proof pack/verification --property-id "$1" -o addopts="--strict-config --strict-markers --disable-socket"
+    uv run python -m scripts.crosshair_gate fast "$1"
 
-# Canonical pack validation: generator tests, then a fresh instantiation in a
-# temporary directory that must pass the generated repository's full quality gate.
-validate: test
-    uv run --no-project --python 3.14 --with copier==9.17.0 python scripts/validate_pack.py
+# Larger search budget for release candidates, risky concurrency changes, or nightly CI.
+prove-deep:
+    uv run python -m scripts.proof_guard
+    HYPOTHESIS_PROFILE=deep uv run pytest -q -m proof pack/verification -o addopts="--strict-config --strict-markers --disable-socket"
+    uv run python -m scripts.crosshair_gate deep
 
-# Create an annotated PEP 440 template tag after verifying its changelog entry
+proof-report:
+    uv run python -m scripts.proof_guard --report
+
+doctor:
+    uv run --no-sync python -m scripts.doctor
+
+# Preserve one complete Claude Code or Codex CLI session as local ATIF evidence.
+session-log input output=".agent-sessions" agent="auto":
+    uv run --with "$SESSION_PROFILER_DEPENDENCY" session-profiler --agent "$3" "$1" "$2"
+
+# Opt-in: reads private local logs and samples one session from each size quintile.
+session-e2e:
+    uv run --with "$SESSION_PROFILER_DEPENDENCY" pytest -q -m session_e2e -o addopts="--strict-config --strict-markers --disable-socket" pack/tests/e2e
+
+update:
+    uv lock --upgrade
+    uv run prek update
+    just check
+
+# Create an annotated PEP 440 release tag after verifying its changelog entry
 # and a clean working tree. Tags are pushed separately by the release operator.
 release version:
-    python3 scripts/release.py "{{version}}"
+    python3 pack/scripts/release.py "{{version}}"
 
-# Install the `python-repo` CLI system-wide with uv (editable: template edits
-# and `git pull` take effect without reinstalling).
-install:
-    uv tool install --force --editable .
-
-# Install a durable prek executable plus this repo's pre-commit and pre-push
-# hooks. Safe to re-run; rewiring the same managed hooks is idempotent.
+# Install a durable prek executable plus this repository's pre-commit and
+# pre-push hooks. Safe to re-run; rewiring the same managed hooks is idempotent.
 hooks:
     #!/usr/bin/env bash
     set -euo pipefail

@@ -1,31 +1,71 @@
 minimum_prek_version = "0.4.9"
 default_install_hook_types = ["pre-commit", "pre-push"]
+default_language_version.python = "python3.14"
 
-# Local hooks only: the pack root is intentionally free of a virtualenv, a
-# lock file, and remote hook pins. Both entries go through the justfile so
-# the hook, the CLI, and CI always run the same commands.
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v6.0.0"
+hooks = [
+  { id = "check-ast" },
+  { id = "check-added-large-files", args = ["--maxkb=1000"] },
+  { id = "check-case-conflict" },
+  { id = "check-json" },
+  { id = "check-merge-conflict" },
+  { id = "check-toml" },
+  { id = "check-yaml" },
+  { id = "debug-statements" },
+  { id = "end-of-file-fixer" },
+  { id = "mixed-line-ending", args = ["--fix=lf"] },
+  { id = "trailing-whitespace" },
+]
+
+[[repos]]
+repo = "https://github.com/astral-sh/uv-pre-commit"
+rev = "0.12.0"
+hooks = [{ id = "uv-lock" }]
+
 [[repos]]
 repo = "local"
 
-# Fast feedback before each commit: render the complete default template, check
-# version pins, and verify the hook routing.
+# Run ruff from the project venv (not a separately pinned hook repository) so
+# the hook, the CLI, and the quality gate always share one ruff version:
+# whatever uv.lock resolved for the floating dev group.
 [[repos.hooks]]
-id = "pack-fast"
-name = "pack fast checks (rendering, pins, hook policy)"
-entry = "just test-fast"
+id = "ruff-check"
+name = "ruff check"
+entry = "uv run ruff check --fix --exit-non-zero-on-fix"
 language = "system"
-pass_filenames = false
-always_run = true
-stages = ["pre-commit"]
+types_or = ["python", "pyi"]
 
-# The complete root suite includes one real N0 -> N1 -> N2 acceptance walk and
-# stays below a seven-minute warm-cache budget. Canonical downstream validation
-# remains mandatory through `just validate`.
 [[repos.hooks]]
-id = "pack-push"
-name = "pack push checks (full root suite, <7m warm)"
-entry = "just test"
+id = "ruff-format"
+name = "ruff format"
+entry = "uv run ruff format"
+language = "system"
+types_or = ["python", "pyi"]
+
+# `env PYTHONPYCACHEPREFIX=...` mirrors the justfile export: hooks run
+# outside just, and without it each commit would re-scatter __pycache__
+# directories through the source tree (hooks always run from repo root,
+# so the relative path resolves to the project venv).
+[[repos.hooks]]
+id = "architecture-guard"
+name = "architecture guard"
+entry = "env PYTHONPYCACHEPREFIX=.venv/pycache PYTHONPATH=pack uv run python -m scripts.architecture_guard"
 language = "system"
 pass_filenames = false
-always_run = true
+
+[[repos.hooks]]
+id = "proof-contract"
+name = "proof contract"
+entry = "env PYTHONPYCACHEPREFIX=.venv/pycache PYTHONPATH=pack uv run python -m scripts.proof_guard"
+language = "system"
+pass_filenames = false
+
+[[repos.hooks]]
+id = "full-quality-gate"
+name = "full quality gate"
+entry = "env PYTHONPYCACHEPREFIX=.venv/pycache PYTHONPATH=pack uv run python pack/scripts/quality_gate.py"
+language = "system"
+pass_filenames = false
 stages = ["pre-push"]

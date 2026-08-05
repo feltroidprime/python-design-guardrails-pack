@@ -1,5 +1,15 @@
 # AGENTS.md — maintainer contract for the template pack
 
+> **Superseded, 2026-08-05. Ticket I1 of #90 collapsed the two trees into one.**
+> Every rule below that names `template/`, `copier.yml`, `instantiate.py`,
+> `scripts/validate_pack.py`, or `just validate` describes a tree that no longer
+> exists. Those commands and paths are gone. The decision of record is the
+> `## Answer` comment of #85. Ticket I11 replaces this document.
+>
+> Until then: the source of truth is one tree. `pack/` is the Pack-owned
+> Surface, and `src/guardrails_pack/` holds the package. `just check` runs the
+> gate, and the gate is red on purpose until ticket I10 passes.
+
 This file is normative for every coding agent and human working **on this
 repository**. It governs the meta-repository only.
 
