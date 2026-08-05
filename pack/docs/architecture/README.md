@@ -36,8 +36,8 @@ registration; N0 does not guess any of them.
 ## Fitness functions
 
 - `pack/scripts/architecture_guard.py` enforces structure and source rules.
-- `pack/scripts/capability_validator.py` applies CAP001–CAP003 to repository control
-  and future capabilities alike.
+- `pack/scripts/import_contracts.py` runs the six `import-linter` contracts of
+  `pack/configs/importlinter.ini` over every discovered capability.
 - `scripts/proof_guard.py`, Hypothesis, and `scripts/crosshair_gate.py` keep
   the repository-control proof chain closed and refute the symbolic canary.
 - BasedPyright, Ruff, pytest, and the 90% coverage floor remain part of
