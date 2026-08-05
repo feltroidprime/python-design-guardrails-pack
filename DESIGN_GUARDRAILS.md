@@ -14,6 +14,7 @@ baseline.
 | Require executable evidence for critical decisions | `pack/proof/policy.toml`, the proof catalogs, `pack/scripts/proof_guard.py`, Hypothesis checks, and bounded CrossHair checks. Catalog discovery is structural: every `*.toml` below `pack/proof/`, and the `proof.toml` of each capability. The policy holds no catalog root and no ownership zone, so no list can disagree with the tree. |
 | Keep the command surface renderable by the router | `CLI001` to `CLI004` in `pack/scripts/cli_surface.py` check every `<cap>/api.py`, composed or not: a reserved parameter name, a missing docstring, an annotation outside the closed stdlib set, and a `bool` parameter without a `False` default. |
 | Keep the command seam pack-owned | `ARCH021` to `ARCH023` in `pack/scripts/cli_discipline.py` target `_foundation/`. `_foundation/router.py` is the one module that may reach an argument parser and the one module that may end the process. |
+| Keep the command line derived, never hand-written | `_foundation/router.py` imports one user-owned module, the composition root, and reads its `CAPABILITIES` tuple. Discovery is composition, never a filesystem scan. The router derives each group, subcommand, option, help text, envelope, page and exit code from stdlib-typed signatures and stdlib exceptions, so a capability writes no command-line code and never selects an exit code. |
 | Keep routine quality checks consistent | One gate: twelve local hooks in `pack/configs/prek.toml` — `lockfile`, `format`, `lint`, `types`, `dependencies`, `architecture`, `docs`, `proof`, `symbolic`, `import-contracts`, `tests`, `manifest`. `just check` and CI both run `prek run --all-files -c pack/configs/prek.toml`, so a local run and a CI run cannot disagree. `prek.toml` pins Python hooks to 3.14 so their parser matches the repository language contract. |
 | Keep every declared dependency used, and every used dependency declared | The `dependencies` hook runs `deptry` over `src` and `pack/scripts`. |
 | Keep comments free of scheduled manual upkeep | Ruff's `TD` and `FIX` families. They replace the hand-written upkeep-comment rule and its edit-time hook, so a maintained tool carries the rule instead of pack code. The two command-registration rules also go: the router derives the command surface, so no catalog registration remains to guard. |
@@ -40,6 +41,16 @@ forbids an identity token in a pack-owned file. Mandatory proof coverage is
 therefore product behavior, and a capability declares its own laws in its own
 user-owned `proof.toml`. A project with no capability mandates nothing, which is
 the same fact the `import-contracts` hook reports.
+
+## One narrowed lint rule: the last handler of the router
+
+`pack/configs/ruff.toml` turns `BLE001` off for one file, `_foundation/router.py`.
+The exception table of #85 section 3.1 ends with a row that reads "anything
+else", and the router answers that row with the `unexpected_failure` envelope
+and exit 70. A handler that catches every remaining exception is therefore the
+rule in that one module, and it is the reason a capability never has to select
+an exit code. The entry uses a directory glob, so it holds no package name and a
+pack update carries it to every project.
 
 ## One deliberate loosening: no coverage assertion
 
