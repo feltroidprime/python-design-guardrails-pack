@@ -32,6 +32,7 @@ __all__ = [
     "ADDED_BY_NEW",
     "DELETED_BY_NEW",
     "PAYLOAD",
+    "POLICY_PROBE",
     "PREVIOUS_VERSION",
     "REPLACED_BY_NEW",
     "Pack",
@@ -60,12 +61,14 @@ ADDED_BY_NEW = "pack/docs/architecture/PATTERN_ADMISSION.md"
 DELETED_BY_NEW = "pack/configs/retired.toml"
 REPLACED_BY_NEW = "pack/configs/pytest.ini"
 REPLACEMENT_LINE = "# The previous release of this policy.\n"
-# The one policy value the previous release loosens. A user file that a 100
-# column policy reformats is left alone by a 200 column policy, so assertion
-# `UPD-12` can carry real policy across a real update.
-POLICY_SETTING = "line-length = 100"
-LOOSE_POLICY_SETTING = "line-length = 200"
+# The one policy the previous release loosens: it excludes one file name from
+# every Ruff rule, and the current release checks it. Assertion `UPD-12` writes
+# a user file of that name, so an update carries real policy onto real user
+# code. Loosening a global setting instead would reformat the pack itself.
 POLICY_FILE = "pack/configs/ruff.toml"
+POLICY_EXCLUSIONS = 'extend-exclude = ["../../scratch", "../../.agents"]'
+LOOSE_EXCLUSIONS = 'extend-exclude = ["../../scratch", "../../.agents", "wide_probe.py"]'
+POLICY_PROBE = "wide_probe.py"
 RETIRED_POLICY = "# A policy file that the next release deletes.\n"
 MANIFEST_PATH = "pack/manifest.json"
 # The user-owned path that the record of `claiming_release` names. It exists in
@@ -156,8 +159,8 @@ def _lower_the_version(tree: Path) -> None:
 def _loosen_the_policy(tree: Path) -> None:
     policy = tree / POLICY_FILE
     text = policy.read_text(encoding="utf-8")
-    assert text.count(POLICY_SETTING) == 1, POLICY_FILE
-    _ = policy.write_text(text.replace(POLICY_SETTING, LOOSE_POLICY_SETTING), encoding="utf-8")
+    assert text.count(POLICY_EXCLUSIONS) == 1, POLICY_FILE
+    _ = policy.write_text(text.replace(POLICY_EXCLUSIONS, LOOSE_EXCLUSIONS), encoding="utf-8")
 
 
 def previous_release(root: Path, work: Path) -> Pack:

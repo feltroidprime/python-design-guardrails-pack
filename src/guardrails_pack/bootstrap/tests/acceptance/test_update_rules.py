@@ -24,7 +24,12 @@ from guardrails_pack.bootstrap.tests.acceptance.harness import (
     run,
     sync,
 )
-from guardrails_pack.bootstrap.tests.acceptance.packs import Pack, claiming_release, stale_release
+from guardrails_pack.bootstrap.tests.acceptance.packs import (
+    POLICY_PROBE,
+    Pack,
+    claiming_release,
+    stale_release,
+)
 from guardrails_pack.bootstrap.tests.acceptance.updates import (
     manifest_of,
     update,
@@ -38,9 +43,10 @@ SHIM = "justfile"
 DRIFTED_FILE = "pack/configs/ruff.toml"
 NEWER_VERSION = "99.0.0"
 CUSTOM_RECIPE = "\n# One recipe of my own.\nmine:\n    @echo mine\n"
-WIDE_PROBE = "wide_probe.py"
-# 121 columns of one statement. A 200 column policy leaves it alone, and the
-# current 100 column policy rewraps it, so `format` reads the carried policy.
+WIDE_PROBE = POLICY_PROBE
+# One statement of 121 columns. The previous release excludes this file name
+# from every Ruff rule and the current release checks it, so `format` reads the
+# policy that the update carried.
 WIDE_SOURCE = (
     "VALUE = {"
     '"alpha": 1, "bravo": 2, "charlie": 3, "delta": 4, "echo": 5, "foxtrot": 6, '
