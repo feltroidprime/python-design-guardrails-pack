@@ -58,8 +58,8 @@ select = [
   "UP",
 
   # Comments that schedule manual upkeep. These two families replace the
-  # hand-written ARCH031 rule and its edit-time hook (conflict C18 of #85):
-  # a maintained tool carries the rule instead of pack code.
+  # hand-written upkeep-comment rule and its edit-time hook (conflict C18 of
+  # #85): a maintained tool carries the rule instead of pack code.
   "FIX",
   "TD",
 

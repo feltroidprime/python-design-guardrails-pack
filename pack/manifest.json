@@ -14,7 +14,7 @@
     "pack/configs/prek.toml": "694a81a1ea15f5f0062cc0cdffd825a06be6e1225ff81ea034ad815ce09ca36e",
     "pack/configs/pyrightconfig.json": "89eb66c649ca35be3b5801aa9f71338dd43c4ae1412525815653f3b5f776e44e",
     "pack/configs/pytest.ini": "55d4caad80963a93a5e9cba0209f01ba847e7b9767d3d4b5a7c567b3e798dad9",
-    "pack/configs/ruff.toml": "20d154ff25069a6c3fa0eccee0649a8d60a076cff5f45789ddfb9f5c4ac8dead",
+    "pack/configs/ruff.toml": "67071f1f0dfdd8ec5f714cd90d7094318cf90a61c080fc79be8c6f34f4246130",
     "pack/docs/architecture/EXCEPTIONS.md": "28a5abccb697d5727765ac27f07fc399af5b1b365f20470239504f8bc35a8ad5",
     "pack/docs/architecture/MIGRATION_CHECKLIST.md": "caf9ac45e767e8c78702cdc1f8787c7147fa70655d01ea54553e466f62be8299",
     "pack/docs/architecture/PATTERN_ADMISSION.md": "55cecae03cf053c6e25b1827c60dd6164495d1616b22317e6e49dcfdc34eb78e",
