@@ -22,7 +22,7 @@ from guardrails_pack.bootstrap.tests.acceptance.code import (
     pack_tokens,
 )
 from guardrails_pack.bootstrap.tests.acceptance.conftest import Project, project_once
-from guardrails_pack.bootstrap.tests.acceptance.harness import Outcome, run
+from guardrails_pack.bootstrap.tests.acceptance.harness import Outcome, release_bytes, run
 from guardrails_pack.bootstrap.tests.acceptance.packs import (
     PAYLOAD,
     Pack,
@@ -55,31 +55,31 @@ def test_par_1_the_shipped_payload_equals_the_archive_of_head(
     assert dict(shipped) == dict(committed)
 
 
-def test_par_2_the_pack_owned_surface_is_name_blind(term: Project, term2: Project) -> None:
-    """`PAR-2`: no file an update rewrites carries the identity of one project."""
-    first, second = term.path, term2.path
-    surface = run(("diff", "-r", str(first / "pack"), str(second / "pack")), first)
-    foundation = run(
-        (
-            "diff",
-            "-r",
-            str(first / "src" / term.tokens.package / "_foundation"),
-            str(second / "src" / term2.tokens.package / "_foundation"),
-        ),
-        first,
-    )
-    marker = run(
-        (
-            "cmp",
-            str(first / "src" / term.tokens.package / "py.typed"),
-            str(second / "src" / term2.tokens.package / "py.typed"),
-        ),
-        first,
-    )
+def differing(first: dict[str, bytes], second: dict[str, bytes]) -> list[str]:
+    """Every key of two surfaces whose bytes or whose presence disagree."""
+    return sorted(key for key in first.keys() | second.keys() if first.get(key) != second.get(key))
 
-    assert surface.code == 0, surface.text
-    assert foundation.code == 0, foundation.text
-    assert marker.code == 0, marker.text
+
+def test_par_2_the_pack_owned_surface_is_name_blind(term: Project, term2: Project) -> None:
+    """`PAR-2`: no file an update rewrites carries the identity of one project.
+
+    The comparison reads release content through git, never the directory. Both
+    trees have run their own gate by now, and a bytecode cache is neither
+    pack-owned nor part of any release.
+    """
+    surface = differing(
+        release_bytes(term.path, "pack"),
+        release_bytes(term2.path, "pack"),
+    )
+    foundation = differing(
+        release_bytes(term.path, f"src/{term.tokens.package}/_foundation"),
+        release_bytes(term2.path, f"src/{term2.tokens.package}/_foundation"),
+    )
+    marker = (term.path / "src" / term.tokens.package / "py.typed").read_bytes()
+
+    assert surface == []
+    assert foundation == []
+    assert marker == (term2.path / "src" / term2.tokens.package / "py.typed").read_bytes()
 
 
 def test_par_3_no_pack_token_under_the_pack_directory(term: Project, toolenv: Pack) -> None:

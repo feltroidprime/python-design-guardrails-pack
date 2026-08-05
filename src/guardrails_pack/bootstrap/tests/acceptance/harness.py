@@ -126,6 +126,22 @@ def present_files(tree: Path) -> tuple[str, ...]:
     return tuple(sorted({line for line in outcome.out.splitlines() if line}))
 
 
+def release_bytes(tree: Path, prefix: str) -> dict[str, bytes]:
+    """Every release file of *tree* under *prefix*, keyed relative to *prefix*.
+
+    The key drops the prefix, so two projects with different package names give
+    the same keys and a byte comparison answers whether the surface is
+    name-blind. Reading through git keeps every bytecode cache and tool cache
+    out: a projected tree has already run its own gate by the time it is read.
+    """
+    head = f"{prefix}/"
+    return {
+        relative[len(head) :]: (tree / relative).read_bytes()
+        for relative in present_files(tree)
+        if relative.startswith(head)
+    }
+
+
 def _ignored(path: Path, root: Path) -> bool:
     return any(part in UNCOPIED for part in path.relative_to(root).parts)
 
