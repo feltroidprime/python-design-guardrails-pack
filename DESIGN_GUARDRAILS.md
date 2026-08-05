@@ -19,6 +19,7 @@ baseline.
 | Keep every declared dependency used, and every used dependency declared | The `dependencies` hook runs `deptry` over `src` and `pack/scripts`. |
 | Keep comments free of scheduled manual upkeep | Ruff's `TD` and `FIX` families. They replace the hand-written upkeep-comment rule and its edit-time hook, so a maintained tool carries the rule instead of pack code. The two command-registration rules also go: the router derives the command surface, so no catalog registration remains to guard. |
 | Make a stale record of the Pack-owned Surface fail early | The `manifest` hook recomputes the sha256 of every pack-owned file and compares it with `pack/manifest.json`. A Pack Update reads that record to find local drift, so a stale record would hide a changed file. The hook moves that discovery from update time to commit time. |
+| Keep one project file that both projects can carry | The build backend is `uv_build`, and inclusion is by presence, so `pyproject.toml` holds no include table and no file list. The projection payload is one archive of the last commit, staged inside the package at build time. The gate drops that archive, and `.gitignore` keeps it out of every commit. `pack/tests/test_packaging.py` states the four facts. |
 | Certify recursive self-generation and teach only the exercised workflow | `tests/recursive/test_recursive_generation.py` drives one real N0 → N1 → N2 walk through `repoctl` and checks the downstream agent workflow against its ordered invocation log; `just test` isolates that subprocess-heavy walk, then runs the generated-gate matrix separately from the lightweight remainder so they do not contend, keeping the complete pre-push suite within a seven-minute warm-cache budget while pre-commit stays sub-minute. |
 | Keep the architecture neutral across representative application shapes | `tests/recursive/test_shape_*.py` creates pure-library, stateful-workflow, CLI, external-integration, and multi-capability-composition fixtures through the real repository CLI. |
 | Keep the required fault model tied to deterministic evidence | `tests/fixtures/mutation_catalog.json` maps all fourteen specification mutations to existing killers, and `tests/mutations/test_mutation_catalog.py` checks exact coverage, order, identifiers, mechanisms, commands, and collected tests. |
@@ -66,3 +67,34 @@ mutation catalog that must name a deterministic killer for each specification
 mutation. A floor beside those measures adds a number that a test can raise
 without proving anything, and it makes a legal work-in-progress capability fail
 its own gate.
+
+## One packaging rule: the build ships the last commit
+
+The build backend is `uv_build`, and one `pyproject.toml` serves the Root Pack
+and every Terminal Project. The backend includes what sits under the module
+root, so the file declares no include table and no file list. Inclusion is by
+presence, and the file therefore holds no packaging line that exists only for
+the pack.
+
+The earlier `hatchling` shape failed on that last point. Its `force-include`
+table sat inside the file that projection rewrites, so the table could not erase
+itself. Measurement put 8 pack-only lines in each Terminal Project, and 12
+duplicated entries in the wheel that the project built (#80).
+
+The projection payload is one archive of the last commit, staged inside the
+package at build time. The release step stages the archive, builds the wheel,
+then deletes the archive.
+
+**A release must commit first.** The archive holds `HEAD`, and never the
+working tree. Uncommitted work is absent from the wheel, and the shipped tree is
+then the tree of the previous commit.
+
+An interrupted build leaves the archive in the tree, so two rules protect the
+gate and the history. `exclude` in `pack/configs/prek.toml` drops the archive
+path, and the `manifest` hook ignores the same name, so the finding count of the
+gate does not change. `.gitignore` keeps the archive out of every commit.
+
+The release step belongs to the One-shot Bootstrap capability, and never to a
+`just` recipe. A recipe in `pack/justfile` reaches every Terminal Project, and
+assertion TER-6 of #81 forbids a pack-only instruction there. Ticket I8 builds
+that capability and its `release` function, as section 6 of #85 states.

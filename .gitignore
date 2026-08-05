@@ -14,6 +14,9 @@ coverage.xml
 htmlcov/
 dist/
 build/
+# The build stages one archive inside the package and deletes it again. An
+# interrupted build leaves it behind, and it must never enter a commit.
+src/*/*.tar
 .agent-sessions/
 *.egg-info/
 .DS_Store
