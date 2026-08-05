@@ -80,6 +80,7 @@
     "pack/tests/test_gate_definition.py": "fc6b89b20fec058770fb606f62feafdc44feadd7b46f7f599b8cdbb24cd1bdcc",
     "pack/tests/test_import_contracts.py": "5276b890e12ea50176fc8c6ea0e8a582688e219e9653455cb106a729a5a76fc4",
     "pack/tests/test_none_discipline.py": "7850ac0007ffaee3f2a9e1e19d21f37e99ebab9a6beaeb7aab6a369ae4b0ca3f",
+    "pack/tests/test_packaging.py": "d2dabc6b7585c4158eeaa5b7c836e326e5430e3d9b822a82e5ebc5c4d3be55df",
     "pack/tests/test_path_discipline.py": "d91539e4c5f602b30d78cfa2d1a60b470ecc74c699e1ba2688d07de69b77d80b",
     "pack/tests/test_pin_coherence.py": "a6df153c889bde8b88dcab6c3dc43a161466aa7e486b704e4b9fd2c21e98d908",
     "pack/tests/test_proof_guard.py": "dd272c92a4b83dc2acd38d2e96a83808a1d284d65b4047092a91ab693230345d",
