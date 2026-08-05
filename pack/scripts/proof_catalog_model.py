@@ -10,7 +10,6 @@ if TYPE_CHECKING:
 POLICY_SCHEMA_VERSION = 2
 CATALOG_SCHEMA_VERSION = 1
 CATALOG_INDEX_SCHEMA_VERSION = 1
-ALLOWED_OWNERSHIP_ZONES = frozenset({"foundation", "product"})
 
 
 class CatalogError(ValueError):
@@ -21,16 +20,6 @@ class DuplicatePropertyIdError(CatalogError):
     """Raised when more than one catalog declares the same property ID."""
 
 
-class CatalogOwnershipError(CatalogError):
-    """Raised when a catalog's declared ownership zone disagrees with its path."""
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class CatalogLocation:
-    ownership_zone: str
-    relative_path: Path
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ProofPolicy:
     source_roots: tuple[Path, ...]
@@ -38,7 +27,6 @@ class ProofPolicy:
     behavior_roots: tuple[str, ...]
     excluded_module_stems: frozenset[str]
     oracle_module_stems: frozenset[str]
-    catalog_locations: tuple[CatalogLocation, ...]
 
     @property
     def source_root(self) -> tuple[Path, ...]:
@@ -73,7 +61,6 @@ class ProofExemption:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CatalogEntry:
     path: Path
-    ownership_zone: str
     properties: tuple[PropertySpec, ...]
     exemptions: tuple[ProofExemption, ...]
 
@@ -81,7 +68,6 @@ class CatalogEntry:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CatalogIndexEntry:
     location: str
-    ownership_zone: str
     property_ids: tuple[str, ...]
     exemption_targets: tuple[str, ...]
 
@@ -99,7 +85,6 @@ class ProofCatalogIndex:
             "catalogs": [
                 {
                     "path": entry.location,
-                    "ownership_zone": entry.ownership_zone,
                     "property_ids": list(entry.property_ids),
                     "exemption_targets": list(entry.exemption_targets),
                 }
@@ -130,13 +115,12 @@ class ProofCatalog:
 
     @property
     def index(self) -> ProofCatalogIndex:
-        root = self.path.parent.parent
+        root = self.path.parents[2]
         return ProofCatalogIndex(
             schema_version=CATALOG_INDEX_SCHEMA_VERSION,
             catalogs=tuple(
                 CatalogIndexEntry(
                     location=entry.path.relative_to(root).as_posix(),
-                    ownership_zone=entry.ownership_zone,
                     property_ids=tuple(
                         property_spec.property_id for property_spec in entry.properties
                     ),

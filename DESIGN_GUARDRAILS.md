@@ -11,8 +11,9 @@ baseline.
 | Keep dependency direction explicit | Six `import-linter` contracts in `pack/configs/importlinter.ini` carry capability rules L1 to L4: required layers that point inward, private internals, independent capabilities, a private `_foundation`, and a pure domain. `pack/scripts/import_contracts.py` injects the package name and the discovered capability list, and it holds no rule. |
 | Keep the capability layout checkable by a maintained tool | The three hand-written capability rules are gone. Each one is now a contract, so a defect report comes from `import-linter` rather than from pack code. |
 | Make repository evolution inspectable | `repoctl/` owns repository-generation plans, declarations, lifecycle decisions, and the machine-readable command protocol. |
-| Require executable evidence for critical decisions | `proof/policy.toml`, proof catalogs, `scripts/proof_guard.py`, Hypothesis checks, and bounded CrossHair checks. |
-| Keep generated indexes replaceable | `_generated/` is an ownership zone with deterministic compilation and empty N0 indexes. |
+| Require executable evidence for critical decisions | `pack/proof/policy.toml`, the proof catalogs, `pack/scripts/proof_guard.py`, Hypothesis checks, and bounded CrossHair checks. Catalog discovery is structural: every `*.toml` below `pack/proof/`, and the `proof.toml` of each capability. The policy holds no catalog root and no ownership zone, so no list can disagree with the tree. |
+| Keep the command surface renderable by the router | `CLI001` to `CLI004` in `pack/scripts/cli_surface.py` check every `<cap>/api.py`, composed or not: a reserved parameter name, a missing docstring, an annotation outside the closed stdlib set, and a `bool` parameter without a `False` default. |
+| Keep the command seam pack-owned | `ARCH021` to `ARCH023` in `pack/scripts/cli_discipline.py` target `_foundation/`. `_foundation/router.py` is the one module that may reach an argument parser and the one module that may end the process. |
 | Keep routine quality checks consistent | One gate: twelve local hooks in `pack/configs/prek.toml` — `lockfile`, `format`, `lint`, `types`, `dependencies`, `architecture`, `docs`, `proof`, `symbolic`, `import-contracts`, `tests`, `manifest`. `just check` and CI both run `prek run --all-files -c pack/configs/prek.toml`, so a local run and a CI run cannot disagree. `prek.toml` pins Python hooks to 3.14 so their parser matches the repository language contract. |
 | Keep every declared dependency used, and every used dependency declared | The `dependencies` hook runs `deptry` over `src` and `pack/scripts`. |
 | Keep comments free of scheduled manual upkeep | Ruff's `TD` and `FIX` families. They replace the hand-written upkeep-comment rule and its edit-time hook, so a maintained tool carries the rule instead of pack code. The two command-registration rules also go: the router derives the command surface, so no catalog registration remains to guard. |
@@ -26,6 +27,19 @@ baseline.
 These checks are intentionally structural. They make ownership and evidence
 visible, while names, product behavior, and worthwhile abstractions remain
 engineering decisions for the repository owner.
+
+## One re-aimed guardrail: the mandatory proof root
+
+A behavior root is where the proof guard demands a property or an exemption. It
+was `_foundation/`. It is now the `domain/` and `application/` layer of each
+discovered capability.
+
+`_foundation/` is pack-owned. A pack-owned catalog would have to write the
+package name to name a target below `src/<pkg>/`, and invariant O1 of #85
+forbids an identity token in a pack-owned file. Mandatory proof coverage is
+therefore product behavior, and a capability declares its own laws in its own
+user-owned `proof.toml`. A project with no capability mandates nothing, which is
+the same fact the `import-contracts` hook reports.
 
 ## One deliberate loosening: no coverage assertion
 

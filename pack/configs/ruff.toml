@@ -123,8 +123,10 @@ select = [
 
 [lint.per-file-ignores]
 "../../pack/tests/**/*.py" = ["ANN201", "S101"]
-# Three pack tests drive real local commands: git, uv, and the CrossHair gate.
+# Four pack tests drive real local commands: git, uv, `lint-imports`, and the
+# CrossHair gate.
 "../../pack/tests/test_crosshair_gate.py" = ["S603"]
+"../../pack/tests/test_import_contracts.py" = ["S603"]
 "../../pack/tests/test_pin_coherence.py" = ["S607"]
 "../../pack/tests/test_release.py" = ["S603", "S607"]
 "../../pack/verification/tests/**/*.py" = ["ANN201", "S101"]

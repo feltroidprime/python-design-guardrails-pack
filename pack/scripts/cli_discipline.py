@@ -1,4 +1,9 @@
-"""Static guardrails for the agent-native command-line boundary."""
+"""Static guardrails for the agent-native command-line boundary.
+
+The command seam is pack-owned, and it is `_foundation/`. `_foundation/router.py`
+is the one module that may reach an argument parser, and the one module that may
+end the process. A capability never selects an exit code (#85 section 4.4).
+"""
 
 import ast
 from typing import TYPE_CHECKING
@@ -20,21 +25,34 @@ CLI_FRAMEWORK_ROOTS = frozenset({"argparse", "click", "docopt", "fire", "typer"}
 PROMPT_CALLS = frozenset({"input", "prompt", "confirm"})
 UNCONTROLLED_EXITS = frozenset({"exit", "quit", "sys.exit", "os._exit"})
 
+FOUNDATION_DIRECTORY = "_foundation"
+ROUTER_MODULE = "router.py"
+
+
+def foundation_root(policy: Policy) -> Path:
+    """The pack-owned command seam of the package."""
+    return policy.package_root / FOUNDATION_DIRECTORY
+
+
+def router_module(policy: Policy) -> Path:
+    """The one module that owns the argument parser and the process exit."""
+    return foundation_root(policy) / ROUTER_MODULE
+
 
 def _framework_imports(
     path: Path, node: ast.Import | ast.ImportFrom, policy: Policy
 ) -> list[Violation]:
-    cli_path = policy.package_root / "adapters" / "inbound" / "cli.py"
+    router = router_module(policy)
     violations: list[Violation] = []
     for root in sorted(import_roots(node) & CLI_FRAMEWORK_ROOTS):
-        if path == cli_path and root == "argparse":
+        if path == router and root == "argparse":
             continue
         violations.append(
             violation(
                 path,
                 node,
                 "ARCH023",
-                f"CLI framework '{root}' is private to adapters/inbound/cli.py.",
+                f"CLI framework '{root}' is private to _foundation/router.py.",
             )
         )
     return violations
@@ -43,8 +61,7 @@ def _framework_imports(
 def _call_violations(path: Path, node: ast.Call, policy: Policy) -> list[Violation]:
     name = dotted_name(node.func)
     suffix = name.rsplit(".", maxsplit=1)[-1]
-    automation_root = policy.package_root / "adapters" / "inbound"
-    if suffix in PROMPT_CALLS and is_under(path, automation_root):
+    if suffix in PROMPT_CALLS and is_under(path, foundation_root(policy)):
         return [
             violation(
                 path,
@@ -66,7 +83,7 @@ def _call_violations(path: Path, node: ast.Call, policy: Policy) -> list[Violati
 
 
 def _raise_violations(path: Path, node: ast.Raise, policy: Policy) -> list[Violation]:
-    if path == policy.package_root / "__main__.py" or node.exc is None:
+    if path == router_module(policy) or node.exc is None:
         return []
     raised = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
     if dotted_name(raised) not in {"SystemExit", "builtins.SystemExit"}:
@@ -76,7 +93,7 @@ def _raise_violations(path: Path, node: ast.Raise, policy: Policy) -> list[Viola
             path,
             node,
             "ARCH022",
-            "SystemExit is controlled only by the package module entrypoint.",
+            "SystemExit is controlled only by _foundation/router.py.",
         )
     ]
 

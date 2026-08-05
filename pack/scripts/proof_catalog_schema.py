@@ -8,9 +8,7 @@ import tomllib
 from typing import cast
 
 from scripts.proof_catalog_model import (
-    ALLOWED_OWNERSHIP_ZONES,
     CatalogError,
-    CatalogLocation,
     ProofExemption,
     ProofPolicy,
     PropertySpec,
@@ -111,60 +109,24 @@ def _policy_paths(root: Path, value: object, name: str) -> tuple[Path, ...]:
     return tuple(root / path for path in relative_paths)
 
 
-def _validate_catalog_zones(catalogs: dict[str, object]) -> None:
-    declared_zones = frozenset(catalogs)
-    unknown_zones = sorted(declared_zones - ALLOWED_OWNERSHIP_ZONES)
-    if unknown_zones:
-        raise CatalogError(
-            f"catalogs has unsupported ownership zone(s): {', '.join(unknown_zones)}"
-        )
-    missing_zones = sorted(ALLOWED_OWNERSHIP_ZONES - declared_zones)
-    if missing_zones:
-        raise CatalogError(f"catalogs is missing ownership zone(s): {', '.join(missing_zones)}")
+def load_policy(
+    root: Path, package: str, capabilities: tuple[str, ...], raw: dict[str, object]
+) -> ProofPolicy:
+    """Load one proof policy. Behavior roots are relative to one capability.
 
-
-def _catalog_location(relative_path: Path, name: str, ownership_zone: str) -> CatalogLocation:
-    relative_path = _relative_path(relative_path, name)
-    if relative_path == Path("policy.toml"):
-        raise CatalogError("catalogs cannot include policy.toml")
-    if relative_path.suffix not in ("", ".toml"):
-        raise CatalogError(
-            f"{name} location '{relative_path.as_posix()}' must name a TOML file or directory"
-        )
-    return CatalogLocation(
-        ownership_zone=ownership_zone,
-        relative_path=relative_path,
-    )
-
-
-def _catalog_locations(raw: dict[str, object]) -> tuple[CatalogLocation, ...]:
-    catalogs = table(raw.get("catalogs"), "catalogs")
-    _validate_catalog_zones(catalogs)
-    locations: list[CatalogLocation] = []
-    for ownership_zone in sorted(ALLOWED_OWNERSHIP_ZONES):
-        name = f"catalogs.{ownership_zone}"
-        locations.extend(
-            _catalog_location(Path(value), name, ownership_zone)
-            for value in text_tuple(catalogs.get(ownership_zone), name)
-        )
-    paths = tuple(location.relative_path for location in locations)
-    if len(set(paths)) != len(paths):
-        raise CatalogError("catalogs repeats a catalog path")
-    for index, path in enumerate(paths):
-        for other_path in paths[index + 1 :]:
-            if path in other_path.parents or other_path in path.parents:
-                raise CatalogError(
-                    f"catalogs paths overlap: {path.as_posix()} and {other_path.as_posix()}"
-                )
-    return tuple(locations)
-
-
-def load_policy(root: Path, package: str, raw: dict[str, object]) -> ProofPolicy:
-    """Load one proof policy. Behavior roots are relative to the package."""
+    The declared roots name the core layers of a capability. The loader puts the
+    derived package name and each discovered capability in front of them, so the
+    policy file names neither. A project with no capability therefore mandates
+    no proof coverage, which is the same fact the gate reports elsewhere.
+    """
     policy = table(raw.get("policy"), "policy")
     declared_roots = text_tuple(policy.get("behavior_roots"), "policy.behavior_roots")
     _validate_modules(declared_roots, "policy.behavior_roots")
-    behavior_roots = tuple(f"{package}.{module}" for module in declared_roots)
+    behavior_roots = tuple(
+        f"{package}.{capability}.{module}"
+        for capability in capabilities
+        for module in declared_roots
+    )
     return ProofPolicy(
         source_roots=_policy_paths(root, policy.get("source_roots"), "policy.source_roots"),
         test_roots=_policy_paths(root, policy.get("test_roots"), "policy.test_roots"),
@@ -179,7 +141,6 @@ def load_policy(root: Path, package: str, raw: dict[str, object]) -> ProofPolicy
         oracle_module_stems=frozenset(
             text_tuple(policy.get("oracle_module_stems"), "policy.oracle_module_stems")
         ),
-        catalog_locations=_catalog_locations(raw),
     )
 
 

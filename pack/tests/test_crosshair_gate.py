@@ -13,7 +13,6 @@ PACK_SCRIPTS = REPO_ROOT / "pack" / "scripts"
 
 STATEFUL_PROOF_TOML = """
 schema_version = 1
-ownership_zone = "foundation"
 
 [[properties]]
 id = "DEMO-REPLAY-SAFE"
@@ -41,6 +40,7 @@ def crosshair_project(tmp_path: Path, manifest: str) -> Path:
     for name in (
         "architecture_policy.py",
         "crosshair_gate.py",
+        "identity.py",
         "proof_catalog.py",
         "proof_catalog_model.py",
         "proof_catalog_schema.py",
@@ -167,10 +167,10 @@ def test_gate_analyses_each_target_and_the_canary_with_the_fast_budget(
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert json.loads(arguments_path.read_text(encoding="utf-8")) == [
-        [*FAST_BUDGET_ARGUMENTS, "demo.domain.decisions.identity"],
+        [*FAST_BUDGET_ARGUMENTS, "demo.feature.domain.decisions.identity"],
         [*CANARY_BUDGET_ARGUMENTS, "verification.harness.symbolic_canary.refutable_echo"],
     ]
-    assert "DEMO-PRESERVES-VALUE | demo.domain.decisions:identity" in completed.stdout
+    assert "DEMO-PRESERVES-VALUE | demo.feature.domain.decisions:identity" in completed.stdout
     assert "SYMBOLIC-CANARY" in completed.stdout
 
 
@@ -190,7 +190,7 @@ def test_ci_canary_keeps_the_symbolic_minimum_budget(tmp_path: Path) -> None:
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert json.loads(arguments_path.read_text(encoding="utf-8")) == [
-        [*CI_BUDGET_ARGUMENTS, "demo.domain.decisions.identity"],
+        [*CI_BUDGET_ARGUMENTS, "demo.feature.domain.decisions.identity"],
         [*CANARY_BUDGET_ARGUMENTS, "verification.harness.symbolic_canary.refutable_echo"],
     ]
 
@@ -253,4 +253,6 @@ def test_reported_counterexample_names_the_owning_property(tmp_path: Path) -> No
     completed = run_gate(root, "fast", "DEMO-PRESERVES-VALUE")
 
     assert completed.returncode == 1
-    assert "PROPERTY[DEMO-PRESERVES-VALUE] demo.domain.decisions:identity" in completed.stderr
+    assert (
+        "PROPERTY[DEMO-PRESERVES-VALUE] demo.feature.domain.decisions:identity" in completed.stderr
+    )

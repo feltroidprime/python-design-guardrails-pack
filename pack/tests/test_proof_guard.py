@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from scripts.proof_catalog import (
-    CatalogOwnershipError,
+    CatalogError,
     DuplicatePropertyIdError,
     load_catalog,
 )
@@ -20,15 +20,14 @@ test_roots = ["verification/tests"]
 behavior_roots = ["domain"]
 excluded_module_stems = ["__init__", "errors", "specifications"]
 oracle_module_stems = ["specifications"]
+"""
 
-[catalogs]
-foundation = ["foundation.toml", "outside"]
-product = ["modules"]
+CAPABILITY_TOML = """
+schema_version = 1
 """
 
 PROOF_TOML = """
 schema_version = 1
-ownership_zone = "foundation"
 
 [[properties]]
 id = "DEMO-PRESERVES-VALUE"
@@ -38,10 +37,10 @@ scope = "The synchronous identity decision."
 assumptions = []
 kind = "model"
 strength = "normative"
-targets = ["demo.domain.decisions:identity"]
-oracles = ["demo.domain.specifications:identity_matches"]
+targets = ["demo.feature.domain.decisions:identity"]
+oracles = ["demo.feature.domain.specifications:identity_matches"]
 evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]
-crosshair_targets = ["demo.domain.decisions:identity"]
+crosshair_targets = ["demo.feature.domain.decisions:identity"]
 counterexample = "The result differs from the supplied value."
 failure_modes = ["value substitution", "hidden nondeterminism"]
 """
@@ -54,7 +53,7 @@ def identity_matches(value: int, result: int) -> bool:
 DECISION = """
 import icontract
 
-from demo.domain.specifications import identity_matches
+from demo.feature.domain.specifications import identity_matches
 
 
 @icontract.ensure(
@@ -69,8 +68,8 @@ EVIDENCE = """
 from hypothesis import given, strategies as st
 import pytest
 
-from demo.domain.decisions import identity
-from demo.domain.specifications import identity_matches
+from demo.feature.domain.decisions import identity
+from demo.feature.domain.specifications import identity_matches
 from verification.harness.assertions import assert_falsifies, assert_property
 
 
@@ -106,18 +105,24 @@ def write_policy(root: Path, policy: str = POLICY_TOML) -> None:
     (proof_root(root) / "policy.toml").write_text(policy, encoding="utf-8")
 
 
+def write_capability_catalog(capability_root: Path) -> None:
+    """Rule L1 of #85 gives every capability one `proof.toml`."""
+    (capability_root / "proof.toml").write_text(CAPABILITY_TOML, encoding="utf-8")
+
+
 def proof_project(tmp_path: Path) -> Path:
     root = tmp_path / "project"
-    (root / "src/demo/domain").mkdir(parents=True)
+    (root / "src/demo/feature/domain").mkdir(parents=True)
     (root / "verification/tests").mkdir(parents=True)
     (root / "verification/harness").mkdir(parents=True)
     write_policy(root)
+    write_capability_catalog(root / "src/demo/feature")
     foundation_catalog(root).write_text(PROOF_TOML, encoding="utf-8")
-    (root / "src/demo/domain/specifications.py").write_text(
+    (root / "src/demo/feature/domain/specifications.py").write_text(
         SPECIFICATION,
         encoding="utf-8",
     )
-    (root / "src/demo/domain/decisions.py").write_text(DECISION, encoding="utf-8")
+    (root / "src/demo/feature/domain/decisions.py").write_text(DECISION, encoding="utf-8")
     (root / "verification/tests/test_properties.py").write_text(
         EVIDENCE,
         encoding="utf-8",
@@ -141,11 +146,15 @@ def test_complete_property_chain_passes(tmp_path: Path) -> None:
         "schema_version": 1,
         "catalogs": [
             {
-                "path": "proof/foundation.toml",
-                "ownership_zone": "foundation",
+                "path": "pack/proof/foundation.toml",
                 "property_ids": ["DEMO-PRESERVES-VALUE"],
                 "exemption_targets": [],
-            }
+            },
+            {
+                "path": "src/demo/feature/proof.toml",
+                "property_ids": [],
+                "exemption_targets": [],
+            },
         ],
     }
 
@@ -155,7 +164,7 @@ def test_namespaced_property_id_closes_a_complete_chain(tmp_path: Path) -> None:
     namespaced_id = "REPOCTL::DEMO-PRESERVES-VALUE"
     paths = (
         foundation_catalog(root),
-        root / "src/demo/domain/decisions.py",
+        root / "src/demo/feature/domain/decisions.py",
         root / "verification/tests/test_properties.py",
     )
     for path in paths:
@@ -176,17 +185,17 @@ def test_namespaced_property_id_closes_a_complete_chain(tmp_path: Path) -> None:
 
 def test_public_facade_reexports_resolve_to_exact_proof_symbols(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    (root / "src/demo/api.py").write_text(
-        "from demo.domain.decisions import identity\n"
-        "from demo.domain.specifications import identity_matches\n"
+    (root / "src/demo/feature/api.py").write_text(
+        "from demo.feature.domain.decisions import identity\n"
+        "from demo.feature.domain.specifications import identity_matches\n"
         "\n"
         '__all__ = ["identity", "identity_matches"]\n',
         encoding="utf-8",
     )
     evidence = EVIDENCE.replace(
-        "from demo.domain.decisions import identity\n"
-        "from demo.domain.specifications import identity_matches",
-        "from demo.api import identity, identity_matches",
+        "from demo.feature.domain.decisions import identity\n"
+        "from demo.feature.domain.specifications import identity_matches",
+        "from demo.feature.api import identity, identity_matches",
     )
     (root / "verification/tests/test_properties.py").write_text(
         evidence,
@@ -201,29 +210,36 @@ def test_public_facade_reexports_resolve_to_exact_proof_symbols(tmp_path: Path) 
 
 def test_loader_rejects_duplicate_property_id_across_catalogs(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    duplicate = proof_root(root) / "modules/duplicate.toml"
+    duplicate = proof_root(root) / "extra/duplicate.toml"
     duplicate.parent.mkdir()
-    duplicate.write_text(
-        PROOF_TOML.replace('ownership_zone = "foundation"', 'ownership_zone = "product"'),
-        encoding="utf-8",
-    )
+    duplicate.write_text(PROOF_TOML, encoding="utf-8")
 
     with pytest.raises(DuplicatePropertyIdError, match="Duplicate property IDs across catalogs"):
         load_catalog(root)
 
 
-def test_loader_rejects_catalog_ownership_zone_that_disagrees_with_path(
-    tmp_path: Path,
-) -> None:
+def test_loader_discovers_every_catalog_below_the_proof_root(tmp_path: Path) -> None:
+    """Discovery is structural, so the policy declares no catalog root."""
     root = proof_project(tmp_path)
-    misplaced = proof_root(root) / "modules/misplaced.toml"
-    misplaced.parent.mkdir()
-    misplaced.write_text(
-        'schema_version = 1\nownership_zone = "foundation"\n',
-        encoding="utf-8",
-    )
+    nested = proof_root(root) / "extra/nested.toml"
+    nested.parent.mkdir()
+    nested.write_text(CAPABILITY_TOML, encoding="utf-8")
 
-    with pytest.raises(CatalogOwnershipError, match="declares ownership zone 'foundation'"):
+    catalog = load_catalog(root)
+
+    assert [entry.path.name for entry in catalog.catalogs] == [
+        "nested.toml",
+        "foundation.toml",
+        "proof.toml",
+    ]
+
+
+def test_loader_rejects_a_capability_without_a_proof_catalog(tmp_path: Path) -> None:
+    """Rule L1 of #85 gives every capability one `proof.toml`."""
+    root = proof_project(tmp_path)
+    (root / "src/demo/feature/proof.toml").unlink()
+
+    with pytest.raises(CatalogError, match=r"Capability without proof\.toml: feature"):
         load_catalog(root)
 
 
@@ -234,17 +250,19 @@ def test_one_policy_discovers_a_behavior_root_beside_the_domain(tmp_path: Path) 
         POLICY_TOML.replace('behavior_roots = ["domain"]', 'behavior_roots = ["outside"]'),
     )
     foundation_catalog(root).write_text(
-        PROOF_TOML.replace("demo.domain", "demo.outside"),
+        PROOF_TOML.replace("demo.feature.domain", "demo.feature.outside"),
         encoding="utf-8",
     )
-    (root / "src/demo/outside").mkdir()
-    (root / "src/demo/outside/specifications.py").write_text(SPECIFICATION, encoding="utf-8")
-    (root / "src/demo/outside/decisions.py").write_text(
-        DECISION.replace("demo.domain", "demo.outside"),
+    (root / "src/demo/feature/outside").mkdir()
+    (root / "src/demo/feature/outside/specifications.py").write_text(
+        SPECIFICATION, encoding="utf-8"
+    )
+    (root / "src/demo/feature/outside/decisions.py").write_text(
+        DECISION.replace("demo.feature.domain", "demo.feature.outside"),
         encoding="utf-8",
     )
     (root / "verification/tests/test_properties.py").write_text(
-        EVIDENCE.replace("demo.domain", "demo.outside"),
+        EVIDENCE.replace("demo.feature.domain", "demo.feature.outside"),
         encoding="utf-8",
     )
 
@@ -253,7 +271,7 @@ def test_one_policy_discovers_a_behavior_root_beside_the_domain(tmp_path: Path) 
     assert violations == ()
     assert catalog is not None
     property_spec = catalog.by_id["DEMO-PRESERVES-VALUE"]
-    assert property_spec.targets == ("demo.outside.decisions:identity",)
+    assert property_spec.targets == ("demo.feature.outside.decisions:identity",)
     assert property_spec.evidence == frozenset(
         {"icontract", "hypothesis", "crosshair", "falsifier"}
     )
@@ -261,7 +279,7 @@ def test_one_policy_discovers_a_behavior_root_beside_the_domain(tmp_path: Path) 
 
 def test_new_public_core_behavior_is_rejected_until_classified(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    decisions = root / "src/demo/domain/decisions.py"
+    decisions = root / "src/demo/feature/domain/decisions.py"
     source = decisions.read_text(encoding="utf-8")
     decisions.write_text(
         f"{source}\n\ndef unclassified(value: int) -> int:\n    return value\n",
@@ -273,7 +291,7 @@ def test_new_public_core_behavior_is_rejected_until_classified(tmp_path: Path) -
 
 def test_property_target_without_linked_icontract_is_rejected(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    decision = root / "src/demo/domain/decisions.py"
+    decision = root / "src/demo/feature/domain/decisions.py"
     decision.write_text(
         "def identity(value: int) -> int:\n    return value\n",
         encoding="utf-8",
@@ -293,7 +311,7 @@ def test_pure_contracted_function_requires_crosshair_evidence(tmp_path: Path) ->
             'evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]',
             'evidence = ["icontract", "hypothesis", "falsifier"]',
         ).replace(
-            'crosshair_targets = ["demo.domain.decisions:identity"]\n',
+            'crosshair_targets = ["demo.feature.domain.decisions:identity"]\n',
             "",
         ),
         encoding="utf-8",
@@ -346,9 +364,9 @@ def test_proof_helper_id_must_match_the_marker(tmp_path: Path) -> None:
 
 def test_oracle_cannot_call_the_behavior_it_judges(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    specification = root / "src/demo/domain/specifications.py"
+    specification = root / "src/demo/feature/domain/specifications.py"
     specification.write_text(
-        "from demo.domain.decisions import identity\n\n"
+        "from demo.feature.domain.decisions import identity\n\n"
         "def identity_matches(value: int, result: int) -> bool:\n"
         "    return identity(value) == result\n",
         encoding="utf-8",
@@ -362,7 +380,7 @@ def test_oracle_cannot_call_the_behavior_it_judges(tmp_path: Path) -> None:
 
 def test_oracle_must_be_an_explicit_boolean_predicate(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    specification = root / "src/demo/domain/specifications.py"
+    specification = root / "src/demo/feature/domain/specifications.py"
     specification.write_text(
         "def identity_matches(value: int, result: int):\n    return value == result\n",
         encoding="utf-8",
@@ -388,7 +406,6 @@ def test_canonical_proof_must_reference_the_production_target(tmp_path: Path) ->
 CALLABLE_PROPERTY_ID = "CALLABLE-HANDLER-PRESERVES-VALUE"
 CALLABLE_TOML = f'''
 schema_version = 1
-ownership_zone = "foundation"
 
 [[properties]]
 id = "{CALLABLE_PROPERTY_ID}"
@@ -475,6 +492,7 @@ def callable_project(tmp_path: Path, invocation: str) -> Path:
     (root / "verification/tests").mkdir(parents=True)
     (root / "verification/harness").mkdir(parents=True)
     write_policy(root, CALLABLE_POLICY_TOML)
+    write_capability_catalog(root / "src/demo/core")
     foundation_catalog(root).write_text(CALLABLE_TOML, encoding="utf-8")
     (root / "src/demo/core/specifications.py").write_text(
         CALLABLE_SPECIFICATION,
@@ -608,7 +626,7 @@ def test_same_named_oracle_from_another_module_is_not_accepted(tmp_path: Path) -
     evidence = root / "verification/tests/test_properties.py"
     evidence.write_text(
         EVIDENCE.replace(
-            "from demo.domain.specifications import identity_matches",
+            "from demo.feature.domain.specifications import identity_matches",
             "from demo.other import identity_matches",
         ),
         encoding="utf-8",
@@ -622,8 +640,8 @@ def test_exact_oracle_import_alias_is_accepted(tmp_path: Path) -> None:
     evidence = root / "verification/tests/test_properties.py"
     evidence.write_text(
         EVIDENCE.replace(
-            "from demo.domain.specifications import identity_matches",
-            "from demo.domain.specifications import identity_matches as oracle",
+            "from demo.feature.domain.specifications import identity_matches",
+            "from demo.feature.domain.specifications import identity_matches as oracle",
         ).replace("identity_matches(", "oracle("),
         encoding="utf-8",
     )
@@ -759,7 +777,7 @@ class ReplayMachine(RuleBasedStateMachine):
 
 def test_oracle_cannot_import_or_call_effectful_operations(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    specification = root / "src/demo/domain/specifications.py"
+    specification = root / "src/demo/feature/domain/specifications.py"
     specification.write_text(
         "from pathlib import Path\n\n"
         "def identity_matches(value: int, result: int) -> bool:\n"
@@ -772,7 +790,7 @@ def test_oracle_cannot_import_or_call_effectful_operations(tmp_path: Path) -> No
 
 def test_oracle_cannot_be_async_or_variadic(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    specification = root / "src/demo/domain/specifications.py"
+    specification = root / "src/demo/feature/domain/specifications.py"
     specification.write_text(
         "async def identity_matches(*values: int) -> bool:\n"
         "    return len(values) == 2 and values[0] == values[1]\n",
@@ -787,8 +805,8 @@ def test_missing_declared_target_is_rejected(tmp_path: Path) -> None:
     manifest = foundation_catalog(root)
     manifest.write_text(
         PROOF_TOML.replace(
-            "demo.domain.decisions:identity",
-            "demo.domain.decisions:missing_identity",
+            "demo.feature.domain.decisions:identity",
+            "demo.feature.domain.decisions:missing_identity",
         ),
         encoding="utf-8",
     )
@@ -801,8 +819,8 @@ def test_missing_declared_oracle_is_rejected(tmp_path: Path) -> None:
     manifest = foundation_catalog(root)
     manifest.write_text(
         PROOF_TOML.replace(
-            "demo.domain.specifications:identity_matches",
-            "demo.domain.specifications:missing_identity_matches",
+            "demo.feature.domain.specifications:identity_matches",
+            "demo.feature.domain.specifications:missing_identity_matches",
         ),
         encoding="utf-8",
     )
@@ -812,7 +830,7 @@ def test_missing_declared_oracle_is_rejected(tmp_path: Path) -> None:
 
 def test_icontract_description_must_carry_a_literal_property_id(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    decision = root / "src/demo/domain/decisions.py"
+    decision = root / "src/demo/feature/domain/decisions.py"
     decision.write_text(
         DECISION.replace(
             'description="PROPERTY[DEMO-PRESERVES-VALUE]: result preserves the input",',
@@ -826,7 +844,7 @@ def test_icontract_description_must_carry_a_literal_property_id(tmp_path: Path) 
 
 def test_icontract_property_id_must_exist_in_the_catalog(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    decision = root / "src/demo/domain/decisions.py"
+    decision = root / "src/demo/feature/domain/decisions.py"
     decision.write_text(
         DECISION.replace("DEMO-PRESERVES-VALUE", "UNKNOWN-PROPERTY"),
         encoding="utf-8",
@@ -837,7 +855,7 @@ def test_icontract_property_id_must_exist_in_the_catalog(tmp_path: Path) -> None
 
 def test_icontract_must_call_a_declared_oracle(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    decision = root / "src/demo/domain/decisions.py"
+    decision = root / "src/demo/feature/domain/decisions.py"
     decision.write_text(
         DECISION.replace(
             "lambda value, result: identity_matches(value, result)",
@@ -853,7 +871,7 @@ def test_icontract_accepts_a_named_local_condition_calling_the_oracle(
     tmp_path: Path,
 ) -> None:
     root = proof_project(tmp_path)
-    decision = root / "src/demo/domain/decisions.py"
+    decision = root / "src/demo/feature/domain/decisions.py"
     decision.write_text(
         DECISION.replace(
             "@icontract.ensure(\n    lambda value, result: identity_matches(value, result),",
@@ -876,7 +894,7 @@ def test_icontract_rejects_a_named_local_condition_that_skips_the_oracle(
     tmp_path: Path,
 ) -> None:
     root = proof_project(tmp_path)
-    decision = root / "src/demo/domain/decisions.py"
+    decision = root / "src/demo/feature/domain/decisions.py"
     decision.write_text(
         DECISION.replace(
             "@icontract.ensure(\n    lambda value, result: identity_matches(value, result),",
@@ -900,10 +918,10 @@ def test_icontract_rejects_same_named_oracle_from_another_module(
         "def identity_matches(value: int, result: int) -> bool:\n    return value == result\n",
         encoding="utf-8",
     )
-    decision = root / "src/demo/domain/decisions.py"
+    decision = root / "src/demo/feature/domain/decisions.py"
     decision.write_text(
         DECISION.replace(
-            "from demo.domain.specifications import identity_matches",
+            "from demo.feature.domain.specifications import identity_matches",
             "from demo.other import identity_matches",
         ),
         encoding="utf-8",
@@ -914,11 +932,11 @@ def test_icontract_rejects_same_named_oracle_from_another_module(
 
 def test_icontract_accepts_exact_oracle_import_alias(tmp_path: Path) -> None:
     root = proof_project(tmp_path)
-    decision = root / "src/demo/domain/decisions.py"
+    decision = root / "src/demo/feature/domain/decisions.py"
     decision.write_text(
         DECISION.replace(
-            "from demo.domain.specifications import identity_matches",
-            "from demo.domain.specifications import identity_matches as oracle",
+            "from demo.feature.domain.specifications import identity_matches",
+            "from demo.feature.domain.specifications import identity_matches as oracle",
         ).replace("identity_matches(value, result)", "oracle(value, result)"),
         encoding="utf-8",
     )
@@ -1036,23 +1054,23 @@ def two_oracle_project(tmp_path: Path, canaries: str) -> Path:
     root = proof_project(tmp_path)
     foundation_catalog(root).write_text(
         PROOF_TOML.replace(
-            'oracles = ["demo.domain.specifications:identity_matches"]',
+            'oracles = ["demo.feature.domain.specifications:identity_matches"]',
             "oracles = [\n"
-            '  "demo.domain.specifications:identity_matches",\n'
-            '  "demo.domain.specifications:value_is_bounded",\n'
+            '  "demo.feature.domain.specifications:identity_matches",\n'
+            '  "demo.feature.domain.specifications:value_is_bounded",\n'
             "]",
         ),
         encoding="utf-8",
     )
-    (root / "src/demo/domain/specifications.py").write_text(
+    (root / "src/demo/feature/domain/specifications.py").write_text(
         TWO_ORACLE_SPECIFICATION,
         encoding="utf-8",
     )
     header, _, _ = EVIDENCE.partition('@pytest.mark.proves("DEMO-PRESERVES-VALUE")')
     (root / "verification/tests/test_properties.py").write_text(
         header.replace(
-            "from demo.domain.specifications import identity_matches",
-            "from demo.domain.specifications import identity_matches, value_is_bounded",
+            "from demo.feature.domain.specifications import identity_matches",
+            "from demo.feature.domain.specifications import identity_matches, value_is_bounded",
         )
         + TWO_ORACLE_PROOF
         + canaries,
@@ -1082,7 +1100,7 @@ def test_oracle_effect_hidden_behind_a_private_helper_is_rejected(
     tmp_path: Path,
 ) -> None:
     root = proof_project(tmp_path)
-    (root / "src/demo/domain/specifications.py").write_text(
+    (root / "src/demo/feature/domain/specifications.py").write_text(
         "def _recorded(value: int) -> int:\n"
         "    print(value)\n"
         "    return value\n\n\n"
@@ -1099,14 +1117,14 @@ EXEMPTED_BEHAVIOR = "\n\ndef unclassified(value: int) -> int:\n    return value\
 
 def exempting_project(tmp_path: Path, revisit: str) -> Path:
     root = proof_project(tmp_path)
-    decisions = root / "src/demo/domain/decisions.py"
+    decisions = root / "src/demo/feature/domain/decisions.py"
     decisions.write_text(
         decisions.read_text(encoding="utf-8") + EXEMPTED_BEHAVIOR,
         encoding="utf-8",
     )
     foundation_catalog(root).write_text(
         PROOF_TOML + "\n[[exemptions]]\n"
-        'target = "demo.domain.decisions:unclassified"\n'
+        'target = "demo.feature.domain.decisions:unclassified"\n'
         'reason = "Scheduled for a property once the shape settles."\n'
         f'revisit = "{revisit}"\n',
         encoding="utf-8",
