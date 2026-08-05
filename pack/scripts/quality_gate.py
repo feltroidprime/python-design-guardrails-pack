@@ -28,8 +28,8 @@ class HookInspection:
 
 
 def repository_root() -> Path:
-    """The generated repository root, resolved from this script's location."""
-    return Path(__file__).resolve().parents[1]
+    """The repository root, resolved from this script location."""
+    return Path(__file__).resolve().parents[2]
 
 
 def repairs() -> tuple[Check, ...]:
