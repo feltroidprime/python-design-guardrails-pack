@@ -8,8 +8,8 @@ destination of an update (#85 sections 2.2 and 3.2).
 
 from pathlib import Path
 
-from guardrails_pack.bootstrap.tests.acceptance.ban_lists import UNOWNED_TREES
-from guardrails_pack.bootstrap.tests.acceptance.code import CAPABILITY
+from guardrails_pack.bootstrap.tests.acceptance.ban_lists import UNOWNED_TREES, exempt
+from guardrails_pack.bootstrap.tests.acceptance.code import CAPABILITY, grep
 from guardrails_pack.bootstrap.tests.acceptance.conftest import Project
 from guardrails_pack.bootstrap.tests.acceptance.harness import porcelain, run
 from guardrails_pack.bootstrap.tests.acceptance.packs import Pack
@@ -25,18 +25,16 @@ def test_rem_1_no_capability_directory_survives(term: Project) -> None:
 
 
 def test_rem_2_the_capability_word_does_not_occur(term: Project) -> None:
-    """`REM-2`: the downstream recipe is `setup`, so this is a plain word search."""
-    found = run(
-        ("grep", "-rIn", "-w", CAPABILITY, str(term.path), "--exclude-dir=.git"),
-        term.path,
-    )
-    owned = [
-        line
-        for line in found.out.splitlines()
-        if not any(f"/{tree}/" in line for tree in UNOWNED_TREES)
-    ]
+    """`REM-2`: the downstream recipe is `setup`, so this is a plain word search.
 
-    assert owned == []
+    The scan reads the release files of the project, so the dependencies inside
+    its virtual environment answer nothing here. One of them is a test runner
+    plugin whose own source carries the word, and this project owns neither that
+    source nor its vocabulary.
+    """
+    found = grep(term.path, CAPABILITY, "-w")
+
+    assert [line for line in found if not exempt(line, *UNOWNED_TREES)] == []
 
 
 def test_rem_3_the_module_is_gone(term: Project) -> None:

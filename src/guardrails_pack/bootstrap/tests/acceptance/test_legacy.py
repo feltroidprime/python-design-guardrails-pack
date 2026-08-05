@@ -22,6 +22,7 @@ from guardrails_pack.bootstrap.tests.acceptance.ban_lists import (
     PROSE_SUFFIXES,
     SOURCE_FILES,
     UNOWNED_TREES,
+    exempt,
     prose_pattern,
 )
 from guardrails_pack.bootstrap.tests.acceptance.code import gate_hook_ids, grep
@@ -46,16 +47,6 @@ TWELVE_HOOKS = frozenset(
 )
 
 
-def exempt(line: str, *names: str) -> bool:
-    """Whether one grep line names a file that its own list exempts.
-
-    A grep line is `path:number:content`. Only the path decides an exemption,
-    because a document that names an exempt file must not exempt itself.
-    """
-    path = line.split(":", 1)[0]
-    return any(name in path for name in names)
-
-
 def test_leg_1_no_legacy_identifier_in_the_pack(root: Path) -> None:
     """`LEG-1` on `ROOT`: Code B, list 1, including the three coverage strings."""
     found = grep(root, IDENTIFIER_PATTERN)
@@ -74,8 +65,7 @@ def test_leg_1_no_legacy_identifier_in_a_project(term: Project) -> None:
 
 def test_leg_2_no_legacy_prose_in_the_pack(root: Path) -> None:
     """`LEG-2` on `ROOT`: Code B, list 2, read from `CONTEXT.md` of the same tree."""
-    includes = tuple(f"--include={suffix}" for suffix in PROSE_SUFFIXES)
-    found = grep(root, prose_pattern(root), "-i", *includes)
+    found = grep(root, prose_pattern(root), "-i", suffixes=PROSE_SUFFIXES)
 
     assert [
         line for line in found if not exempt(line, *SOURCE_FILES, *UNOWNED_TREES, *EXEMPT_IN_PACK)
@@ -84,8 +74,7 @@ def test_leg_2_no_legacy_prose_in_the_pack(root: Path) -> None:
 
 def test_leg_2_no_legacy_prose_in_a_project(term: Project) -> None:
     """`LEG-2` on `TERM`: old vocabulary in documents that agents read."""
-    includes = tuple(f"--include={suffix}" for suffix in PROSE_SUFFIXES)
-    found = grep(term.path, prose_pattern(term.path), "-i", *includes)
+    found = grep(term.path, prose_pattern(term.path), "-i", suffixes=PROSE_SUFFIXES)
 
     assert [line for line in found if not exempt(line, *SOURCE_FILES, *UNOWNED_TREES)] == []
 

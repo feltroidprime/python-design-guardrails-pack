@@ -61,6 +61,7 @@ __all__ = [
     "UNSEARCHABLE_TERMS",
     "VOCABULARY_FILE",
     "avoid_terms",
+    "exempt",
     "prose_pattern",
 ]
 
@@ -70,7 +71,10 @@ IDENTIFIER_PATTERN = (
     r"|\bOWN00[1-5]\b|\bARCH02[45]\b|\bARCH031\b|\bCAP00[1-3]\b|\bN[012]\b"
     r"|pytest-cov|--cov|\[tool\.coverage"
 )
-PROSE_SUFFIXES = ("*.md", "*.py")
+# List 2 reads prose, and these are the two kinds of file that carry it. The
+# scan reads a file list rather than a directory, so each entry is a file name
+# ending and never a shell pattern.
+PROSE_SUFFIXES = (".md", ".py")
 # The document that states the vocabulary of the target, and with it the words
 # the target retired. It is the source of list 2.
 VOCABULARY_FILE = "CONTEXT.md"
@@ -116,6 +120,18 @@ SOURCE_FILES = ("ban_lists.py", VOCABULARY_FILE)
 UNOWNED_TREES = ("docs/vendored", ".agents")
 # The Root Pack keeps its own history. A Terminal Project starts a fresh one.
 EXEMPT_IN_PACK = ("CHANGELOG.md",)
+
+
+def exempt(line: str, *names: str) -> bool:
+    """Whether one grep line names a file that a list exempts.
+
+    A grep line is `path:number:content`, and the path is relative to the tree
+    under scan. Only the path decides an exemption, because a document that
+    names an exempt file must not exempt itself. Every word search of #81 reads
+    this one rule, so no scan can carry an exemption of its own.
+    """
+    path = line.split(":", 1)[0]
+    return any(name in path for name in names)
 
 
 def avoid_terms(tree: Path) -> tuple[str, ...]:
