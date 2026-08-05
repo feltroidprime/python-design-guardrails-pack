@@ -96,5 +96,39 @@ gate does not change. `.gitignore` keeps the archive out of every commit.
 
 The release step belongs to the One-shot Bootstrap capability, and never to a
 `just` recipe. A recipe in `pack/justfile` reaches every Terminal Project, and
-assertion TER-6 of #81 forbids a pack-only instruction there. Ticket I8 builds
-that capability and its `release` function, as section 6 of #85 states.
+assertion TER-6 of #81 forbids a pack-only instruction there. `pyrepo bootstrap
+release` is that step, and it disappears with the capability.
+
+## Three widened tool entries: a capability is real code
+
+The One-shot Bootstrap is the first Product Capability of this tree, and three
+pack-owned entries had to widen for a capability to exist at all. Each glob
+holds no package name and no capability name, so a pack update carries it to
+every project unchanged.
+
+| Entry | Widening | Why |
+|---|---|---|
+| `pack/configs/pytest.ini` | `testpaths` gains `src` | Rule L1 of #85 puts a capability's tests inside the capability. Without this they are never collected, and the `acceptance` marker of the `tests` hook has nothing to exclude. |
+| `pack/configs/ruff.toml` | `src/*/*/tests/**` gains `ANN201`, `S101`, `S603`, `S607`; `src/*/*/adapters/outbound/commands.py` gains `S603` | A capability's tests are tests: they assert, and they drive real local tools. The pack's own tests carry the first two entries already. |
+| `pack/configs/prek.toml` | the `dependencies` hook excludes `src/*/*/tests` | A test imports the test tools of the development group, which `deptry` reads as a misplaced dependency inside `src/`. |
+
+The one narrowing worth naming is `S603` on one module. A capability reaches an
+external program through one outbound adapter, and starting a process is that
+module's whole job. `shutil.which` resolves the program before it runs, so the
+partial-path rule still applies to every other module of every project.
+
+## One proof catalog of exemptions: the capability that has no unit
+
+`src/guardrails_pack/bootstrap/proof.toml` exempts all 21 of its public
+behaviors rather than proving them. This is the one such catalog in the tree,
+and the reason is the shape of the behavior, not its difficulty.
+
+Terminal Projection is a whole-tree effect. Its laws are byte parity between two
+trees, the absence of a token, the absence of a directory, and an overlay that
+only replaces. None of them is observable in one generated example, and all of
+them are observable in one comparison of two real trees. That comparison is the
+acceptance suite of #81: 53 assertions, run from the installed console script,
+which ticket I10 writes into the acceptance directory of the same capability.
+
+Each exemption carries a revisit date. Terminal Projection deletes the
+capability, so neither the catalog nor the suite reaches a user's project.

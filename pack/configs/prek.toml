@@ -86,11 +86,14 @@ pass_filenames = false
 always_run = true
 
 # `scripts` is the pack-owned package that pack/ carries on PYTHONPATH, so
-# deptry must not read it as a missing distribution.
+# deptry must not read it as a missing distribution. A capability's own tests
+# sit inside the package (rule L1 of #85), and a test imports the test tools of
+# the development group, so the pattern below keeps them out of the scan. It
+# holds no package name and no capability name.
 [[repos.hooks]]
 id = "dependencies"
 name = "dependencies"
-entry = "uv run deptry src pack/scripts --known-first-party scripts"
+entry = "uv run deptry src pack/scripts --known-first-party scripts --extend-exclude 'src/[^/]+/[^/]+/tests'"
 language = "system"
 pass_filenames = false
 always_run = true

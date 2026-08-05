@@ -126,6 +126,15 @@ select = [
 # and exit 70 (#85 section 3.1). Its last handler must therefore be blind, and
 # the glob keeps this entry free of the package name.
 "../../src/*/_foundation/router.py" = ["BLE001"]
+# A capability that reaches an external program does it in one outbound
+# adapter, and `S603` is that module's whole job: it starts a process whose
+# argument list the application layer builds. `shutil.which` resolves the
+# program first, so the partial-path rule still applies everywhere else. Both
+# globs hold no package name and no capability name.
+"../../src/*/*/adapters/outbound/commands.py" = ["S603"]
+# A capability's own tests are tests: they assert, and they drive real local
+# tools by name. The same two entries hold for the pack's own tests below.
+"../../src/*/*/tests/**/*.py" = ["ANN201", "S101", "S603", "S607"]
 "../../pack/tests/**/*.py" = ["ANN201", "S101"]
 # Four pack tests drive real local commands: git, uv, `lint-imports`, and the
 # CrossHair gate.

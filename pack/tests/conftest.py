@@ -1,4 +1,4 @@
-"""Shared test bootstrap: git-context isolation.
+"""Shared test setup: git-context isolation.
 
 A test that runs `git` inside a directory it created must not reach the
 repository that invoked pytest. A git hook exports `GIT_DIR`, `GIT_INDEX_FILE`
