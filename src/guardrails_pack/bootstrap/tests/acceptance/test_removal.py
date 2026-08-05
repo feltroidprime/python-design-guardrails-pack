@@ -8,17 +8,13 @@ destination of an update (#85 sections 2.2 and 3.2).
 
 from pathlib import Path
 
+from guardrails_pack.bootstrap.tests.acceptance.ban_lists import UNOWNED_TREES
 from guardrails_pack.bootstrap.tests.acceptance.code import CAPABILITY
 from guardrails_pack.bootstrap.tests.acceptance.conftest import Project
 from guardrails_pack.bootstrap.tests.acceptance.harness import porcelain, run
 from guardrails_pack.bootstrap.tests.acceptance.packs import Pack
 
 UNKNOWN = "invalid_syntax"
-# The three trees whose words this repository does not own, which are the same
-# three that `exclude` of the gate definition drops: a read-only third-party
-# documentation pin, externally sourced agent skills, and the material that a
-# later ticket of #90 owns. `bootstrap` is an ordinary English word there.
-UNOWNED_TREES = ("docs/vendored", ".agents", "scratch")
 
 
 def test_rem_1_no_capability_directory_survives(term: Project) -> None:

@@ -4,9 +4,9 @@ The group certifies the deletion boundary of #85 section 1, the twelve hooks of
 section 4.4, a green gate in both trees, and a gate definition that a pack update
 can replace whole.
 
-`LEG-1` and `LEG-2` are the two ban lists of Code B. Three exemptions apply, all
-stated in `ban_lists.py`: that module itself, and, in the Root Pack only,
-`CHANGELOG.md` and `docs/vendored/`.
+`LEG-1` and `LEG-2` are the two ban lists of Code B. Every exemption is stated
+in `ban_lists.py`: that module itself, the two trees whose words this repository
+does not own, and, in the Root Pack only, `CHANGELOG.md`.
 """
 
 from pathlib import Path
@@ -15,10 +15,13 @@ import pytest
 
 from guardrails_pack.bootstrap.tests.acceptance.ban_lists import (
     EXEMPT_IN_PACK,
+    GENERATED_DIRECTORY,
     IDENTIFIER_PATTERN,
+    LEGACY_PATHS,
     PROSE_PATTERN,
     PROSE_SUFFIXES,
     SOURCE_FILE,
+    UNOWNED_TREES,
 )
 from guardrails_pack.bootstrap.tests.acceptance.code import gate_hook_ids, grep
 from guardrails_pack.bootstrap.tests.acceptance.conftest import Project
@@ -40,18 +43,6 @@ TWELVE_HOOKS = frozenset(
         "manifest",
     }
 )
-LEGACY_PATHS = (
-    "template",
-    "copier.yml",
-    "instantiate.py",
-    "scripts/quality_gate.py",
-    ".repo",
-    "proof/modules",
-    "tests/modules",
-    "verification/modules",
-    "docs/product",
-)
-GENERATED_PACKAGE_DIRECTORY = "_generated"
 
 
 def exempt(line: str, *names: str) -> bool:
@@ -63,14 +54,16 @@ def test_leg_1_no_legacy_identifier_in_the_pack(root: Path) -> None:
     """`LEG-1` on `ROOT`: Code B, list 1, including the three coverage strings."""
     found = grep(root, IDENTIFIER_PATTERN)
 
-    assert [line for line in found if not exempt(line, SOURCE_FILE, *EXEMPT_IN_PACK)] == []
+    assert [
+        line for line in found if not exempt(line, SOURCE_FILE, *UNOWNED_TREES, *EXEMPT_IN_PACK)
+    ] == []
 
 
 def test_leg_1_no_legacy_identifier_in_a_project(term: Project) -> None:
     """`LEG-1` on `TERM`: a fresh project needs no exemption but the list itself."""
     found = grep(term.path, IDENTIFIER_PATTERN)
 
-    assert [line for line in found if not exempt(line, SOURCE_FILE)] == []
+    assert [line for line in found if not exempt(line, SOURCE_FILE, *UNOWNED_TREES)] == []
 
 
 def test_leg_2_no_legacy_prose_in_the_pack(root: Path) -> None:
@@ -78,7 +71,9 @@ def test_leg_2_no_legacy_prose_in_the_pack(root: Path) -> None:
     includes = tuple(f"--include={suffix}" for suffix in PROSE_SUFFIXES)
     found = grep(root, PROSE_PATTERN, "-i", *includes)
 
-    assert [line for line in found if not exempt(line, SOURCE_FILE, *EXEMPT_IN_PACK)] == []
+    assert [
+        line for line in found if not exempt(line, SOURCE_FILE, *UNOWNED_TREES, *EXEMPT_IN_PACK)
+    ] == []
 
 
 def test_leg_2_no_legacy_prose_in_a_project(term: Project) -> None:
@@ -86,7 +81,7 @@ def test_leg_2_no_legacy_prose_in_a_project(term: Project) -> None:
     includes = tuple(f"--include={suffix}" for suffix in PROSE_SUFFIXES)
     found = grep(term.path, PROSE_PATTERN, "-i", *includes)
 
-    assert [line for line in found if not exempt(line, SOURCE_FILE)] == []
+    assert [line for line in found if not exempt(line, SOURCE_FILE, *UNOWNED_TREES)] == []
 
 
 @pytest.mark.parametrize("legacy", LEGACY_PATHS)
@@ -98,8 +93,8 @@ def test_leg_3_no_legacy_path_survives(root: Path, term: Project, legacy: str) -
 
 def test_leg_3_no_generated_directory_under_a_package(root: Path, term: Project) -> None:
     """`LEG-3`: the derived index directory of the deleted control plane."""
-    assert list((root / "src").glob(f"*/{GENERATED_PACKAGE_DIRECTORY}")) == []
-    assert list((term.path / "src").glob(f"*/{GENERATED_PACKAGE_DIRECTORY}")) == []
+    assert list((root / "src").glob(f"*/{GENERATED_DIRECTORY}")) == []
+    assert list((term.path / "src").glob(f"*/{GENERATED_DIRECTORY}")) == []
 
 
 def test_leg_4_the_gate_is_exactly_twelve_hooks(root: Path, term: Project) -> None:
