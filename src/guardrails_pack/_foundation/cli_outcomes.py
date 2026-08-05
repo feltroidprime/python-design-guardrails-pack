@@ -6,6 +6,12 @@ retryability and its fixed hint.
 
 The table is fixed, and a capability never selects an exit code. The router maps
 a raised stdlib exception to one entry of this table (#85 section 3.1).
+
+Two codes answer a failure that no capability raises. `permanent_rejection` is
+the envelope of a `ValueError` or a `LookupError`. `composition-invalid` is the
+envelope of each of the four startup failures of the composition root. The
+decision of record spells that one with a hyphen, so this table keeps it
+verbatim.
 """
 
 from dataclasses import dataclass
@@ -17,10 +23,12 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 __all__ = [
+    "COMPOSITION_INVALID",
     "DEPENDENCY_UNAVAILABLE",
     "FIXED_OUTCOMES",
     "INVALID_CONTINUATION",
     "INVALID_SYNTAX",
+    "PERMANENT_REJECTION",
     "UNEXPECTED_FAILURE",
     "ExitCode",
     "OutcomeCode",
@@ -44,6 +52,8 @@ class OutcomeCode(StrEnum):
 
     INVALID_SYNTAX = "invalid_syntax"
     INVALID_CONTINUATION = "invalid_continuation"
+    PERMANENT_REJECTION = "permanent_rejection"
+    COMPOSITION_INVALID = "composition-invalid"
     DEPENDENCY_UNAVAILABLE = "dependency_unavailable"
     UNEXPECTED_FAILURE = "unexpected_failure"
 
@@ -79,6 +89,18 @@ INVALID_CONTINUATION = OutcomeSpec(
     retryable=False,
     hint="Start a new query without --continuation.",
 )
+PERMANENT_REJECTION = OutcomeSpec(
+    code=OutcomeCode.PERMANENT_REJECTION,
+    exit_code=ExitCode.PERMANENT_REJECTION,
+    retryable=False,
+    hint="Correct the input and run the command again.",
+)
+COMPOSITION_INVALID = OutcomeSpec(
+    code=OutcomeCode.COMPOSITION_INVALID,
+    exit_code=ExitCode.PERMANENT_REJECTION,
+    retryable=False,
+    hint="Repair the composition root, then run the command again.",
+)
 DEPENDENCY_UNAVAILABLE = OutcomeSpec(
     code=OutcomeCode.DEPENDENCY_UNAVAILABLE,
     exit_code=ExitCode.TEMPORARY_UNAVAILABLE,
@@ -98,6 +120,8 @@ FIXED_OUTCOMES: Mapping[OutcomeCode, OutcomeSpec] = MappingProxyType(
         for outcome in (
             INVALID_SYNTAX,
             INVALID_CONTINUATION,
+            PERMANENT_REJECTION,
+            COMPOSITION_INVALID,
             DEPENDENCY_UNAVAILABLE,
             UNEXPECTED_FAILURE,
         )
