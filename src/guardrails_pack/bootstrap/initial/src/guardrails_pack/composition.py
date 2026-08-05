@@ -10,11 +10,8 @@ same `api.py` returns when the capability needs a bound port. Import presence
 here replaces every status field: a capability directory that this file never
 imports is uncomposed, which is legal.
 
-This pack composes its one capability, the One-shot Bootstrap. A new project
-starts from the copy of this file that the capability carries, and that copy
-composes nothing.
+Add a capability with one directory under this package and one import line
+above this tuple. Nothing else records it.
 """
 
-from guardrails_pack.bootstrap import api as one_shot_bootstrap
-
-CAPABILITIES: tuple[object, ...] = (one_shot_bootstrap,)
+CAPABILITIES: tuple[object, ...] = ()
