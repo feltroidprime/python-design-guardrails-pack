@@ -58,6 +58,10 @@ records the pack version that its last update carried.
   pack test modules, which the deleted root never analysed. The gate is green
   on all twelve hooks, in the pack and in a project it starts. No ceiling was
   raised, no rule removed and no finding suppressed.
+- Provision `just 1.57.0` in the pack-owned CI action, through `uv` and its
+  `rust-just` distribution. The `tests` hook runs `just` against a fixture tree,
+  and a Linux runner carries no such command, so both CI jobs were red. A pack
+  update carries the fix to a project that already exists.
 
 The unreleased entries that this section replaces described the tree that the
 refactor deleted. The released versions below are unchanged history.

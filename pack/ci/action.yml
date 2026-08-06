@@ -9,6 +9,13 @@ runs:
         version: "0.12.0"
         python-version: "3.14"
         enable-cache: true
+    # The `tests` hook runs `just` against a fixture tree, so the runner needs
+    # the command. `uv` installs it from its own distribution on PyPI, which
+    # keeps the toolchain behind the one pinned provisioning tool.
+    - run: |
+        uv tool install "rust-just==1.57.0"
+        uv tool dir --bin >> "$GITHUB_PATH"
+      shell: bash
     - run: uv sync --locked --all-groups
       shell: bash
     - run: uv run prek run --all-files -c pack/configs/prek.toml

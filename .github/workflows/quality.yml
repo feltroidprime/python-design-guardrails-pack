@@ -34,6 +34,13 @@ jobs:
           version: "0.12.0"
           python-version: "3.14"
           enable-cache: true
+      # `LEG-5` runs the gate, whose `tests` hook runs `just`. This job does not
+      # call the composite action, so it repeats the pin of pack/ci/action.yml.
+      # `pack/tests/test_pin_coherence.py` holds the two copies together.
+      - run: |
+          uv tool install "rust-just==1.57.0"
+          uv tool dir --bin >> "$GITHUB_PATH"
+        shell: bash
       - run: uv sync --locked --all-groups
         shell: bash
       - run: uv run pytest -c pack/configs/pytest.ini --rootdir=. -m acceptance
