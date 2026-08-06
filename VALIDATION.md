@@ -1,4 +1,4 @@
-# Validation record — 2026-08-05
+# Validation record — 2026-08-06
 
 Run on macOS 26.5 (Darwin 25.5.0, arm64) with Python 3.14.6, uv 0.12.1,
 just 1.57.0 and prek 0.4.12.
@@ -56,32 +56,31 @@ The gate reported **twelve of twelve hooks green**:
 | `dependencies` `architecture` `docs` `proof` | passed |
 | `symbolic` `import-contracts` `tests` `manifest` | passed |
 
-The acceptance suite reported **81 passed, 2 failed** over its 83 assertions.
-Both failures also occur at commit `cb7ac14`, the parent of this change, so
-neither one is a regression of it. The two are recorded below.
+The acceptance suite reported **83 passed, 0 failed** over its 83 assertions.
+Group `LEG` passed whole, so `LEG-5` holds on the Root Pack and on a Terminal
+Project. That assertion is the definition of a green gate in both trees.
 
-Group `LEG` reported **18 passed**, so `LEG-5` holds on the Root Pack and on a
-Terminal Project. That assertion is the definition of a green gate in both
-trees.
+## Correction to the earlier record of this change
+
+The earlier record stated that two assertions stay red, `REM-2` and `TER-4`. That
+statement is withdrawn.
+
+Those two failures came from a defective base, not from this change. Two commits
+of the previous change never reached the remote, so this branch started from a
+tree that was missing them. The recovered commits are `5a22e40`, which reads
+every word search from the git index, and `be501f3`, which answers a refusal
+before the projection source is read.
+
+Both commits are merged into this branch, and both assertions now pass. The
+whole acceptance suite is green.
 
 ## Remaining risks and portability notes
 
-- **`REM-2` reads third-party code, not project code.** The word search of
-  assertion `REM-2` walks the whole projected tree, and the virtual environment
-  holds every dependency that `uv sync --all-groups` installs. One of them,
-  `execnet`, uses the capability word in its own source. The exemption list of
-  the assertion covers `docs/vendored` and `.agents` and not the environment
-  directory. The ban lists are settled, so this change does not touch them.
-- **`TER-4` fails because the pack's own tests read the staged payload.** While
-  a payload sits inside the import package, the payload locator prefers it over
-  the checkout. Two command-surface cases of the One-shot Bootstrap capability
-  then report exit 70 rather than the refusal exit 3, so an interrupted build
-  turns the `tests` hook red. The correction belongs to that capability, not to
-  this change.
-- **Both failures pre-date this change.** Measured at `cb7ac14` in a separate
-  worktree: `2 failed in 60.76s`, the same two assertions.
 - The pre-commit hook runs the gate against the staged tree while `HEAD` is
   still the parent commit. Several capability tests compare the tree with the
-  archive of `HEAD`, so the hook fails on any commit that changes a projected
+  record of `HEAD`, so the hook fails on any commit that changes a projected
   file. The gate passes on the committed tree, which CI runs.
+- `uv` can serve a cached wheel at the same version. If a shipped file disagrees
+  with the checkout, clear the cache for this project before you call it a
+  defect.
 - Validation ran on macOS arm64 only.
