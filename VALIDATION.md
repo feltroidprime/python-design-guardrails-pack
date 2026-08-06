@@ -26,9 +26,9 @@ its fix.
 - `init` ran the gate before the first commit. Several pack tests read the
   tracked tree through git, so a new repository met eight failures on its first
   gate run. The commit now runs before `just setup`.
-- `src/<package>/bootstrap/api.py` carried a fenced synopsis that argparse
-  fused into one paragraph, and an issue citation that reached the terminal of
-  an end user.
+- The `api.py` of the One-shot Bootstrap capability carried a fenced synopsis
+  that argparse fused into one paragraph, and an issue citation that reached
+  the terminal of an end user.
 
 ## Evidence
 
