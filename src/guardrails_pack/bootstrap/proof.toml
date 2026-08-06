@@ -32,8 +32,13 @@ reason = "One ordered pair list, proved end to end by assertions PAR-4 and PAR-6
 revisit = "2027-08-05"
 
 [[exemptions]]
-target = "guardrails_pack.bootstrap.domain.identity:check_identity"
-reason = "Refusals R1 to R4, proved case by case by assertion PAR-11."
+target = "guardrails_pack.bootstrap.domain.identity:check_request"
+reason = "Refusals R1 to R3, proved case by case by assertion PAR-11."
+revisit = "2027-08-05"
+
+[[exemptions]]
+target = "guardrails_pack.bootstrap.domain.identity:check_tokens"
+reason = "Refusal R4, proved by assertion PAR-11 and ordered by assertion TER-4."
 revisit = "2027-08-05"
 
 [[exemptions]]
