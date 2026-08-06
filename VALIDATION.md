@@ -5,28 +5,30 @@ just 1.57.0 and prek 0.4.12.
 
 ## Change validated
 
-The CI job that a new project could never pass. `.github/workflows/quality.yml`
-held two jobs, `quality` and `acceptance`. Projection deleted the capability
-that owns every `acceptance`-marked test and copied the workflow verbatim, so
-the job collected no test, pytest answered exit code 5, and the runner failed
-it.
+A documentation audit against four readers: a human and a coding agent, each
+reading the Root Pack and reading a Terminal Project. The audit found the
+contract misstating its own gate, the projected documents describing a
+repository their reader does not have, and the guards reporting a code without
+its fix.
 
-- The projection overlays `.github/workflows/quality.yml` with one of the
-  starting files, which holds the `quality` job only.
-- The comment in the pack's own workflow said that projection replaces the file
-  whole. It now states what the code does.
-- Assertion `REM-7` reads the projected workflow, runs every marker selection of
-  every job against the projected tree, and fails on any that collects nothing.
-- The `manifest` hook compares the `root` and `package` lists only. A shim is
-  user-owned, and `DESIGN_GUARDRAILS.md` states the rationale.
-- `pack/tests/test_pin_coherence.py` requires one location for the `just` pin
-  rather than two. The second is the job that a project no longer carries, and
-  the test is pack-owned and runs in both trees.
-
-No ceiling was raised, no test skipped and no finding suppressed. No new
-`# type: ignore`, `# noqa`, skip or xfail exists. `pack/architecture.toml`,
-`pack/configs/prek.toml` and `pack/configs/pyrightconfig.json` have an empty
-diff over this change.
+- `AGENTS.md` stated the capability layer order as `api`, `domain`,
+  `application`, `adapters`. `pack/configs/importlinter.ini` enforces
+  `api`, `adapters`, `application`, `domain`.
+- `AGENTS.md` counted twelve hooks. The gate runs eleven upstream file hooks
+  and then twelve local hooks.
+- `AGENTS.md` said the gate never rewrites a file. Three upstream hooks repair
+  a file in place.
+- `AGENTS.md` said CI runs the same command. CI runs one more job, which the
+  `tests` hook excludes.
+- `AGENTS.md` offered the `ARCH-EXCEPTION` marker as generally available.
+  `pack/scripts/architecture_guard.py` accepts it for `ARCH016` through
+  `ARCH030` alone, so the marker did nothing for a structural code.
+- `init` ran the gate before the first commit. Several pack tests read the
+  tracked tree through git, so a new repository met eight failures on its first
+  gate run. The commit now runs before `just setup`.
+- `src/<package>/bootstrap/api.py` carried a fenced synopsis that argparse
+  fused into one paragraph, and an issue citation that reached the terminal of
+  an end user.
 
 ## Evidence
 
@@ -34,66 +36,64 @@ Commands run from the repository root, in this order.
 
 ```bash
 just manifest
-uv run prek run --all-files -c pack/configs/prek.toml
-env PYTHONPATH=pack uv run pytest -c pack/configs/pytest.ini --rootdir=. -q -m acceptance
-grep -rIn -e pyrepo -e guardrails_pack pack/
+just check
+uv run pytest -c pack/configs/pytest.ini --rootdir=. -m acceptance
 ```
 
 | Command | Result |
 |---|---|
 | `just manifest` | `Wrote pack/manifest.json.` |
-| `prek run --all-files` | exit 0, all twelve hooks passed |
-| `pytest`, acceptance marker | `84 passed, 289 deselected` |
-| `grep`, both pack tokens under `pack/` | no line, exit 1 |
+| `just check` | exit 0, every hook passed |
+| `pytest`, acceptance marker | `84 passed, 289 deselected in 398.36s` |
 
-The gate reported **twelve of twelve hooks green**:
+The gate reported **eleven upstream hooks and twelve local hooks green**:
 
 | Hook | Result |
 |---|---|
+| the eleven upstream file hooks | passed |
 | `lockfile` `format` `lint` `types` | passed |
 | `dependencies` `architecture` `docs` `proof` | passed |
 | `symbolic` `import-contracts` `tests` `manifest` | passed |
 
 The acceptance suite reported **84 passed, 0 failed**. The suite defines 54
-distinct assertion identifiers, and pytest collected 84 parametrized tests
-from them. The suite held 83 tests before this change, and `REM-7` is the new
-identifier that added the 84th. Group `LEG` passed whole, so `LEG-5` holds on
-the Root Pack and on a Terminal Project.
+distinct assertion identifiers, and pytest collected 84 parametrized tests from
+them.
 
-The first run of the suite reported `1 failed, 83 passed`. `LEG-5` found the
-gate of a Terminal Project red on `test_just_pin_is_coherent`, which is the
-pack-owned test named above. That is the failure the pin floor answers, and the
-second run reported `84 passed`.
+Two earlier runs of the acceptance suite failed, and both failures were real.
+`REM-2` found the capability word in `AGENTS.md`, which projection copies
+verbatim, so the word reached every Terminal Project. `PAR-7` found a bytecode
+file inside the starting files, written by a `pytest` run that did not set
+`PYTHONPYCACHEPREFIX`. The record above is the run that followed both repairs.
 
-Two readings come from one Terminal Project that the harness built and kept,
-with `--basetemp`:
+One Terminal Project was built and kept, to measure the `init` order:
 
 | Reading | Result |
 |---|---|
-| `.github/workflows/quality.yml` of the project | the `quality` job alone; no line of `.github/` holds the word `acceptance` |
-| the deleted job's own command, run in the project | exit code 5, `234 deselected` |
-| the `manifest` hook, run in the project | passed |
+| tracked files after `init` | 533 |
+| commits after `init` | one, `Initial commit of fresh-widget` |
+| the gate, run by `just setup` inside that project | every hook passed |
 
-The second row is the defect, measured after the change: the command that job
-ran still selects nothing, which is why the job goes rather than stays. The
-third row is why the hook had to narrow, because the project starts from an
-overlaid workflow and carries the record of the pack.
+The second and third rows are the change: before it, the same reading gave zero
+tracked files, no commit, and eight failures from tests that read the tracked
+tree.
 
 ## Remaining risks and portability notes
 
-- A Pack Update now reports the quality workflow of a new project as a
-  customised shim, because `pack/manifest.json` records the bytes of the pack
-  and the project starts from the overlaid copy. The report names no write, and
-  an update never writes a shim, so the report is the only effect.
-- `REM-7` reads a `-m` option of a `pytest` command. A job that selects a marker
-  by another spelling is outside the scan.
+- A Pack Update reports the quality workflow of a new project as a customised
+  shim, because `pack/manifest.json` records the bytes of the pack and the
+  project starts from the overlaid copy. The report names no write, and an
+  update never writes a shim, so the report is the only effect.
 - If a commit touches a projected file, the pre-commit and pre-push hooks
   cannot check it. Only then is `--no-verify` legal, and a full gate run over
-  the committed tree must follow it. Both commits of this change touched a
-  projected file, used `--no-verify`, and were followed by a separate gate run
-  over the committed tree.
+  the committed tree must follow it. Neither commit of this change needed it,
+  and both ran the whole gate through the hooks.
+- Every recipe writes its bytecode cache under `.venv/pycache`. A recipe that
+  runs before the environment exists leaves `.venv/` holding that directory
+  alone. `uv sync` then refuses, and `uv venv` repairs neither with `--clear`
+  nor with `--force`. Delete `.venv/` and run `just setup` again.
+- A `pytest` run that does not set `PYTHONPYCACHEPREFIX` writes a bytecode file
+  into the tree. Inside the starting files, that file fails `PAR-7`. Run the
+  suite through a `just` recipe, which sets the variable.
 - `uv` can serve a cached wheel at the same version. If a shipped file disagrees
-  with the checkout, clear the cache for this project before you call it a
+  with the checkout, build the wheel again before reading the disagreement as a
   defect.
-- Validation ran on macOS arm64 only. The runner is the proof for Linux, and the
-  pull request records both CI jobs.
