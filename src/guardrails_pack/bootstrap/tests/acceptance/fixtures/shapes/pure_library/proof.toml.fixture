@@ -1,0 +1,16 @@
+schema_version = 1
+
+[[properties]]
+id = "@PROPERTY_ID@"
+title = "Pairs are ordered canonically"
+statement = "The ordered-pair operation returns its two inputs in ascending order."
+scope = "The pure ordered-pair operation over arbitrary integers."
+assumptions = []
+kind = "contract"
+strength = "normative"
+targets = ["@MODULE@.domain.pairs:ordered_pair"]
+oracles = ["@MODULE@.domain.specifications:pair_is_canonical"]
+evidence = ["icontract", "hypothesis", "crosshair", "falsifier"]
+crosshair_targets = ["@MODULE@.domain.pairs:ordered_pair"]
+counterexample = "The result changes an input or places the larger value first."
+failure_modes = ["input changed", "pair not ordered"]

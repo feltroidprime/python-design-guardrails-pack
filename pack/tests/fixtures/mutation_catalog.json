@@ -1,0 +1,60 @@
+{
+  "mutations": [
+    {
+      "id": "capability-layer-missing",
+      "mutation": "a capability layer directory is absent",
+      "mechanism": "guard",
+      "evidence": "pack/tests/test_import_contracts.py::test_each_injected_defect_breaks_a_contract",
+      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_import_contracts.py::test_each_injected_defect_breaks_a_contract"
+    },
+    {
+      "id": "capability-layer-empty",
+      "mutation": "a capability layer directory holds no module",
+      "mechanism": "guard",
+      "evidence": "pack/tests/test_import_contracts.py::test_each_injected_defect_breaks_a_contract",
+      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_import_contracts.py::test_each_injected_defect_breaks_a_contract"
+    },
+    {
+      "id": "capability-sibling-import",
+      "mutation": "one capability imports a sibling capability",
+      "mechanism": "guard",
+      "evidence": "pack/tests/test_import_contracts.py::test_each_injected_defect_breaks_a_contract",
+      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_import_contracts.py::test_each_injected_defect_breaks_a_contract"
+    },
+    {
+      "id": "capability-internals-import",
+      "mutation": "the composition root reaches past a capability's public surface",
+      "mechanism": "guard",
+      "evidence": "pack/tests/test_import_contracts.py::test_each_injected_defect_breaks_a_contract",
+      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_import_contracts.py::test_each_injected_defect_breaks_a_contract"
+    },
+    {
+      "id": "capability-imports-pack-code",
+      "mutation": "one capability imports pack-owned code",
+      "mechanism": "guard",
+      "evidence": "pack/tests/test_import_contracts.py::test_each_injected_defect_breaks_a_contract",
+      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_import_contracts.py::test_each_injected_defect_breaks_a_contract"
+    },
+    {
+      "id": "cli-reserved-parameter-name",
+      "mutation": "a command surface takes a parameter name the router reserves",
+      "mechanism": "contract_test",
+      "evidence": "pack/tests/test_cli_surface.py::test_cli001_rejects_a_reserved_parameter_name",
+      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_cli_surface.py::test_cli001_rejects_a_reserved_parameter_name"
+    },
+    {
+      "id": "oracle-always-true",
+      "mutation": "an oracle returns True",
+      "mechanism": "proof_gate",
+      "evidence": "pack/tests/test_proof_guard_evidence.py::test_property_without_falsifying_canary_is_rejected",
+      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_proof_guard_evidence.py::test_property_without_falsifying_canary_is_rejected"
+    },
+    {
+      "id": "pure-target-without-crosshair",
+      "mutation": "a pure target is removed from CrossHair coverage",
+      "mechanism": "proof_gate",
+      "evidence": "pack/tests/test_proof_guard_evidence.py::test_pure_contracted_function_requires_crosshair_evidence",
+      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_proof_guard_evidence.py::test_pure_contracted_function_requires_crosshair_evidence"
+    }
+  ]
+}

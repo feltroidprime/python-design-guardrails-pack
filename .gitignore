@@ -1,18 +1,29 @@
+.venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.hypothesis/
 .ruff_cache/
+.basedpyright/
+.import_linter_cache/
 .codebase-memory/
 .smithers/
 smithers.db*
-.venv/
-# The generator root is intentionally lock-file-free (stdlib-only, no runtime
-# deps); ignore any uv.lock an ad-hoc `uv run` leaves behind.
-uv.lock
-.DS_Store
+.coverage
+coverage.xml
+htmlcov/
 dist/
+build/
+# The build stages one archive inside the package and deletes it again. An
+# interrupted build leaves it behind, and it must never enter a commit.
+src/*/*.tar
+.agent-sessions/
 *.egg-info/
+.DS_Store
+.idea/
+.VSCodeCounter/
+.vscode/*
+!.vscode/settings.json
 # Epic sources under epics/ are tracked; their compiled manifests are derived
 # artifacts bound to one run's base SHA and are rebuilt by compile_epic.py.
 epics/*.manifest.json
-.VSCodeCounter/

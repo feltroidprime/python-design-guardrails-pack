@@ -1,0 +1,191 @@
+# The one Ruff policy of the tree. `pyproject.toml` points at this file with
+# `[tool.ruff] extend`, and it holds no Ruff setting of its own.
+#
+# Ruff resolves a relative path in an extended file against the directory of
+# that file. Every path below therefore starts with `../../`, which is the
+# repository root. Measured on ruff 0.15.
+#
+# Ruff is strict about defects and conservative about rewrites: it owns
+# correctness, security, and modern syntax, BasedPyright owns type semantics,
+# and the architecture guard owns structure. Rules that trade explicitness for
+# brevity, and rules that duplicate the formatter or the type checker, are
+# deliberately absent.
+
+# The Python version is derived from [project] requires-python.
+line-length = 100
+src = ["../../src", "../../pack", "../../pack/tests", "../../tests"]
+force-exclude = true
+# .agents/ holds externally sourced agent skills that skills-lock.json pins.
+extend-exclude = ["../../.agents"]
+
+[lint]
+select = [
+  # Defects and suspicious constructs.
+  "A",
+  "ASYNC",
+  "B",
+  "BLE",
+  "DTZ",
+  "E4",
+  "E7",
+  "E9",
+  "F",
+  "G",
+  "LOG",
+  "PGH",
+  "PIE",
+  "PLC",
+  "PLE",
+  "PLW",
+  "RUF",
+  "S",
+  "W605",
+
+  # Readable, modern Python.
+  "C4",
+  "ERA",
+  "FBT",
+  "FLY",
+  "I",
+  "N",
+  "PT",
+  "PTH",
+  "RSE",
+  "T10",
+  "T20",
+  "TID",
+  "UP",
+
+  # Comments that schedule manual upkeep. These two families replace the
+  # hand-written upkeep-comment rule and its edit-time hook (conflict C18 of
+  # #85): a maintained tool carries the rule instead of pack code.
+  "FIX",
+  "TD",
+
+  # Visible public return contracts. BasedPyright owns parameter types,
+  # inferred value types, and `Any`; private helper return types stay optional
+  # where inference is sufficient.
+  "ANN201",
+  "ANN204",
+  "ANN205",
+  "ANN206",
+
+  # Complexity and unambiguous refactors.
+  "C901",
+  "PLR0206",
+  "PLR1704",
+  "PLR1716",
+  "PLR1722",
+  "PLR1733",
+  "PLR1736",
+  "PLR5501",
+
+  # High-signal control-flow simplifications. Rules that force ternaries,
+  # delete explanatory result variables, introduce helper functions, or
+  # optimize for statement count are deliberately excluded.
+  "RET502",
+  "RET503",
+  "RET505",
+  "RET506",
+  "RET507",
+  "RET508",
+  "SIM101",
+  "SIM103",
+  "SIM109",
+  "SIM110",
+  "SIM112",
+  "SIM113",
+  "SIM115",
+  "SIM118",
+  "SIM201",
+  "SIM202",
+  "SIM208",
+  "SIM210",
+  "SIM211",
+  "SIM220",
+  "SIM221",
+  "SIM222",
+  "SIM223",
+  "SIM300",
+  "TRY002",
+  "TRY004",
+  "TRY201",
+  "TRY203",
+  "TRY400",
+  "TRY401",
+
+  # Validate hand-written TYPE_CHECKING blocks without creating new ones.
+  "TC004",
+  "TC005",
+  "TC010",
+]
+
+[lint.per-file-ignores]
+# The router is the one module that maps any raised exception to one envelope
+# and exit 70 (#85 section 3.1). Its last handler must therefore be blind, and
+# the glob keeps this entry free of the package name.
+"../../src/*/_foundation/router.py" = ["BLE001"]
+# The one place a relative import is right. `_foundation/` is pack-owned, so
+# invariant O1 of #85 forbids an identity token inside it, and an absolute
+# import of a sibling would write the package name. Terminal Projection would
+# then rewrite a pack-owned file, `PAR-2` would fail, and the projected
+# `pack/manifest.json` would no longer describe the tree it shipped with.
+# Relative imports are still banned everywhere else, including user code.
+"../../src/*/_foundation/**/*.py" = ["TID252"]
+# A capability that reaches an external program does it in one outbound
+# adapter, and `S603` is that module's whole job: it starts a process whose
+# argument list the application layer builds. `shutil.which` resolves the
+# program first, so the partial-path rule still applies everywhere else. Both
+# globs hold no package name and no capability name.
+"../../src/*/*/adapters/outbound/commands.py" = ["S603"]
+# A capability's own tests are tests: they assert, and they drive real local
+# tools by name. The same two entries hold for the pack's own tests below.
+"../../src/*/*/tests/**/*.py" = ["ANN201", "S101", "S603", "S607"]
+"../../pack/tests/**/*.py" = ["ANN201", "S101"]
+# Four pack tests drive real local commands: git, uv, `lint-imports`, and the
+# CrossHair gate.
+"../../pack/tests/test_crosshair_gate.py" = ["S603"]
+"../../pack/tests/test_import_contracts.py" = ["S603"]
+"../../pack/tests/test_pin_coherence.py" = ["S607"]
+"../../pack/tests/test_router.py" = ["S603"]
+"../../pack/tests/test_release.py" = ["S603", "S607"]
+"../../pack/verification/tests/**/*.py" = ["ANN201", "S101"]
+"../../pack/scripts/**/*.py" = ["T201"]
+"../../pack/scripts/crosshair_gate.py" = ["S603"]
+"../../pack/scripts/doctor.py" = ["S603"]
+"../../pack/scripts/import_contracts.py" = ["S603"]
+"../../pack/scripts/release.py" = ["S603", "S607"]
+
+[lint.flake8-type-checking]
+# These decorators mark code whose annotations are read at run time:
+# `inspect.signature` (Hypothesis, pluggy) and CrossHair's icontract analysis
+# resolve them, so their imports must stay outside type-checking blocks.
+runtime-evaluated-decorators = [
+  "hypothesis.given",
+  "icontract.ensure",
+  "icontract.invariant",
+  "icontract.require",
+  "icontract.snapshot",
+  "pytest.hookimpl",
+]
+
+[lint.isort]
+# "tests" is declared explicitly because namespace packages (no __init__.py)
+# are not auto-detected as first-party. The product package is auto-detected
+# from `src`, so this file names no package and stays name-blind: a pack update
+# writes the same bytes into every project.
+known-first-party = ["scripts", "tests", "verification"]
+combine-as-imports = true
+force-sort-within-sections = true
+
+[lint.mccabe]
+max-complexity = 10
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true

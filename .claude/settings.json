@@ -1,17 +1,3 @@
 {
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -B scripts/reminder_comment_hook.py",
-            "timeout": 15,
-            "statusMessage": "Checking for reminder comments"
-          }
-        ]
-      }
-    ]
-  }
+  "hooks": {}
 }

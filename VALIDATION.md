@@ -1,101 +1,95 @@
-# Validation record — 2026-07-31
+# Validation record — 2026-08-06
 
-Validated on Linux 6.8.0-136-generic (x86_64) with Python 3.14.6, uv 0.12.0,
-just 1.56.0, Copier 9.17.0, pytest 9.1.1, pytest-xdist 3.8.0, Ruff 0.16.1,
-and prek 0.4.11.
+Run on macOS 26.5 (Darwin 25.5.0, arm64) with Python 3.14.7, uv 0.12.2,
+just 1.57.0 and prek 0.4.12.
 
 ## Change validated
 
-This merge combines the macOS hook fix from PR #78 with the root-suite
-performance work already on `main`.
+The CI job that a new project could never pass. `.github/workflows/quality.yml`
+held two jobs, `quality` and `acceptance`. Projection deleted the capability
+that owns every `acceptance`-marked test and copied the workflow verbatim, so
+the job collected no test, pytest answered exit code 5, and the runner failed
+it.
 
-- Generated `prek.toml` pins Python-language hooks to Python 3.14, matching the
-  generated repository's interpreter and syntax contract.
-- The initializer suppresses Copier's expected `DirtyLocalWarning` when it
-  renders current editable-worktree changes; unrelated warnings remain visible.
-- The root pytest session removes an invoking hook's repository-local Git
-  variables so nested Git fixtures cannot target the pack checkout.
-- Four representative shape tests now prepare their active capability directly
-  through the real `repoctl` CLI and run one complete generated gate. The one
-  canonical 19-step N0 → N1 → N2 walk remains unchanged.
-- `just test` runs the canonical walk alone, six `repository_gate` tests across
-  five workers, and the complementary lightweight tests across five workers.
-  The pre-push hook advertises a seven-minute warm-cache budget.
+- The projection overlays `.github/workflows/quality.yml` with one of the
+  starting files, which holds the `quality` job only.
+- The comment in the pack's own workflow said that projection replaces the file
+  whole. It now states what the code does.
+- Assertion `REM-7` reads the projected workflow, runs every marker selection of
+  every job against the projected tree, and fails on any that collects nothing.
+- The `manifest` hook compares the `root` and `package` lists only. A shim is
+  user-owned, and `DESIGN_GUARDRAILS.md` states the rationale.
+- `pack/tests/test_pin_coherence.py` requires one location for the `just` pin
+  rather than two. The second is the job that a project no longer carries, and
+  the test is pack-owned and runs in both trees.
 
-## Focused and performance evidence
+No ceiling was raised, no test skipped and no finding suppressed. No new
+`# type: ignore`, `# noqa`, skip or xfail exists. `pack/architecture.toml`,
+`pack/configs/prek.toml` and `pack/configs/pyrightconfig.json` have an empty
+diff over this change.
 
-Before merging, the hook branch passed:
+## Evidence
 
-- **2 focused hook/warning regressions** in 2.33 seconds;
-- the complete generator module, **56 tests**, in 42.45 seconds with uncaught
-  `DirtyLocalWarning` treated as an error;
-- the injected Git-hook-context reproduction, **57 tests**, in 11.69 seconds;
-- a real `python-repo init ... --no-github` smoke, including the generated
-  quality gate and every initial-commit hook;
-- its canonical `just validate`, including **245 root tests** and generated
-  gates of **127 passed, 1 skipped, 3 deselected** at **95.65% coverage**.
-
-Profiling on `main` found that three repeated generated gates consumed 183.03
-of a representative shape test's 195.18 seconds (93.8%). After removing those
-redundant lifecycle walks, the external-integration shape took 65.14 seconds.
-A warm-cache root run completed all 244 then-current tests in 370.44 seconds
-(6:10), versus the 541.04-second (9:01) baseline: 31.5% faster.
-
-The scheduling selectors were collected independently before merging:
-
-- canonical recursive walk: **1** node;
-- `repository_gate` phase: **6** nodes;
-- complementary lightweight phase: **237** nodes;
-- complete then-current suite: **244** nodes, with no overlap or omission.
-
-## Merged-state validation
-
-The resolved merge is validated with:
+Commands run from the repository root, in this order.
 
 ```bash
-just test-fast
-just validate
+just manifest
+uv run prek run --all-files -c pack/configs/prek.toml
+env PYTHONPATH=pack uv run pytest -c pack/configs/pytest.ini --rootdir=. -q -m acceptance
+grep -rIn -e pyrepo -e guardrails_pack pack/
 ```
 
-`just test-fast` passed **14 tests** in 6.33 seconds after Ruff reported
-**154 files already formatted** with no lint violations. Direct collection
-selected **6/245** `repository_gate` tests and **238/245** complementary tests;
-with the separately selected canonical test, all 245 nodes are covered exactly
-once.
+| Command | Result |
+|---|---|
+| `just manifest` | `Wrote pack/manifest.json.` |
+| `prek run --all-files` | exit 0, all twelve hooks passed |
+| `pytest`, acceptance marker | `84 passed, 289 deselected` |
+| `grep`, both pack tokens under `pack/` | no line, exit 1 |
 
-The canonical `just validate` command passed end to end:
+The gate reported **twelve of twelve hooks green**:
 
-- the root phases passed **1**, **6**, and **238** tests in 401.12, 291.01,
-  and 36.94 seconds respectively;
-- template cleanliness, fresh generation, complete Jinja rendering, bootstrap,
-  and the missing-hook repair probe passed;
-- BasedPyright reported **0 errors and 0 warnings**; ownership, architecture,
-  documentation, proof-contract, bounded CrossHair, and Import Linter checks
-  passed;
-- the two visible generated gates each passed **127 tests, 1 skipped,
-  3 deselected**, in 80.00 and 57.80 seconds, with **95.65% coverage**;
-- the generated initial commit passed every prek hook under the Python 3.14
-  policy;
-- tracked syntax rejection, clean and dirty doctor probes, and linked-worktree
-  pre-commit and pre-push probes passed.
+| Hook | Result |
+|---|---|
+| `lockfile` `format` `lint` `types` | passed |
+| `dependencies` `architecture` `docs` `proof` | passed |
+| `symbolic` `import-contracts` `tests` `manifest` | passed |
 
-The root timings are a loaded-host correctness sample, not the warm-cache
-performance measurement: unrelated trading benchmarks were concurrently using
-multiple CPUs. The syntax and dirty-tree failures printed during validation are
-deliberate fault-injection probes.
+The acceptance suite reported **84 passed, 0 failed** over its 84 assertions.
+The suite held 83 before this change, and `REM-7` is the new one. Group `LEG`
+passed whole, so `LEG-5` holds on the Root Pack and on a Terminal Project.
+
+The first run of the suite reported `1 failed, 83 passed`. `LEG-5` found the
+gate of a Terminal Project red on `test_just_pin_is_coherent`, which is the
+pack-owned test named above. That is the failure the pin floor answers, and the
+second run reported `84 passed`.
+
+Two readings come from one Terminal Project that the harness built and kept,
+with `--basetemp`:
+
+| Reading | Result |
+|---|---|
+| `.github/workflows/quality.yml` of the project | the `quality` job alone; no line of `.github/` holds the word `acceptance` |
+| the deleted job's own command, run in the project | exit code 5, `234 deselected` |
+| the `manifest` hook, run in the project | passed |
+
+The second row is the defect, measured after the change: the command that job
+ran still selects nothing, which is why the job goes rather than stays. The
+third row is why the hook had to narrow, because the project starts from an
+overlaid workflow and carries the record of the pack.
 
 ## Remaining risks and portability notes
 
-- Full validation is executed on Linux x86_64. The reported hook failure was
-  macOS arm64; the fix uses prek's platform-independent Python toolchain
-  configuration, but this environment cannot rerun the final acceptance suite
-  on macOS.
-- Existing generated repositories retain their old `prek.toml`; regenerate or
-  add `default_language_version.python = "python3.14"`, then reinstall hooks
-  with `uv run prek install -f`.
-- The seven-minute performance budget assumes warm caches without another
-  CPU-intensive suite. Concurrent pushes or unrelated benchmarks can erase the
-  wall-clock gain.
-- The canonical recursive walk remains an irreducible roughly three-minute
-  floor because it intentionally executes the complete lifecycle and generated
-  quality gates.
+- A Pack Update now reports the quality workflow of a new project as a
+  customised shim, because `pack/manifest.json` records the bytes of the pack
+  and the project starts from the overlaid copy. The report names no write, and
+  an update never writes a shim, so the report is the only effect.
+- `REM-7` reads a `-m` option of a `pytest` command. A job that selects a marker
+  by another spelling is outside the scan.
+- The pre-commit and pre-push hooks cannot verify a commit that touches a
+  projected file. Both commits of this change used `--no-verify`, and the gate
+  ran separately over the committed tree.
+- `uv` can serve a cached wheel at the same version. If a shipped file disagrees
+  with the checkout, clear the cache for this project before you call it a
+  defect.
+- Validation ran on macOS arm64 only. The runner is the proof for Linux, and the
+  pull request records both CI jobs.

@@ -1,0 +1,25 @@
+schema_version = 2
+
+# This policy is the repository's single proof-system configuration. Catalogs
+# own laws; this file owns the shared discovery rules.
+# Every root is relative to the repository root, not to `pack/`.
+[policy]
+source_roots = ["src", "pack"]
+test_roots = ["pack/verification"]
+# Behavior roots are relative to one capability. The loader puts the derived
+# package name and each discovered capability in front of them, so this file
+# names neither. Mandatory proof coverage is therefore product behavior, and a
+# capability owns its own laws in its own user-owned `proof.toml`.
+#
+# `_foundation` is not a behavior root. It is pack-owned, so a pack-owned
+# catalog would have to name the package to reach it, and no pack-owned file
+# may carry an identity token (invariant O1 of #85 section 4.2).
+behavior_roots = ["domain", "application"]
+excluded_module_stems = ["__init__", "errors", "specifications"]
+oracle_module_stems = ["ownership_specifications"]
+
+# The catalog list is structural, so this file holds no catalog root and no
+# ownership zone. Two locations carry a catalog: every `*.toml` below
+# `pack/proof/` except this file, and the `proof.toml` of each capability. A
+# capability with no `proof.toml` breaks rule L1 of #85, and the proof guard
+# reports it.

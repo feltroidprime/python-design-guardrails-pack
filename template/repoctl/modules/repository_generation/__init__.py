@@ -1,1 +1,0 @@
-"""Pure repository-generation capability."""

@@ -1,208 +1,66 @@
-# Packaging metadata for the *generator only*: it exposes the `python-repo`
-# console script (uv tool install) and ships instantiate.py, copier.yml, and
-# template/. The root still has no virtualenv or lock file; pinned Copier is its
-# sole runtime dependency. Maintainer tooling is provisioned ephemerally by the
-# justfile, while its policy lives here beside the packaging metadata.
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build==0.12.0"]
+build-backend = "uv_build"
 
 [project]
-name = "python-design-guardrails-pack"
+name = "pyrepo"
 version = "0.3.0"
-description = "Generator CLI for the Python design-guardrails repository template"
-requires-python = ">=3.14"
-dependencies = ["copier==9.17.0"]
+description = "A Python 3.14 application with an executable architecture and quality contract."
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = ["icontract>=2.7.3"]
 
+# The one console script of the tree. Its name is the distribution name, and it
+# names the user-owned shim, which names the pack-owned router. Every packaging
+# line in this file is true of a Terminal Project too, so projection changes the
+# two identity values and nothing else.
 [project.scripts]
-python-repo = "instantiate:cli"
+pyrepo = "guardrails_pack.cli:main"
 
-[tool.hatch.build.targets.wheel]
-include = ["instantiate.py", "copier.yml"]
+# The distribution name and the import package name are the two identity values
+# of the tree. They differ here, so the backend needs the module name.
+#
+# The backend includes what sits under the module root. Inclusion is by
+# presence, so the build needs no include table and no file list. The build
+# stages one archive of the last commit inside the package, and that archive is
+# the projection payload. See the packaging section of DESIGN_GUARDRAILS.md.
+[tool.uv.build-backend]
+module-name = "guardrails_pack"
 
-# The template must sit next to instantiate.py and copier.yml in site-packages
-# so Path(__file__).parent remains the Copier template root in editable and
-# wheel installs. force-include bypasses ignore rules, so template/ ships
-# verbatim (dotfiles and Jinja-templated directories included).
-[tool.hatch.build.targets.wheel.force-include]
-"template" = "template"
-
-[tool.hatch.build.targets.sdist]
-include = ["instantiate.py", "copier.yml", "template", "README.md"]
-
-[tool.pytest.ini_options]
-markers = [
-  "repository_gate: tests that generate repositories and run heavyweight certification gates",
+# Dev tooling floats: floors are the last versions this repository's toolchain
+# was validated against, and the first `uv sync` resolves the latest releases.
+# Reproducibility comes from uv.lock (kept current by the uv-lock Git
+# hook), not from exact pins here.
+[dependency-groups]
+dev = [
+  "basedpyright>=1.39.9",
+  "crosshair-tool>=0.0.109",
+  "deptry>=0.23.1",
+  "hypothesis>=6.161.5",
+  "import-linter>=2.13",
+  "prek>=0.4.9",
+  "pytest>=9.1.1",
+  "pytest-socket>=0.8.0",
+  "pytest-xdist>=3.8.0",
+  "ruff>=0.15.21",
 ]
 
-# Keep the pack and the repositories it generates on one Ruff policy. The root
-# adds only path-shaped exceptions for its generator CLI and subprocess-heavy
-# acceptance harness; downstream policy remains canonical in the template.
+[tool.uv]
+required-version = ">=0.12.0,<0.13"
+# z3-solver 5.0.0.0 (a crosshair-tool dependency) ships a macOS arm64 wheel whose
+# internal WHEEL tag (macosx_13_3_arm64) disagrees with its filename tag, so uv
+# reinstalls it on every sync and `uv sync --check` never converges, which keeps
+# `just doctor` red. Drop this constraint once a later release is tagged correctly.
+constraint-dependencies = ["z3-solver!=5.0.0.0"]
+
+# Every tool policy lives under pack/configs/, which is a path ABI: a release
+# can change the content of a file there, never its name or its location. This
+# file therefore holds pointers only, so that a pack update carries current
+# policy to an existing project without touching packaging or identity.
+#
+# BasedPyright, pytest, import-linter and prek take their config path as a
+# command-line flag. `failOnWarnings` does not survive the BasedPyright
+# `extends` chain, so the gate passes `--project pack/configs/pyrightconfig.json`
+# directly, and the root pyrightconfig.json stub serves editors only.
 [tool.ruff]
-line-length = 100
-src = [
-  ".",
-  "scripts",
-  "tests",
-  "template/repoctl",
-  "template/src",
-  "template/tests",
-  "template/verification",
-  "template/scripts",
-]
-force-exclude = true
-
-[tool.ruff.lint]
-select = [
-  # Defects and suspicious constructs.
-  "A",
-  "ASYNC",
-  "B",
-  "BLE",
-  "DTZ",
-  "E4",
-  "E7",
-  "E9",
-  "F",
-  "G",
-  "LOG",
-  "PGH",
-  "PIE",
-  "PLC",
-  "PLE",
-  "PLW",
-  "RUF",
-  "S",
-  "W605",
-
-  # Readable, modern Python.
-  "C4",
-  "ERA",
-  "FBT",
-  "FLY",
-  "I",
-  "N",
-  "PT",
-  "PTH",
-  "RSE",
-  "T10",
-  "T20",
-  "TID",
-  "UP",
-
-  # Visible public return contracts.
-  "ANN201",
-  "ANN204",
-  "ANN205",
-  "ANN206",
-
-  # Complexity and unambiguous refactors.
-  "C901",
-  "PLR0206",
-  "PLR1704",
-  "PLR1716",
-  "PLR1722",
-  "PLR1733",
-  "PLR1736",
-  "PLR5501",
-
-  # High-signal control-flow simplifications.
-  "RET502",
-  "RET503",
-  "RET505",
-  "RET506",
-  "RET507",
-  "RET508",
-  "SIM101",
-  "SIM103",
-  "SIM109",
-  "SIM110",
-  "SIM112",
-  "SIM113",
-  "SIM115",
-  "SIM118",
-  "SIM201",
-  "SIM202",
-  "SIM208",
-  "SIM210",
-  "SIM211",
-  "SIM220",
-  "SIM221",
-  "SIM222",
-  "SIM223",
-  "SIM300",
-  "TRY002",
-  "TRY004",
-  "TRY201",
-  "TRY203",
-  "TRY400",
-  "TRY401",
-
-  # Validate hand-written TYPE_CHECKING blocks without creating new ones.
-  "TC004",
-  "TC005",
-  "TC010",
-]
-
-[tool.ruff.lint.per-file-ignores]
-# The root tests and generator run only controlled local commands. The generated
-# repository keeps the narrower downstream subprocess policy below.
-"tests/**/*.py" = ["ANN201", "S101", "S603", "S607"]
-"tests/test_ownership_zones.py" = ["S701"]
-"instantiate.py" = ["S603", "S607", "T201"]
-"scripts/**/*.py" = ["T201"]
-"scripts/release.py" = ["S603", "S607"]
-"scripts/validate_pack.py" = ["C901", "S603", "S607"]
-"template/tests/**/*.py" = ["ANN201", "S101"]
-"template/verification/tests/**/*.py" = ["ANN201", "S101"]
-"template/verification/repoctl/**/*.py" = ["ANN201", "S101"]
-"template/scripts/**/*.py" = ["T201"]
-"template/scripts/crosshair_gate.py" = ["S603"]
-"template/scripts/doctor.py" = ["S603"]
-"template/scripts/quality_gate.py.jinja" = ["S603"]
-
-[tool.ruff.lint.flake8-type-checking]
-runtime-evaluated-decorators = [
-  "hypothesis.given",
-  "icontract.ensure",
-  "icontract.invariant",
-  "icontract.require",
-  "icontract.snapshot",
-  "pytest.hookimpl",
-]
-
-[tool.ruff.lint.isort]
-known-first-party = [
-  "instantiate",
-  "repoctl",
-  "scripts",
-  "tests",
-  "verification",
-]
-combine-as-imports = true
-force-sort-within-sections = true
-
-[tool.ruff.lint.mccabe]
-max-complexity = 10
-
-[tool.ruff.lint.flake8-tidy-imports]
-ban-relative-imports = "all"
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-line-ending = "lf"
-docstring-code-format = true
-
-# The root ships the generator only (instantiate.py + scripts/). `template/` is
-# an uninstantiated scaffold: it holds Jinja expressions and
-# imports dependencies that are never installed at the root, so type-checking it
-# in place is meaningless — its correctness is proven by generating a real
-# project and running the full quality gate (`just validate`). Exclude it from
-# analysis so the editor stops reporting expected scaffold errors; keep scripts/
-# on the import path so first-party imports (validate_pack) resolve in tests.
-[tool.basedpyright]
-exclude = ["**/node_modules", "**/__pycache__", "**/.*", "template"]
-# "template" stays excluded from analysis (Jinja scaffold) but remains an
-# import root so tests importing scripts.* (the guard modules) resolve.
-extraPaths = ["scripts", "template"]
+extend = "pack/configs/ruff.toml"
