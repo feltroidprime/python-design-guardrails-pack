@@ -68,7 +68,9 @@ records the pack version that its last update carried.
   the suite it runs. In a project that job collected no
   test in a project, pytest answered exit code 5, and every new project was red
   on its first push. Assertion `REM-7` reads the projected workflow and fails
-  on any job that runs a marker the deletion empties.
+  on any job that runs a marker the deletion empties. The `just` pin now has
+  one required location rather than two, because the second sits in the job
+  that a project no longer carries.
 - Narrow the `manifest` hook to the pack-owned bytes it is named for. The
   `shims` list of `pack/manifest.json` records what the pack shipped, and a
   shim is user-owned: a project starts with an overlaid workflow, and a

@@ -82,7 +82,7 @@
     "pack/tests/test_none_discipline.py": "d1a2e3008003c5b9d3fb11295df1142a5e4f467d69c64707d84e1db8ab414b4d",
     "pack/tests/test_packaging.py": "cbc8ad733403e829231fb011505d47b73b38378488cfaa0fe5a02773c3f0171e",
     "pack/tests/test_path_discipline.py": "a4f4aa26728814943edac1f5ea6f30c8d2cfbe8865f6a62a3c7e93923b259ce3",
-    "pack/tests/test_pin_coherence.py": "1218afed1c87acfb851df0ee8f6d500b559d7170dadfff404e198a68461374d5",
+    "pack/tests/test_pin_coherence.py": "366c64cd22c96dc34dbb8526a4acf781659d9e0ca9a1c3c3a3d7a1e6bc41fe48",
     "pack/tests/test_proof_guard.py": "9f2e93e9bdfb8fbcc8fca77034c90ff2db33b288ef739c3cb4cb0ce3a1cf8afb",
     "pack/tests/test_proof_guard_callables.py": "d3178d2a46f2e43db905e8c41a6015a3f90ebfe521efd12a4a620f168b69072b",
     "pack/tests/test_proof_guard_evidence.py": "4a0d597a1e71e7de4a38f8e3c255c519f97885dd2be6019dd7b77d76ffdef682",
