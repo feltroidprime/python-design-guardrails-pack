@@ -1,6 +1,7 @@
 # Pattern admission record
 
-Copy this section into an ADR before introducing a non-trivial pattern.
+Before you introduce a non-trivial pattern, copy all six headings below into
+an ADR. An ADR that drops a heading is not complete.
 
 ## Force
 
@@ -8,7 +9,8 @@ What concrete variation, boundary, lifecycle, state transition, or migration pro
 
 ## Simplest rejected design
 
-What direct function/module design was considered, and why is it insufficient?
+Name the simplest function design, or module design, that you rejected. State
+why it is insufficient.
 
 ## Selected pattern
 
@@ -24,4 +26,4 @@ Additional concepts, files, runtime indirection, test burden, operational risk, 
 
 ## Removal or revisit trigger
 
-What future evidence would show that this abstraction is unnecessary or needs redesign?
+Name the future evidence that shows this abstraction is unnecessary or needs redesign.

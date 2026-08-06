@@ -1,9 +1,9 @@
-"""Group 1 of #81: root-to-terminal parity, `PAR-1` to `PAR-11`.
+"""Group 1: root-to-terminal parity, `PAR-1` to `PAR-11`.
 
-The group certifies invariants `P1` to `P5`, refusals `R1` to `R9`, the two path
-renames, and the offline rule (#85 sections 3.5 and 4.1). Every projection here
-runs from the installed console script, and the whole group reads `TERM` before
-any assertion of another group writes into it.
+The group states invariants `P1` to `P5`, refusals `R1` to `R9`, the two path
+renames, and the offline rule. Every projection here runs from the installed
+console script, and the whole group reads `TERM` before any assertion of
+another group writes into it.
 """
 
 from collections.abc import Callable
@@ -131,7 +131,7 @@ def test_par_8_every_starting_file_landed_and_differs(
 def test_par_9_every_path_component_of_a_pack_token_is_renamed(
     term: Project, toolenv: Pack
 ) -> None:
-    """`PAR-9`: correction `C3`, which the prototype hit on its first run."""
+    """`PAR-9`: a path component equal to a pack token, which a content swap leaves."""
     found = run(
         (
             "find",

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Documentation fitness functions: keep the docs map and its documents true.
+"""DOC001 through DOC007: keep the docs map and its documents true.
 
-Prose drifts silently; this guard turns the documentation rules declared in
-``docs/README.md`` into gate failures:
+Prose drifts silently. This guard turns the documentation rules declared in
+``docs/README.md`` into gate failures.
 
-- DOC001: a path referenced by a markdown document does not exist;
-- DOC002: an ``ARCH-EXCEPTION`` marker names an ADR that does not exist;
+- DOC001: a path referenced by a markdown document does not exist.
+- DOC002: an ``ARCH-EXCEPTION`` marker names an ADR that does not exist.
 - DOC003-DOC006: ADR file-name, heading, front-matter, and numbering
-  conventions;
+  conventions.
 - DOC007: a markdown document is not registered in the docs map.
 """
 
@@ -184,7 +184,7 @@ def check_adr_numbering(root: Path) -> Iterator[DocViolation]:
                 path=adr_dir,
                 line=1,
                 code="DOC006",
-                message=f"ADR numbers must be contiguous from 0000; missing ADR-{expected:04d}",
+                message=f"ADR numbers must be contiguous from 0000. Missing ADR-{expected:04d}",
             )
             return
 

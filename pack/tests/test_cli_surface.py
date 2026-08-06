@@ -1,7 +1,7 @@
 """Tests for the api-surface rules `CLI001` to `CLI004`.
 
 The rules read the filesystem layout only, so they check every `<cap>/api.py`,
-composed or not. `FSC-10` of #81 asserts that each of the four fires.
+composed or not. Each of the four codes fires on this uncomposed tree too.
 """
 
 from pathlib import Path

@@ -23,7 +23,7 @@ from guardrails_pack.bootstrap.application.release import stage_and_build
 from guardrails_pack.bootstrap.tests.conftest import PACK_PACKAGE, Recorder, build_archive
 
 PROJECT = "my-product"
-ORDER = ("git", "just", "git", "git", "git", "uv")
+ORDER = ("git", "git", "git", "git", "just", "uv")
 
 
 def run_init(
@@ -50,9 +50,9 @@ def test_init_runs_the_five_steps_in_order(tmp_path: Path, fake_pack: Path) -> N
     assert destination.is_dir()
     assert runner.programs == ORDER
     assert runner.commands[0][:2] == ("git", "init")
-    assert runner.commands[1] == ("just", "setup")
-    assert runner.commands[3][:2] == ("git", "add")
-    assert "commit" in runner.commands[4]
+    assert runner.commands[2][:2] == ("git", "add")
+    assert "commit" in runner.commands[3]
+    assert runner.commands[4] == ("just", "setup")
     assert runner.commands[5][:4] == ("uv", "run", "prek", "install")
 
 
@@ -95,7 +95,7 @@ def test_the_public_flag_flips_the_visibility(tmp_path: Path, fake_pack: Path) -
     assert "--private" not in runner.commands[-1]
 
 
-def test_a_setup_failure_stops_before_the_commit_and_before_github(
+def test_a_setup_failure_stops_before_the_hooks_and_before_github(
     tmp_path: Path, fake_pack: Path
 ) -> None:
     runner = Recorder(failing="just")
@@ -103,7 +103,7 @@ def test_a_setup_failure_stops_before_the_commit_and_before_github(
     with pytest.raises(OSError, match="just"):
         _ = run_init(tmp_path, fake_pack, runner, github=True)
 
-    assert runner.programs == ("git", "just")
+    assert runner.programs == ("git", "git", "git", "git", "just")
     assert (tmp_path / "term").is_dir()
 
 
@@ -114,7 +114,7 @@ def test_the_commit_carries_a_fallback_identity_when_the_machine_states_none(
 
     _ = run_init(tmp_path, fake_pack, runner)
 
-    assert "-c" in runner.commands[4]
+    assert "-c" in runner.commands[3]
 
 
 def test_release_stages_the_payload_builds_the_wheel_then_deletes_the_payload(

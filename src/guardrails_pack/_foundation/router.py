@@ -2,7 +2,7 @@
 
 The router imports exactly one user-owned module, the composition root, and it
 reads the `CAPABILITIES` tuple of that module. Discovery is composition, never a
-filesystem scan (conflict C2 of #85). The router names no capability.
+filesystem scan. The router names no capability.
 
 The command line is always three tokens: `<project> <capability> <function>`.
 The group token is the capability directory name with underscores turned to
@@ -10,6 +10,12 @@ hyphens, and each public function of that capability's `api.py` is one
 subcommand under the same rule. The router derives options, help, envelopes,
 paging and exit codes from stdlib-typed signatures and stdlib exceptions, so a
 capability writes no command-line code and never selects an exit code.
+
+Two rules govern every docstring the router renders. `argparse` turns a whole
+module docstring into the group's help description. It rewraps that text into
+one paragraph, so a table or a fenced code block loses every line break.
+`argparse` also turns the first line of a function's docstring into the
+one-line summary of a command list. Write that first line so it stands alone.
 
 `CLI001` to `CLI004` of the gate reject an api surface that the router cannot
 render, so a project fails at commit time rather than at run time. The refusals
@@ -317,7 +323,7 @@ def _add_router_options(parser: argparse.ArgumentParser, *, query: bool) -> None
 
 
 class Parser(argparse.ArgumentParser):
-    """An argument parser that rejects an invocation rather than ends the process."""
+    """An argument parser that rejects an invocation rather than ending the process."""
 
     @override
     def error(self, message: str) -> NoReturn:
@@ -475,7 +481,7 @@ def main(
     out: TextIO | None = None,
     err: TextIO | None = None,
 ) -> int:
-    """Run one command line and return its exit code. This is the one entry point."""
+    """Run one command line and return its exit code. This function is the one entry point."""
     arguments = list(sys.argv[1:] if argv is None else argv)
     stream_out = sys.stdout if out is None else out
     stream_err = sys.stderr if err is None else err

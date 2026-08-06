@@ -9,7 +9,7 @@
 ```
 
 No template engine runs, and no file receives an interior edit beyond the token
-swap (#85 section 3.5). The whole tree is built in a temporary directory, and
+swap. The whole tree is built in a temporary directory, and
 `R7` to `R9` read it back before the caller moves it into place.
 
 The capability directory name is read from this module's own name, so no
@@ -53,7 +53,7 @@ def _write_file(source: Path, target: Path, pairs: tuple[tuple[str, str], ...]) 
 
 
 def _rewrite(staging: Path, built: Path, pairs: tuple[tuple[str, str], ...]) -> None:
-    """Steps 1 and 2: copy every entry to its renamed location, with tokens swapped."""
+    """Steps 1 and 2: copy every entry to its renamed path, with tokens swapped."""
     for source in sorted(staging.rglob("*")):
         relative = rename_components(source.relative_to(staging).as_posix(), pairs)
         target = built / relative

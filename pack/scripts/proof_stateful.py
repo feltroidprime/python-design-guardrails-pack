@@ -1,4 +1,7 @@
-"""Discover the reachable evidence inside a Hypothesis state machine."""
+"""Discover the reachable evidence inside a Hypothesis state machine.
+
+This is machinery for `proof_tests.py`. It emits no PROOF code.
+"""
 
 import ast
 from typing import TYPE_CHECKING

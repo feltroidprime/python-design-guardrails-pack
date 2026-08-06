@@ -1,4 +1,7 @@
-# Python Repository Pack
+# Python Design Guardrails Pack
+
+The repository name `python-design-guardrails-pack`, the distribution name
+`pyrepo`, and the import package `guardrails_pack` name one artifact.
 
 This context describes one self-hosting root project and the single user-owned
 project obtained by projecting that root.
@@ -16,14 +19,17 @@ copying that capability into the result.
 _Avoid_: Recursive generation, self-replication
 
 **Terminal Projection**:
-The Root Pack with the One-shot Bootstrap capability removed and only a closed
-set of project-identity fields substituted; every other surface remains
-identical to the root.
+The Root Pack with the One-shot Bootstrap capability removed, its two identity
+tokens substituted throughout, and seven files overlaid with a starting
+version. `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`,
+`VALIDATION.md`, `.github/workflows/quality.yml`, and the composition root are
+the seven overlaid files. Every other file is identical to the root apart from
+the two identity tokens. ADR-0009 states the rule that decides that list.
 _Avoid_: Template rendering, template directory, repository recursion
 
 **Terminal Project**:
-The single user-owned repository emitted by the Root Pack; it may contain
-Product Capabilities but cannot create another repository.
+The single user-owned repository emitted by the Root Pack. It can contain
+Product Capabilities, and it cannot create another repository.
 _Avoid_: N0, nested repository, generator
 
 **Pack-owned Surface**:

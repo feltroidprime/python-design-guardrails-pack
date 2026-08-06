@@ -1,8 +1,8 @@
-"""The record a Pack Update reads on both sides: `pack/manifest.json`.
+"""The record a Pack Update reads on the destination and the installed pack: `pack/manifest.json`.
 
-The manifest is generated at build time, shipped inside the projection payload,
-and projected verbatim (#85 section 3.4). It holds three hash lists, so it
-carries no identity token and needs no placeholder markup:
+A release generates the manifest at build time, ships it inside the projection
+payload, and the projection projects it verbatim. It holds three hash lists, so
+it carries no identity token and needs no placeholder markup:
 
 * `root` — literal repository paths under `pack/`. `pack/manifest.json` is
   excluded, because it is the one pack-owned file that cannot hash itself;
@@ -136,7 +136,7 @@ def parse(text: str, rule: str, where: str) -> Manifest:
 
 
 def entries(manifest: Manifest, package: str) -> Mapping[str, str]:
-    """Every pack-owned path of one manifest, keyed by its repository location."""
+    """Every pack-owned path of one manifest, keyed by its repository path."""
     prefix = f"{SOURCE_DIRECTORY}{SEPARATOR}{package}{SEPARATOR}"
     located = {
         **dict(manifest.root),

@@ -1,4 +1,8 @@
-"""Shared immutable models for the proof-contract static analysis."""
+"""Shared immutable models for the proof-contract static analysis.
+
+This is machinery for every other `proof_*.py` module. It emits no PROOF
+code.
+"""
 
 import ast
 from dataclasses import dataclass

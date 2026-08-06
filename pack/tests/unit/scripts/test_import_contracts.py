@@ -1,7 +1,7 @@
 """The import-contract shim: what it discovers, and what it injects.
 
 `pack/configs/importlinter.ini` carries every rule. The shim carries none. These
-tests hold that split, and they hold the two measured facts of #84 that shape
+tests hold that split, and they hold the two measured facts that shape
 the rendering: a wildcard container also matches `cli`, `composition` and
 `_foundation`, and a project with no capability must render no layer contract.
 """

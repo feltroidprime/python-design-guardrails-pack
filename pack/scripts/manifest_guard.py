@@ -1,36 +1,36 @@
 #!/usr/bin/env python3
 """Prove that `pack/manifest.json` states the current pack-owned bytes.
 
+Run `just manifest` after you change a pack-owned file, or the `manifest`
+hook of the gate fails. That recipe is the short, shipped spelling of
+`uv run python -m scripts.manifest_guard --write`.
+
 `pack/manifest.json` records the sha256 of every pack-owned file. A Pack Update
 compares that record against the destination to find local drift, so a stale
-manifest makes the update believe a changed file is untouched. Refusal `U8` of
-#85 catches the same defect from the outside, at update time. This hook catches
-it from the inside, at commit time.
+manifest makes the update believe a changed file is untouched. An update also
+catches the same violation from the outside, at update time. This hook
+catches it from the inside, at commit time.
 
 The check recomputes each hash with `hashlib`, reads and writes the record with
 `json`, and walks the tree with `pathlib`. It runs no other tool. Ownership
 comes from the one predicate in `scripts.ownership`, never from a second copy of
 the rule and never from the manifest's own path list.
 
-The manifest holds three lists, so it carries no identity token (#85 section
-3.4):
+The manifest holds three lists, so it carries no identity token:
 
 * `root` — literal repository paths under `pack/`, `pack/manifest.json` apart,
-  because that one file cannot hash itself;
-* `package` — paths relative to `src/<pkg>/`, whose name the reader derives;
+  because that one file cannot hash itself.
+* `package` — paths relative to `src/<pkg>/`, whose name the reader derives.
 * `shims` — the as-shipped hash of each user-owned entry point, which an update
   reads to tell a customised shim from an untouched one, and never writes.
 
 The check compares `root` and `package` only. A shim is user-owned, so its
 current bytes are never drift: the justfile invites its owner to add recipes,
 and Terminal Projection overlays `.github/workflows/quality.yml` with a copy
-that holds the `quality` job only. Comparing the `shims` list would make the
-gate red on the day a project is born, and red again on the day its owner
+that holds the `quality` job only. If the check compared the `shims` list, the
+gate is red on the day a project is born, and red again on the day its owner
 edits the file the pack asked them to own. `verify` still reads that list, so a
 manifest that states fewer than three lists is still an error.
-
-Run `uv run python -m scripts.manifest_guard --write` after you change a
-pack-owned file.
 """
 
 import hashlib
@@ -75,9 +75,9 @@ IGNORED_SUFFIXES = (".pyc", ".pyo")
 # The staged projection payload is one archive under `src/`. It belongs to no
 # release, it is never committed, and an interrupted build can leave it behind.
 # This rule names the shape of that file and never its name, because a
-# pack-owned file reaches a Terminal Project byte for byte and assertion `TER-6`
-# of #81 forbids the name there. A name-blind rule also covers every archive an
-# interrupted build can leave, not one exact spelling.
+# pack-owned file reaches a Terminal Project byte for byte and must not carry
+# that name there. A name-blind rule also covers every archive an interrupted
+# build can leave, not one exact spelling.
 IGNORED_SOURCE_SUFFIX = ".tar"
 REPAIR_COMMAND = "uv run python -m scripts.manifest_guard --write"
 USAGE = "Usage: python -m scripts.manifest_guard [--write]"
@@ -163,7 +163,7 @@ def pack_version(root: Path) -> str:
             tomllib.loads((root / PROJECT_FILE).read_text(encoding="utf-8")),
         )
     except (OSError, tomllib.TOMLDecodeError) as error:
-        raise ManifestError(f"{PROJECT_FILE} could not be read: {error}") from error
+        raise ManifestError(f"{PROJECT_FILE} was not read: {error}") from error
     section = project.get("project")
     if not isinstance(section, dict):
         raise ManifestError(f"{PROJECT_FILE} declares no [project] table.")
@@ -200,7 +200,7 @@ def read(root: Path) -> dict[str, object]:
     try:
         recorded = cast("object", json.loads(path.read_text(encoding="utf-8")))
     except (OSError, json.JSONDecodeError) as error:
-        raise ManifestError(f"{MANIFEST} could not be read: {error}") from error
+        raise ManifestError(f"{MANIFEST} was not read: {error}") from error
     if not isinstance(recorded, dict):
         raise ManifestError(f"{MANIFEST} is not a JSON object.")
     return cast("dict[str, object]", recorded)
@@ -251,7 +251,7 @@ def main(argv: list[str]) -> int:
             return 2
         report = verify(root)
     except (DiscoveryError, ManifestError, OSError) as error:
-        print(f"Manifest check could not run: {error}", file=sys.stderr)
+        print(f"Manifest check did not run: {error}", file=sys.stderr)
         return 2
     if report:
         for line in report:

@@ -1,4 +1,7 @@
-"""Resolve stable public-facade calls to their defining proof symbols."""
+"""Resolve stable public-facade calls to their defining proof symbols.
+
+This is machinery for `proof_tests.py`. It emits no PROOF code.
+"""
 
 import ast
 

@@ -3,7 +3,7 @@
 The router derives one command group from each capability and one subcommand
 from each public function of its `api.py`. It reads the signature and the
 docstring, and nothing else. An api surface the router cannot render must
-therefore fail at the gate, not at run time (#85 section 4.4).
+therefore fail at the gate, not at run time.
 
 | Rule | The api surface must not hold |
 |---|---|
@@ -11,6 +11,16 @@ therefore fail at the gate, not at run time (#85 section 4.4).
 | `CLI002` | a missing docstring on the module or on a public function |
 | `CLI003` | an annotation outside the closed stdlib set |
 | `CLI004` | a `bool` parameter without a `False` default |
+
+`CLI003` reads two different sets. A parameter takes the narrower,
+`RENDERABLE_PARAMETER_NAMES`, because the router turns it into one
+command-line value: `None`, `Path`, `bool`, `float`, `int`, or `str`. A
+return takes the wider `RENDERABLE_RETURN_NAMES`, because the router turns
+it into one JSON document or one page of documents: every parameter name,
+plus `Iterable`, `Iterator`, `Mapping`, `Sequence`, `dict`, `list`, `object`,
+and `tuple`. The `CLI003` message names the accepted set for the position it
+fires on. Fix a parameter with the parameter set. Fix a return with the
+return set.
 
 The rules read the filesystem layout only, so an uncomposed capability is
 checked exactly like a composed one.
@@ -32,7 +42,7 @@ API_MODULE = "api.py"
 PRIVATE_PREFIXES = (".", "_")
 
 # The router turns each of these names into a global option of every command,
-# so a capability cannot claim one for itself (#85 section 3.1).
+# so a capability cannot claim one for itself.
 RESERVED_PARAMETER_NAMES = frozenset({"continuation", "debug", "format", "limit"})
 
 # The closed set of annotation names the router can render. A parameter takes
@@ -129,7 +139,7 @@ def _missing_docstrings(path: Path, tree: ast.Module) -> list[Violation]:
                 path=path,
                 line=1,
                 code="CLI002",
-                message="The api module states no docstring; the router shows it as group help.",
+                message="The api module states no docstring. The router shows it as group help.",
             )
         )
     violations.extend(
@@ -137,7 +147,7 @@ def _missing_docstrings(path: Path, tree: ast.Module) -> list[Violation]:
             path,
             node,
             "CLI002",
-            f"Public function '{node.name}' states no docstring; the router shows it as help.",
+            f"Public function '{node.name}' states no docstring. The router shows it as help.",
         )
         for node in public_functions(tree)
         if ast.get_docstring(node) is None
@@ -160,7 +170,11 @@ def _parameter_annotations(path: Path, node: Function) -> list[Violation]:
             continue
         rejected = sorted(set(annotation_names(parameter.annotation)) - RENDERABLE_PARAMETER_NAMES)
         if rejected:
-            detail = f"uses {', '.join(rejected)}, which the router cannot render"
+            accepted = ", ".join(sorted(RENDERABLE_PARAMETER_NAMES))
+            detail = (
+                f"uses {', '.join(rejected)}, which the router cannot render. "
+                f"A parameter must use one of: {accepted}"
+            )
             violations.append(
                 violation(
                     path,
@@ -187,7 +201,11 @@ def _unrenderable_annotations(path: Path, node: Function) -> list[Violation]:
         return violations
     rejected = sorted(set(annotation_names(node.returns)) - RENDERABLE_RETURN_NAMES)
     if rejected:
-        detail = f"uses {', '.join(rejected)}, which the router cannot render"
+        accepted = ", ".join(sorted(RENDERABLE_RETURN_NAMES))
+        detail = (
+            f"uses {', '.join(rejected)}, which the router cannot render. "
+            f"A return must use one of: {accepted}"
+        )
         violations.append(violation(path, node, "CLI003", f"The return of '{node.name}' {detail}."))
     return violations
 
@@ -214,7 +232,7 @@ def _boolean_defaults(path: Path, node: Function) -> list[Violation]:
 
 
 def check_capability_api(path: Path, tree: ast.Module, policy: Policy) -> list[Violation]:
-    """Reject an `api.py` surface that the router cannot turn into commands."""
+    """Check an `api.py` surface for whatever the router cannot turn into commands."""
     if not is_capability_api(path, policy):
         return []
     violations = _missing_docstrings(path, tree)

@@ -1,4 +1,7 @@
-"""Discover literal property links carried by proof assertion helpers."""
+"""Discover literal property links carried by proof assertion helpers.
+
+This is machinery for `proof_evidence_rules.py`. It emits no PROOF code.
+"""
 
 import ast
 

@@ -2,13 +2,13 @@
 
 Installed, the payload is the archive the wheel ships at `<package>/_pack.tar`.
 In the Root Pack's own checkout that archive is absent, and the code falls back
-to the repository root (#85 section 3.3). Assertion TER-7 of #81 exercises both.
+to the repository root. The acceptance suite exercises both sources.
 
 Both locations give the tree of one commit. The installed archive is
 `git archive HEAD` of the release, and the checkout builds the same archive on
 demand, so the two sources cannot drift apart. The staged archive itself is
 dropped on the way out, so an interrupted build never ships the whole Root Pack
-inside a Terminal Project (conflict C15 of #85).
+inside a Terminal Project.
 """
 
 from collections.abc import Iterator

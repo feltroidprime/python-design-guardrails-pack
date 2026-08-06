@@ -1,4 +1,4 @@
-"""Group 5 of #81: valid filesystem-native capabilities, `FSC-1` to `FSC-10`.
+"""Valid filesystem-native capabilities, `FSC-1` to `FSC-10`.
 
 Each deleted rule of the retired capability validator is reproved here through
 one `import-linter` contract on a `DEFECT` tree, and each `DEFECT` tree is a copy
@@ -114,7 +114,7 @@ def test_fsc_4_reaching_internals_breaks_a_contract(
 def test_fsc_5_importing_pack_code_breaks_a_contract(
     defect: Callable[[str], Path], term: Project
 ) -> None:
-    """`FSC-5`: rule `L4`, which no earlier validator carried at all."""
+    """`FSC-5`: layout rule 4, which bans an import of pack code from a capability."""
     tree = with_capability(defect, term, "pack-import")
     capabilities.import_pack_code(tree, term.tokens.package, FIRST)
 

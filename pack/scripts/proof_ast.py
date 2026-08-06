@@ -1,4 +1,8 @@
-"""AST name binding and direct-call resolution for proof discovery."""
+"""AST name binding and direct-call resolution for proof discovery.
+
+This is machinery for `proof_sources.py` and `proof_invocations.py`. It
+emits no PROOF code.
+"""
 
 import ast
 from dataclasses import dataclass

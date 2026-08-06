@@ -104,7 +104,7 @@ def write_policy(root: Path, policy: str = POLICY_TOML) -> None:
 
 
 def write_capability_catalog(capability_root: Path) -> None:
-    """Rule L1 of #85 gives every capability one `proof.toml`."""
+    """AGENTS.md gives every capability one `proof.toml`."""
     _ = (capability_root / "proof.toml").write_text(CAPABILITY_TOML, encoding="utf-8")
 
 

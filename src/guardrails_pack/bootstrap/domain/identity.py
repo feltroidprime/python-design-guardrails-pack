@@ -1,8 +1,8 @@
-"""Project identity: two values, and the six rules that admit a new one.
+"""Project identity: two values, and the four rules that admit a new one.
 
-Identity is exactly two values, a distribution name and an import package name
-(#85 section 3.5). The projection swaps the pack's pair for the new project's
-pair, and it changes nothing else.
+Identity is exactly two values, a distribution name and an import package name.
+The projection swaps the pack's pair for the new project's pair, and it changes
+nothing else.
 
 Rules `R1` to `R4` live here, because each one is a statement about a name.
 `R3` needs the standard library module list and `R5` and `R6` need the
@@ -12,9 +12,9 @@ external fact of its own.
 The four rules answer in two groups, and the split is deliberate. `R1` to `R3`
 read the request alone, so `check_request` answers them before anything opens
 the projection source. `R4` compares the request against the pack, so
-`check_tokens` needs the identity of the pack and cannot answer earlier. A
-refusal that reads a fact it does not use turns an unreadable payload into an
-unexpected failure, which is the defect that `TER-4` of #81 reports.
+`check_tokens` needs the identity of the pack and cannot answer earlier. This
+order keeps an unreadable payload a permanent rejection, never an unexpected
+failure.
 """
 
 from dataclasses import dataclass

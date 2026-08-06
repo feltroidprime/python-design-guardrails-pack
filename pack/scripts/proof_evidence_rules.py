@@ -225,7 +225,7 @@ def _canary_violations(test: ProofTest, context: TestContext) -> list[Violation]
             "PROOF028",
             (
                 f"Canary '{test.name}' must falsify exactly one declared oracle of "
-                f"'{context.property_id}'; a conjunction over {len(pinned)} oracle(s) stays false "
+                f"'{context.property_id}'. A conjunction over {len(pinned)} oracle(s) stays false "
                 "when one of them degenerates to a constant."
             ),
         )
@@ -259,7 +259,7 @@ def _property_evidence_count_violations(
                 1,
                 "PROOF020",
                 (
-                    f"Property '{property_id}' needs exactly one canonical broad proof; "
+                    f"Property '{property_id}' needs exactly one canonical broad proof. "
                     f"found {proves}."
                 ),
             )
@@ -290,7 +290,10 @@ def _canary_coverage_violations(
             "PROOF021",
             (
                 f"Oracle '{oracle}' of property '{property_spec.property_id}' needs exactly one "
-                f"falsifying canary; found {pinned[oracle]}."
+                f"falsifying canary. Found {pinned[oracle]}. A canary counts only when it meets "
+                "four conditions. It is marked @pytest.mark.falsifies for this property. It "
+                "calls the assert_falsifies helper, not assert_rejected. It invokes at least "
+                "one of the property's declared oracles. It invokes no more than one of them."
             ),
         )
         for oracle in property_spec.oracles

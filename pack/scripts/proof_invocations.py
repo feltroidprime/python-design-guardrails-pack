@@ -1,4 +1,7 @@
-"""Conservative invocation analysis for exact proof target matching."""
+"""Conservative invocation analysis for exact proof target matching.
+
+This is machinery for `proof_tests.py`. It emits no PROOF code.
+"""
 
 import ast
 from dataclasses import dataclass

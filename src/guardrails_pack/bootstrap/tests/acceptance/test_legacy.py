@@ -1,8 +1,7 @@
-"""Group 3 of #81: absence of legacy architecture and vocabulary, `LEG-1` to `LEG-6`.
+"""Group 3: absence of legacy architecture and vocabulary, `LEG-1` to `LEG-6`.
 
-The group certifies the deletion boundary of #85 section 1, the twelve hooks of
-section 4.4, a green gate in both trees, and a gate definition that a pack update
-can replace whole.
+The group states the deletion boundary, the twelve hooks of the gate, a green
+gate in both trees, and a gate definition that a pack update can replace whole.
 
 `LEG-1` and `LEG-2` are the two ban lists of Code B. Every exemption is stated
 in `ban_lists.py`: the two files that state the lists, the two trees whose words

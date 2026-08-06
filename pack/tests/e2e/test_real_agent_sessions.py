@@ -1,3 +1,17 @@
+"""Convert real local agent sessions and check the output bundle.
+
+This suite reads private local session logs from `~/.claude/projects` or
+`~/.codex/sessions`, so it is not part of the gate. `pack/configs/pytest.ini`
+excludes it, and `just check` never selects it. Run it with `just
+session-e2e`, which installs the opt-in `session-profiler-optimizer`
+dependency for that one run.
+
+Each test samples one session per size quantile, converts it with
+`convert_session`, and checks the result against `session_contract`. A test
+skips when no local session of that agent type exists, and it fails when
+fewer than `QUANTILE_COUNT` sessions exist.
+"""
+
 from pathlib import Path
 import random
 

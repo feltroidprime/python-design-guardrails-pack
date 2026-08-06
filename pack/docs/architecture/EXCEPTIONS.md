@@ -1,9 +1,17 @@
 # Architecture exception ledger
 
 Every suppression in code must name a narrow diagnostic and carry an
-`ARCH-EXCEPTION: ADR-NNNN` marker. Every entry below must state the ADR, the
-exact scope, the owner, the reason, the risk, an objective revisit trigger, and
-the removal criteria.
+`ARCH-EXCEPTION: ADR-NNNN` marker. Before you write the marker, write the ADR.
+The `docs` hook reports a marker whose ADR does not exist under `docs/adr/`
+as `DOC002`.
+
+The marker suppresses `ARCH016` through `ARCH030` only. It does nothing for
+`ARCH000` through `ARCH015`, because those codes are structural. For one of
+those codes, change the code, or change `pack/architecture.toml` with a
+written rationale.
+
+Every entry below must state the ADR, the exact scope, the owner, the reason,
+the risk, an objective revisit trigger, and the removal criteria.
 
 ## Active exceptions in code
 
@@ -15,7 +23,7 @@ the removal criteria.
 - Reason: the ownership predicate answers for a real tracked tree or it answers
   for nothing, and `git ls-files -z` is the only source of that tree. The
   command is a fixed constant, and no caller supplies an argument.
-- Risk: a later edit could pass caller input to the same helper.
+- Risk: a later edit can pass caller input to the same helper.
 - Revisit trigger: the test runner supplies a typed process fixture that Ruff
   accepts as safe.
 - Removal criteria: read the tracked tree through a library call that needs no
@@ -41,6 +49,3 @@ marker. It must still be recorded here.
   that covers the same row.
 - Removal criteria: keep the stable unexpected-failure output without a broad
   catch.
-
-`DESIGN_GUARDRAILS.md` at the repository root states the same narrowing beside
-every other deliberate loosening.

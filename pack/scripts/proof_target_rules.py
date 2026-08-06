@@ -91,7 +91,8 @@ def closure_violations(
                     "PROOF001",
                     (
                         f"Public core behavior '{target.target}' is neither owned by a property "
-                        "nor explicitly exempted in proof.toml."
+                        "nor exempted. Declare it in this capability's own proof.toml, not in "
+                        "a pack/proof/ file: an update replaces every pack/proof/ file whole."
                     ),
                 )
             )
@@ -163,8 +164,9 @@ def _symbolic_target_violations(
             target.line,
             "PROOF027",
             (
-                f"Pure contracted target '{target_name}' must be listed as CrossHair evidence for "
-                f"'{property_spec.property_id}'."
+                f"Pure contracted target '{target_name}' needs two edits to property "
+                f"'{property_spec.property_id}': add 'crosshair' to its evidence, and add "
+                f"'{target_name}' to its crosshair_targets."
             ),
         )
     ]

@@ -11,11 +11,11 @@
 8. print the shim report; write no user-owned file
 ```
 
-The only identity-aware step is deriving `src/<pkg>/` from the destination
-(#85 section 3.5). Nothing here renders, and nothing here runs the gate: an
-update carries the current tool policy, writes no user-owned file, and exits 0.
-A red gate on user code afterwards is the intended signal, not a refusal
-(conflict C13 of #85). Git is the undo, so the update refuses a dirty worktree.
+The only identity-aware step is deriving `src/<pkg>/` from the destination.
+Nothing here renders, and nothing here runs the gate: an update carries the
+current tool policy, writes no user-owned file, and exits 0. A red gate on user
+code afterwards is the intended signal, not a refusal. Git is the undo, so the
+update refuses a dirty worktree.
 
 A version transition is forward-only and takes one jump. An equal version writes
 zero paths and exits 0, a lower version is refused, and no migration code ever
@@ -24,7 +24,7 @@ applies it.
 
 The drift policy is refuse-all. `--force` overwrites, and it saves the bytes it
 replaces under `pack/.drift/<path>`, which the pack-owned `pack/.gitignore`
-keeps out of git (conflict C11 of #85).
+keeps out of git.
 """
 
 from collections.abc import Mapping
@@ -172,7 +172,7 @@ def _check_drift(drift: tuple[str, ...], destination: Path, *, force: bool) -> N
 
 
 def _origin_of(relative: str, package: str, source_package: str) -> str:
-    """The same pack-owned location inside the installed pack, under its own package."""
+    """The same pack-owned path inside the installed pack, under its own package."""
     prefix = f"{SOURCE_DIRECTORY}{SEPARATOR}{package}{SEPARATOR}"
     if not relative.startswith(prefix):
         return relative

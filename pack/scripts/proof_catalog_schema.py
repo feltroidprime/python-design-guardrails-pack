@@ -1,4 +1,8 @@
-"""TOML schema parsing for a policy and its independent property catalogs."""
+"""TOML schema parsing for a policy and its independent property catalogs.
+
+This is machinery for `proof_catalog.py`. It emits no PROOF code. A
+malformed policy or catalog raises `CatalogError` instead.
+"""
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -292,9 +296,8 @@ def load_exemption(value: object, index: int) -> ProofExemption:
             f"Exemption '{target}' revisit must be an ISO date (YYYY-MM-DD)"
         ) from error
     if revisit <= datetime.now(UTC).date():
-        raise CatalogError(
-            f"Exemption '{target}' expired on {revisit.isoformat()}; prove or remove the behavior"
-        )
+        expired = f"Exemption '{target}' expired on {revisit.isoformat()}."
+        raise CatalogError(f"{expired} Prove the behavior, or remove it.")
     return ProofExemption(
         target=target,
         reason=text(raw.get("reason"), f"{prefix}.reason"),

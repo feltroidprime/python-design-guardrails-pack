@@ -1,4 +1,4 @@
-"""The manifest hook: refusal U8 of #85, read from the inside.
+"""The manifest hook: the same drift an update refuses, read from the inside.
 
 A Pack Update trusts `pack/manifest.json` to say what the destination was born
 with. A stale manifest therefore hides local drift from the update. These tests
@@ -80,8 +80,8 @@ def test_the_manifest_never_records_itself(tmp_path: Path) -> None:
 
 def test_a_staged_archive_and_the_drift_backups_are_ignored(tmp_path: Path) -> None:
     # The rule is name-blind: any archive under a source package is ignored, so
-    # this pack-owned test can carry the shape without carrying the file name
-    # that assertion `TER-6` of #81 forbids in a Terminal Project.
+    # this pack-owned test can carry the shape without carrying a file name
+    # that a Terminal Project must never carry.
     archive = f"payload{IGNORED_SOURCE_SUFFIX}"
     make_tree(tmp_path)
     _ = (tmp_path / "src" / PACKAGE / archive).write_bytes(b"payload")

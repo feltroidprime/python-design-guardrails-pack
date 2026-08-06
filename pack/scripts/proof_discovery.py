@@ -1,4 +1,8 @@
-"""Stable facade for proof target, oracle, and property-test discovery."""
+"""Stable facade for proof target, oracle, and property-test discovery.
+
+This is machinery. It re-exports `proof_sources.py` and `proof_tests.py`,
+and it emits no PROOF code.
+"""
 
 from scripts.proof_model import (
     ContractLink,

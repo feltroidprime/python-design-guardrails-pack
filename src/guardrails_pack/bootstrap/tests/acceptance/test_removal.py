@@ -1,10 +1,9 @@
-"""Group 2 of #81: complete bootstrap removal, `REM-1` to `REM-7`.
+"""Complete bootstrap removal, `REM-1` to `REM-7`.
 
-The group certifies that a Terminal Project cannot generate a repository and
-does not remember that it ever could: no directory, no word, no module, no
-command, an empty `CAPABILITIES` tuple, a Root Pack refused as the destination
-of an update (#85 sections 2.2 and 3.2), and no CI job left behind by the
-deletion.
+The group states that a Terminal Project cannot generate a repository, and
+keeps no trace that it once did: no directory, no word, no module, no command,
+an empty `CAPABILITIES` tuple, a Root Pack refused as the destination of an
+update, and no CI job left behind by the deletion.
 """
 
 from pathlib import Path
@@ -103,7 +102,7 @@ def test_rem_7_no_job_runs_a_marker_that_the_deletion_empties(root: Path, term: 
     marker of that capability collects nothing. pytest answers exit code 5 and
     the runner fails the job, which makes a new project red on its first push.
     The rule is the class and not one marker: no selection of the projected
-    workflow may collect nothing.
+    workflow can collect nothing.
 
     The pack's own workflow is measured against the same project first, so this
     assertion can never pass because it found nothing to measure. That reading

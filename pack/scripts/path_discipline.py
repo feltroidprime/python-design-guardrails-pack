@@ -1,4 +1,12 @@
-"""Path declaration and use checks (ARCH019/020/028)."""
+"""Path declaration and use checks (ARCH019/020/028).
+
+`ARCH019` and `ARCH020` fire on the name: a parameter, return, or field
+named like a path (for example `config_path`) that admits `str`. `ARCH028`
+fires on the use instead: a parameter or field named unlike a path, that
+still reaches a path API (`Path(...)`, `open(...)`, `.read_text()`, and
+similar) somewhere in the body. Fix either kind by declaring `pathlib.Path`
+and converting text at the boundary where it enters or leaves.
+"""
 
 import ast
 from typing import TYPE_CHECKING
@@ -96,8 +104,7 @@ def check_signature(path: Path, node: ast.FunctionDef | ast.AsyncFunctionDef) ->
             "ARCH019",
             (
                 f"Parameter '{arg.arg}' of '{node.name}' names a filesystem path but "
-                "admits str; accept pathlib.Path and parse raw text where it enters "
-                "(see 'Path discipline')."
+                "admits str. Accept pathlib.Path, and parse raw text where it enters."
             ),
         )
         for arg, annotation in annotated_args(node)
@@ -110,8 +117,8 @@ def check_signature(path: Path, node: ast.FunctionDef | ast.AsyncFunctionDef) ->
                 node,
                 "ARCH019",
                 (
-                    f"Callable '{node.name}' names a path but returns str; return "
-                    "pathlib.Path and serialize with str(path) only inside the final "
+                    f"Callable '{node.name}' names a path but returns str. Return "
+                    "pathlib.Path, and serialize with str(path) only inside the final "
                     "external call."
                 ),
             )
@@ -132,8 +139,8 @@ def check_field(path: Path, node: ast.AnnAssign) -> list[Violation]:
             node,
             "ARCH020",
             (
-                f"Field '{name}' names a filesystem path but admits str; declare it "
-                "as pathlib.Path and convert wire data at the adapter boundary."
+                f"Field '{name}' names a filesystem path but admits str. Declare it "
+                "as pathlib.Path, and convert wire data at the adapter boundary."
             ),
         )
     ]
@@ -177,7 +184,7 @@ def _use_violation(path: Path, node: ast.AST, kind: str, name: str) -> Violation
         path,
         node,
         "ARCH028",
-        f"{kind} '{name}' is str used as a filesystem path; declare pathlib.Path.",
+        f"{kind} '{name}' is str used as a filesystem path. Declare pathlib.Path.",
     )
 
 

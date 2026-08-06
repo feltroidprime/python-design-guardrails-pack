@@ -1,4 +1,8 @@
-"""Immutable models and stable wire shape for the multi-catalog proof surface."""
+"""Immutable models and stable wire shape for the multi-catalog proof surface.
+
+This is machinery for `proof_catalog.py` and `proof_catalog_schema.py`. It
+emits no PROOF code.
+"""
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING

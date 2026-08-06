@@ -2,11 +2,11 @@
 
 `R1` to `R6` run before any write. `R7` to `R9` run against the temporary build
 directory, and the tree only moves into place after all three pass. Each case
-below states one rule, and each case checks the same three facts: the message
-names the rule, it ends with the promise, and the destination is absent.
+below states one rule and the same three facts: the message names the rule, it
+ends with the promise, and the destination is absent.
 
-These cases prepare assertion `PAR-11` of #81, which runs the same nine rules
-from the installed console script.
+These cases prepare the acceptance suite, which runs the same nine rules from
+the installed console script.
 """
 
 from collections.abc import Callable, Mapping

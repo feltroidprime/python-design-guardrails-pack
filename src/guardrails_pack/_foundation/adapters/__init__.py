@@ -1,6 +1,8 @@
-"""Adapters of the pack-owned foundation.
+"""Adapters of the pack-owned foundation: empty by design.
 
-The foundation reaches the process boundary through this package. A capability
-never imports it, because the whole `_foundation` surface is pack-owned and
-protected by an `import-linter` contract (rule L4 of #85 section 4.3).
+`router.py` writes to the process boundary itself, through `sys.stdout` and
+`sys.stderr`, so this package holds no adapter of its own. It stays in the
+tree as the seam for a future inbound or outbound adapter. A capability never
+imports it, because the whole `_foundation` surface is pack-owned and an
+`import-linter` contract forbids that import.
 """

@@ -9,9 +9,8 @@ committed.
 The earlier `hatchling` shape failed here. Its `force-include` table sat inside
 the file that projection rewrites, so the table could not erase itself, and
 every Terminal Project shipped a copy of the pack. These tests state the four
-facts that measurement killed that shape on, and they prepare assertions `TER-1`
-to `TER-4` of #81, which the acceptance suite proves from the installed console
-script.
+facts that measurement killed that shape on, and the acceptance suite proves
+the same four facts from the installed console script.
 """
 
 from pathlib import Path
@@ -28,11 +27,11 @@ BUILD_REQUIREMENT = "uv_build==0.12.0"
 BUILD_BACKEND = "uv_build"
 ENTRY_POINT = "cli:main"
 # The name of the staged archive, written in two parts. `pack/` reaches a
-# Terminal Project byte for byte, and assertion TER-6 of #81 forbids the whole
-# name in any file of that project.
+# Terminal Project byte for byte, and that whole name must appear in no file
+# of that project.
 BLOB_NAME = "_pack" + ".tar"
-# The two strings that assertion TER-1 of #81 counts in a Terminal Project's
-# `pyproject.toml`. The count must be zero.
+# The two strings this test counts in a Terminal Project's `pyproject.toml`.
+# The count must be zero.
 PACK_ONLY_MARKERS = ("force-include", "_pack")
 # The neutral identity is derived, never written. Upper-casing this tree's own
 # two values gives a pair that rule R2 of the projection can never admit, so

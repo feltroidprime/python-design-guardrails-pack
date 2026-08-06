@@ -11,7 +11,7 @@ What user/domain behavior changes?
 
 ## Property delta
 
-- Added/changed property IDs:
+- Added or changed property IDs:
 - Exact scope of each changed property:
 - Minimal counterexample for each changed property:
 - External assumptions that remain outside the pure proof boundary:
@@ -20,10 +20,11 @@ What user/domain behavior changes?
 ## Tests and evidence
 
 - [ ] The oracle is primitive-fact based, effect-free, and independent from the behavior it judges
-- [ ] `icontract` pre/postcondition or invariant calls the declared oracle
+- [ ] `icontract` precondition or postcondition or invariant calls the declared oracle
 - [ ] One canonical Hypothesis proof invokes the exact declared target and oracle
 - [ ] One falsifying canary exists for every changed property
-- [ ] Stateful behavior uses one literal local `RuleBasedStateMachine`; only reachable rules/helpers carry evidence
+- [ ] Stateful behavior uses one literal local `RuleBasedStateMachine`
+- [ ] Only reachable rules or helpers carry evidence
 - [ ] Every contracted public function or method is a CrossHair target
 - [ ] Regression/example tests cover the concrete bug or user path
 - [ ] Port contract tests cover adapter changes

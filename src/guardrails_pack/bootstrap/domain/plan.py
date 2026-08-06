@@ -1,8 +1,8 @@
 """The write plan of a Pack Update: what changes, what drifted, what is legal.
 
 The plan states one operation per path, and it converges the destination on the
-hash list of the installed pack. A clean project gives exactly the classification
-of #85 section 3.5, because its bytes are the bytes it was born with. A forced
+hash list of the installed pack. A clean project gives exactly that
+classification, because its bytes are the bytes it was born with. A forced
 project gives the same classification plus the repair of every drifted path, so
 the manifest is true again after the update rather than at the next release.
 

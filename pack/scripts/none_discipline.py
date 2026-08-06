@@ -1,10 +1,21 @@
-"""None-discipline fitness functions.
+"""ARCH016, ARCH017, and ARCH018: keep None out of the domain core.
 
-``None`` is edge data: raw external input may be incomplete, but the core must
-not inherit that uncertainty. These checks make the mechanically observable
-part of the "None discipline" ladder in AGENTS.md executable; the judgment
-calls (explicit state types, null objects, sentinels) stay in review and ADRs.
-The guard applies the inline ``ARCH-EXCEPTION: ADR-XXXX`` marker centrally.
+`None` is edge data. Raw external input can be incomplete, but the domain
+core must not inherit that uncertainty. These checks cover what is
+mechanically observable. The judgment calls (explicit state types, null
+objects, sentinels) stay in review and in ADRs.
+
+- `ARCH016` fires on a collection field that defaults to `None` instead of
+  an empty collection. Fix: use `field(default_factory=...)`, so every
+  caller iterates without a `None` check.
+- `ARCH017` fires on an optional field inside the domain layer. Fix: parse
+  raw data into a strict value at the adapter boundary, or model the state
+  as its own type.
+- `ARCH018` fires on a domain function that returns an optional. Fix: raise
+  a domain error, or model the absent state explicitly, instead of
+  returning `None`.
+
+The guard applies the inline `ARCH-EXCEPTION: ADR-NNNN` marker centrally.
 """
 
 import ast
@@ -46,7 +57,7 @@ OPTIONAL_TYPE_NAMES = frozenset({"Optional", "typing.Optional"})
 
 
 def union_arms(node: ast.expr) -> list[ast.expr]:
-    """Flatten a PEP 604 union into its arms; a non-union is a single arm."""
+    """Flatten a PEP 604 union into its arms. A non-union is a single arm."""
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
         return union_arms(node.left) + union_arms(node.right)
     return [node]
@@ -92,7 +103,7 @@ def check_collection_default(path: Path, node: ast.AnnAssign) -> list[Violation]
             "ARCH016",
             (
                 f"Field '{field_label(node)}' defaults to None instead of an empty "
-                "collection; use field(default_factory=...) so callers iterate "
+                "collection. Use field(default_factory=...) so callers iterate "
                 "without a None check."
             ),
         )
@@ -110,8 +121,8 @@ def check_domain_field(path: Path, node: ast.AnnAssign) -> list[Violation]:
             "ARCH017",
             (
                 f"Optional domain field '{field_label(node)}' forces None checks on "
-                "every consumer; parse raw data into a strict value at the adapter "
-                "boundary or model the state as its own type."
+                "every consumer. Parse raw data into a strict value at the adapter "
+                "boundary, or model the state as its own type."
             ),
         )
     ]
@@ -129,8 +140,8 @@ def check_domain_return(
             node,
             "ARCH018",
             (
-                f"Domain callable '{node.name}' returns an optional; raise a domain "
-                "error or model the absent state explicitly."
+                f"Domain callable '{node.name}' returns an optional. Raise a domain "
+                "error, or model the absent state explicitly."
             ),
         )
     ]

@@ -5,12 +5,12 @@ deterministic test that kills it. This module reads the catalog, not the killer:
 it proves that every entry names a test that exists, and that the entry names it
 in the one runnable command form.
 
-Ticket I10 re-derived the catalog. Ten of the fourteen earlier entries named
-plan, apply, derived-index, or lifecycle machinery, all of which tickets I1 to I9
-deleted, so none of them has a killer any more. The four survivors point at live
-tests, and the one capability entry splits into the five defects that the six
-`import-linter` contracts now kill. Assertions `FSC-1` to `FSC-5` of #81 measure
-the same five defects from the installed console script.
+This catalog was re-derived from a larger, older one. Ten of the fourteen
+earlier entries named plan, apply, derived-index, or lifecycle machinery that
+a later change deleted, so none of them has a killer any more. The four
+survivors point at live tests, and the one capability entry splits into the
+five defects that the six `import-linter` contracts now kill. The acceptance
+suite measures the same five defects from the installed console script.
 
 Every evidence path is under `pack/`, so this pack-owned fixture carries no
 identity token and a Terminal Project can read it unchanged.
@@ -37,10 +37,9 @@ ALLOWED_MECHANISMS = frozenset(
         "proof_gate",
     }
 )
-# The machinery that tickets I1 to I9 deleted. An entry whose id or prose holds
-# one of these words names a subsystem that no longer exists, so it can name no
-# killer either. The scope clause of ticket I10 states it: the catalog holds no
-# plan, apply, or index mutation.
+# The machinery a later change deleted. An entry whose id or prose holds one
+# of these words names a subsystem that no longer exists, so it can name no
+# killer either. The catalog holds no plan, apply, or index mutation.
 DELETED_MACHINERY = ("plan", "apply", "index", "declaration", "activation", "retirement")
 EXPECTED_MUTATIONS = (
     ("capability-layer-missing", "a capability layer directory is absent"),

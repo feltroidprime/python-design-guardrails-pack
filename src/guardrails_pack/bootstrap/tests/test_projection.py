@@ -1,10 +1,9 @@
 """The four steps of Terminal Projection, and the two source locations.
 
-Each case states one invariant of #85 section 4.1 over the small pack tree of
-`conftest.py`: byte parity, no surviving token, the two path renames, the
-overlay that only replaces, and no capability directory. The acceptance suite of
-#81 states the same invariants over the whole real tree, from the installed
-console script.
+Each case states one invariant over the small pack tree of `conftest.py`: byte
+parity, no surviving token, the two path renames, the overlay that only
+replaces, and no capability directory. The acceptance suite states the same
+invariants over the whole real tree, from the installed console script.
 """
 
 from pathlib import Path
@@ -62,7 +61,7 @@ def term(tmp_path: Path, fake_pack: Path) -> Path:
 
 
 def relatives(tree: Path) -> set[str]:
-    """Every file of one tree, as relative locations."""
+    """Every file of one tree, as relative paths."""
     return {
         item.relative_to(tree).as_posix()
         for item in tree.rglob("*")

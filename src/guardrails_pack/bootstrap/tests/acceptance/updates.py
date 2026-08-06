@@ -1,8 +1,8 @@
 """Drive one Pack Update from the installed console script, and read its report.
 
-Group 4 of #81 measures the update from the outside only: exit codes, envelopes,
-byte comparisons and `git status --porcelain`. This module runs the command and
-reads the envelope. It states no assertion.
+This module reads the update from the outside only: exit codes, envelopes,
+byte comparisons and `git status --porcelain`. It runs the command and reads
+the envelope. It states no assertion.
 """
 
 from collections.abc import Mapping

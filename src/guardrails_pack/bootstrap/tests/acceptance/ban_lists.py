@@ -1,49 +1,30 @@
-"""The two ban lists of Code B of #81, the legacy paths, and the exemptions.
+"""The two ban lists of the legacy scan, the legacy paths, and the exemptions.
 
-This module is one of the two source files that hold the lists, so both are
-exempt from their own scan (#81, Code B). Every literal that a scan must not
-find lives here for that reason, including the legacy paths of `LEG-3`.
+List 1 holds identifiers and paths. It scans the whole tree, case-sensitive,
+and it includes `--cov`, `pytest-cov` and `[tool.coverage`, so a scan of it also
+proves that the line-coverage floor is gone. List 2 holds prose. It scans
+Markdown and Python files only, case-insensitive. `prose_pattern` builds list 2
+from the `_Avoid_` terms of `CONTEXT.md` at scan time, plus `EXTRA_PROSE_TERMS`
+below. The vocabulary of the target and the list of retired words therefore
+stay one fact in one place.
 
-The other source file is `CONTEXT.md`. Ticket I11 of #90 points the prose scan
-at the `_Avoid_` terms of that document, so the vocabulary of the target and the
-list of retired words are one fact in one place. A document that states a banned
-word is a document that a scan must skip, which is why `CONTEXT.md` joins this
-module in `SOURCE_FILES`.
+This module and `CONTEXT.md` state the banned words, so `SOURCE_FILES` exempts
+both of them from their own scan.
+
+List 1 omits two identifiers on purpose: `schema_version`, the first key of
+every proof catalog and of the machine envelope, and `proof_catalog`, the name
+of three surviving modules of `pack/scripts/`. Both name live code that the
+deletion boundary keeps, so a ban on either flags a survivor, not a deletion.
+This paragraph is the record of that decision.
 
 Two trees are exempt in both the Root Pack and a Terminal Project, because this
-repository owns neither their words nor their files. `docs/vendored/` is a
-read-only third-party documentation pin (clause A2 of #85), and `.agents/` holds
-externally sourced agent skills that `skills-lock.json` pins. The gate itself
-excludes the same two trees. One more exemption applies to the Root Pack only:
-`CHANGELOG.md`, which records the pack's own history. A Terminal Project takes a
-fresh `CHANGELOG.md` from `initial/`, so it needs no exemption of its own.
-
-List 1 holds identifiers and paths, and it is case-sensitive over the whole
-tree. It includes `--cov`, `pytest-cov` and `[tool.coverage`, so `LEG-1` also
-proves that the line-coverage floor is gone. Nothing replaces it, and this suite
-adds no coverage assertion anywhere (conflict C10 of #85).
-
-Two identifiers that section 1.5 of #85 lists are absent from list 1 below. This
-paragraph is the record of that decision, which ticket I11 owed.
-
-* `schema_version` is the first key of `pack/proof/policy.toml`, of every proof
-  catalog, of the `proof.toml` of each capability, and of the machine envelope
-  that `_foundation/cli_protocol.py` writes.
-* `proof_catalog` names three surviving modules of `pack/scripts/`, and ten more
-  files import them.
-
-Section 1.2 of #85 gives each of those files a surviving verdict, so section 1.5
-banned the name of a file that the same deletion boundary keeps. The deleted
-artifact that both entries aimed at is the derived index,
-`proof/_generated/index.json`, whose own first key was `schema_version`. The
-identifier `_generated` stays on the list and proves that the index is gone, so
-no proof of deletion is lost. The alternative was a rename of a live catalog
-schema key and of a published envelope field. That is a product change, and it
-proves nothing about deletion.
-
-List 2 holds prose, and it is case-insensitive over Markdown and Python only.
-`prose_pattern` builds it from `CONTEXT.md` at scan time, plus
-`EXTRA_PROSE_TERMS` below.
+repository owns neither their words nor their files: `docs/vendored/`, a
+read-only third-party documentation pin, and `.agents/`, which holds agent
+skills from an external source when a checkout installs them. The exemption
+stands whether or not that tree is present. The gate itself excludes the same
+two trees. One more exemption applies to the Root Pack only:
+`CHANGELOG.md`, which records the pack's own history. A Terminal Project takes
+a fresh `CHANGELOG.md` from `initial/`, so it needs no exemption of its own.
 """
 
 from pathlib import Path
@@ -80,7 +61,7 @@ PROSE_SUFFIXES = (".md", ".py")
 VOCABULARY_FILE = "CONTEXT.md"
 AVOID_PREFIX = "_Avoid_:"
 # Two terms that name deleted machinery and that `CONTEXT.md` does not carry,
-# because no surviving term replaces either one. Code B of #81 states both.
+# because no surviving term replaces either one.
 EXTRA_PROSE_TERMS = ("lifecycle state", "declaration file")
 # Four `_Avoid_` terms that no word search can carry, and the reason for each.
 # Each of the first three tells a writer which word not to use for one named
@@ -89,18 +70,15 @@ EXTRA_PROSE_TERMS = ("lifecycle state", "declaration file")
 #
 # * `generator` is also the name of a standard-library type.
 # * `user code` and `capability code` are the correct words for the User-owned
-#   Surface, and #85 uses both. `CONTEXT.md` retires them for one other concept,
-#   the Pack-owned Surface, and a word search cannot make that judgment.
+#   Surface. `CONTEXT.md` retires them for one other concept, the Pack-owned
+#   Surface, and a word search cannot make that judgment.
 #
 # `n0` is absent from list 2 for a different reason: list 1 already carries it,
 # case-sensitive and over the whole tree rather than over prose alone.
-#
-# This set is residual risk 3 of #85 in executable form. `LEG-2` proves that the
-# deleted vocabulary is absent, and it cannot prove that the surviving
-# vocabulary is used correctly.
 UNSEARCHABLE_TERMS = frozenset({"generator", "user code", "capability code", "n0"})
-# The subsystems of `LEG-3`, which must exist on disk in neither tree. They sit
-# beside the two lists because each name is also a banned identifier.
+# The subsystems of a deleted architecture, which must exist on disk in neither
+# tree. They sit beside the two lists because each name is also a banned
+# identifier.
 LEGACY_PATHS = (
     "template",
     "copier.yml",
@@ -127,8 +105,9 @@ def exempt(line: str, *names: str) -> bool:
 
     A grep line is `path:number:content`, and the path is relative to the tree
     under scan. Only the path decides an exemption, because a document that
-    names an exempt file must not exempt itself. Every word search of #81 reads
-    this one rule, so no scan can carry an exemption of its own.
+    names an exempt file must not exempt itself. Every word search of the
+    acceptance suite reads this one rule, so no scan can carry an exemption of
+    its own.
     """
     path = line.split(":", 1)[0]
     return any(name in path for name in names)

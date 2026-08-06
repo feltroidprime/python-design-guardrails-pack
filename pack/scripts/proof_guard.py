@@ -1,5 +1,26 @@
 #!/usr/bin/env python3
-"""Enforce a closed property-to-contract-to-evidence chain."""
+"""PROOF000 through PROOF028: the closed property-to-contract-to-evidence chain.
+
+This module aggregates three rule modules, and it reports `PROOF000` itself
+when the catalog cannot even load.
+
+| Module | Codes |
+|---|---|
+| `proof_guard.py` (this module) | `PROOF000` |
+| `proof_target_rules.py` | `PROOF001`-`PROOF009`, `PROOF027` |
+| `proof_evidence_rules.py` | `PROOF010`-`PROOF021`, `PROOF026`, `PROOF028` |
+| `proof_oracle_rules.py` | `PROOF022`-`PROOF025` |
+
+Two sources of truth back every rule above. `pack/proof/policy.toml` names
+the behavior roots, the excluded module stems, and the oracle module stems.
+Each capability's own `proof.toml`, and each other file under `pack/proof/`,
+names the properties: their targets, their oracles, their evidence, and
+their CrossHair targets.
+
+Every other module named `pack/scripts/proof_*.py` is machinery. It parses
+source, resolves imports, or models data, and it emits no `PROOF` code of
+its own.
+"""
 
 from pathlib import Path
 import sys

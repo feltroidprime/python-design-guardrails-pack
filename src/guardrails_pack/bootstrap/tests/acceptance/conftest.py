@@ -1,4 +1,4 @@
-"""The seven fixture trees of #81, and the one marker the whole suite carries.
+"""The seven fixture trees of the acceptance suite, and the one marker it carries.
 
 | Name | What it is |
 |---|---|
@@ -187,7 +187,7 @@ def defect(term: Project, tmp_path: Path) -> Iterator[Callable[[str], Path]]:
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Mark every assertion of this package `acceptance` (rule `H3` of #81)."""
+    """Mark every assertion of this package `acceptance` (rule `H3`)."""
     for item in items:
         if SUITE_ROOT in Path(str(item.path)).parents:
             item.add_marker(MARKER)

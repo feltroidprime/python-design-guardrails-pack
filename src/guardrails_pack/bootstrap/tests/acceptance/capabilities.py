@@ -1,17 +1,17 @@
 """Write one filesystem-native capability into a tree, and inject one defect.
 
-Group 5 of #81 builds each `DEFECT` tree by adding one capability to `TERM` and
+Group 5 builds each `DEFECT` tree by adding one capability to `TERM` and
 breaking exactly one rule of it. This module writes the clean capability and the
 five injections, so each assertion states the defect and reads the gate.
 
-The capability is the shape of rule `L1` of #85: one directory directly under
-the package, holding `api.py`, `domain/`, `application/`, `adapters/inbound/`,
+The capability is the shape that layout rule 1 states: one directory under the
+package, holding `api.py`, `domain/`, `application/`, `adapters/inbound/`,
 `adapters/outbound/`, `proof.toml` and `tests/`. There is no container directory
 and no nesting.
 
-The five capability shapes that ticket I10 moved to `fixtures/shapes/` are the
-worked examples of that layout. They are read by a maintainer, never by the
-gate, so a Terminal Project ships no product exemplar (clause A1 of #85).
+The five capability shapes in `fixtures/shapes/` are the worked examples of
+that layout. They are read by a maintainer, never by the gate, so a Terminal
+Project ships no product exemplar.
 """
 
 from pathlib import Path
@@ -55,7 +55,7 @@ def capability_root(tree: Path, package: str, name: str) -> Path:
 
 
 def add_capability(tree: Path, package: str, name: str, *, api: str = API_SOURCE) -> Path:
-    """Write one clean capability of the layout that rule `L1` of #85 states."""
+    """Write one clean capability of the layout that `AGENTS.md` states."""
     root = capability_root(tree, package, name)
     _ = _write(root / INITIALIZER, f'"""The {name} capability."""\n')
     _ = _write(root / API_FILE, api)

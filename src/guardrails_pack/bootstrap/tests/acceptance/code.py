@@ -1,4 +1,4 @@
-"""Code A, A2, B, C, D and E of #81, as the six supporting checks of the suite.
+"""Code A, A2, B, C, D and E, the six supporting checks of the suite.
 
 Each function here answers one question and states no assertion. The test module
 that reads the answer holds the assertion, so an assertion always names the
@@ -7,7 +7,7 @@ assertion id it carries.
 Every reading of a tree here comes from the git index, and that is forced by the
 tree rather than chosen. The projection payload is one archive of `HEAD`, so the
 file set of the Root Pack is what git tracks, not what the working directory
-holds; a virtual environment and every tool cache would otherwise enter the
+holds. Otherwise, a virtual environment and every tool cache enter the
 comparison. The projected tree is read the same way, through the `.gitignore` it
 carried, so both sides hold release content and nothing else. `release_files`
 gives the word searches of Code B the same file set, for the same reason.
@@ -78,8 +78,8 @@ MARKER_OPTION = re.compile(
     r"""pytest\b[^\n]*?\s-m\s+(?:"(?P<double>[^"]*)"|'(?P<single>[^']*)'|(?P<bare>\S+))"""
 )
 MARKER_GROUPS = ("double", "single", "bare")
-# Code D of #81. The projection must build a whole tree with this module on the
-# path, so a socket call is an immediate failure rather than a slow timeout.
+# Code D. The projection must build a whole tree with this module on the path,
+# so a socket call is an immediate failure rather than a slow timeout.
 PROBE_MODULE = "sitecustomize.py"
 SOCKET_FAILURE = "the projection opened a socket"
 OFFLINE_PROBE = '''"""Refuse every socket, so an offline projection is provable."""
@@ -130,7 +130,7 @@ def pack_tokens(root: Path) -> Tokens:
 
 
 def renamed(relative: str, swaps: tuple[tuple[str, str], ...]) -> str:
-    """Rename every path component that equals a pack token (correction C3)."""
+    """Rename every path component that equals a pack token, not file content alone."""
     table = dict(swaps)
     return SEPARATOR.join(table.get(part, part) for part in relative.split(SEPARATOR))
 
@@ -142,7 +142,7 @@ def _swapped(data: bytes, swaps: tuple[tuple[str, str], ...]) -> bytes:
 
 
 def _skipped(pack: Tokens) -> tuple[str, ...]:
-    """The two locations that projection never carries: the capability and the payload."""
+    """The two paths that projection never carries: the capability and the payload."""
     package_root = f"{SOURCE_DIRECTORY}{SEPARATOR}{pack.package}"
     return (f"{package_root}{SEPARATOR}{CAPABILITY}", package_root)
 
@@ -242,7 +242,7 @@ def commit_digests(root: Path, destination: Path) -> Mapping[str, str]:
 
 
 def release_files(tree: Path, suffixes: tuple[str, ...] = ()) -> tuple[Path, ...]:
-    """Every file of *tree* that a word search of #81 may read, relative to it.
+    """Every file of *tree* that a word search can read, relative to it.
 
     The file set comes from the git index, never from a directory walk. A walk
     reads whatever the working directory happens to hold: a virtual environment,
@@ -259,7 +259,7 @@ def release_files(tree: Path, suffixes: tuple[str, ...] = ()) -> tuple[Path, ...
         if not (tree / relative).is_symlink() and (not suffixes or relative.endswith(suffixes))
     )
     if not found:
-        raise OSError(f"'{tree}' lists no release file, so a word search would prove nothing.")
+        raise OSError(f"'{tree}' lists no release file, so a word search proves nothing.")
     return found
 
 
@@ -268,7 +268,7 @@ def grep(
 ) -> tuple[str, ...]:
     """Every line of release content of *tree* that matches *pattern*.
 
-    Every scan of #81 measures what a release carries, so the files come from
+    Every scan measures what a release carries, so the files come from
     `release_files` and each reported path is relative to *tree*. *suffixes*
     narrows the scan to one kind of file, which is how list 2 of Code B reaches
     prose alone.
@@ -300,7 +300,7 @@ def marker_selections(workflow: Path) -> tuple[str, ...]:
     """Every pytest marker expression that the jobs of one workflow file run.
 
     The reading is textual, because the property under test is what a runner
-    executes and a runner reads the same text. A comment that names a marker is
+    runs and a runner reads the same text. A comment that names a marker is
     not a job that runs one, so the scan starts at a `pytest` command.
     """
     text = workflow.read_text(encoding="utf-8")

@@ -1,4 +1,14 @@
-"""Lazy compatibility facade over the commit-pinned private session profiler."""
+"""Lazy loader for `session-profiler-optimizer`, an opt-in private dependency.
+
+`pack/justfile`'s `session-log` and `session-e2e` recipes install this
+distribution just for that one run, through `uv run --with`. No other
+recipe depends on it, and `uv sync` never installs it. The import stays
+inside `convert_session` so every other command can run without it.
+
+Call `convert_session` only through `just session-log` or `just
+session-e2e`. Anywhere else, the import raises `ModuleNotFoundError`. Run
+one of those two recipes instead of importing this module directly.
+"""
 
 from importlib import import_module
 from typing import TYPE_CHECKING, Literal, Protocol, cast

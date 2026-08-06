@@ -1,4 +1,8 @@
-"""Shared violation and evidence-context models for the proof guard."""
+"""Shared violation and evidence-context models for the proof guard.
+
+This is machinery for the three proof rule modules. It defines the
+`Violation` shape they all report through. It emits no PROOF code itself.
+"""
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING

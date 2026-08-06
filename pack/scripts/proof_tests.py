@@ -1,4 +1,7 @@
-"""Discover canonical property proofs and falsifying canaries."""
+"""Discover canonical property proofs and falsifying canaries.
+
+This is machinery for `proof_evidence_rules.py`. It emits no PROOF code.
+"""
 
 import ast
 from typing import TYPE_CHECKING

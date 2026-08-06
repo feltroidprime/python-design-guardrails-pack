@@ -1,9 +1,9 @@
-"""Group 4 of #81, second half: `UPD-8` to `UPD-13`.
+"""`UPD-8` to `UPD-13`.
 
 `UPD-8` fires every refusal of the update protocol against a real tree. Rules
 `R4` and `R5` belong to `init` rather than to `update`, because an update has no
 name to admit and no destination to create, so both are driven through `init`
-here and the ten rules of #82 are covered together.
+here.
 
 `UPD-11` and the manifest assertions read the `manifest` hook, which is refusal
 `U8` read from the inside at commit time.
