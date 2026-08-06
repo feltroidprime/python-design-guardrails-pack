@@ -73,10 +73,14 @@ def test_prek_floor_is_coherent() -> None:
 
 
 def test_just_pin_is_coherent() -> None:
-    # Two locations, both on the runner: the pack-owned composite action, and the
-    # acceptance job of the user-owned workflow, which does not call that action.
-    # The `tests` hook runs `just` against a fixture tree, so both jobs need it.
-    assert_coherent(occurrences(rf"rust-just=={VERSION}"), 2)
+    # One location in a project and two in the pack, so the floor is one. Both
+    # are on the runner: the pack-owned composite action, and the acceptance job
+    # of the pack's own workflow, which does not call that action. The `tests`
+    # hook runs `just` against a fixture tree, so both jobs need it. A project
+    # keeps the first alone, because Terminal Projection overlays the workflow
+    # with a copy that holds the `quality` job only. This test is pack-owned and
+    # runs in both trees, so it can hold no count that only one tree reaches.
+    assert_coherent(occurrences(rf"rust-just=={VERSION}"), 1)
 
 
 def test_ruff_floor_is_coherent() -> None:

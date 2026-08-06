@@ -1,0 +1,19 @@
+name: quality
+
+# User-owned shim. The gate itself is the pack-owned composite action at
+# pack/ci/action.yml, which a pack update replaces whole.
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./pack/ci

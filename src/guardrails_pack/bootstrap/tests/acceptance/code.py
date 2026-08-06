@@ -29,6 +29,7 @@ from typing import cast
 from guardrails_pack.bootstrap.tests.acceptance.harness import (
     GATE_CONFIG,
     present_locations,
+    run,
     tracked_locations,
 )
 
@@ -37,13 +38,16 @@ __all__ = [
     "OFFLINE_PROBE",
     "PROBE_MODULE",
     "SOCKET_FAILURE",
+    "WORKFLOW",
     "Parity",
     "Tokens",
     "archive_digests",
+    "collects_nothing",
     "commit_digests",
     "compare",
     "gate_hook_ids",
     "grep",
+    "marker_selections",
     "pack_owned",
     "pack_tokens",
     "release_files",
@@ -62,6 +66,18 @@ LOCAL_REPOSITORY = "local"
 PRIVATE_PREFIX = "_"
 TYPED_MARKER = "py.typed"
 PACK_DIRECTORY = "pack"
+# The user-owned workflow, and the pytest policy the gate names in every tree.
+# `REM-7` reads the first with the second, so it needs both spellings here.
+WORKFLOW = ".github/workflows/quality.yml"
+PYTEST_CONFIG = "pack/configs/pytest.ini"
+NOTHING_COLLECTED = 5
+# A job runs a marker through one pytest command, so the scan reads a `-m`
+# option of such a command and never a word of the surrounding prose. The three
+# groups are the three ways a workflow can quote the expression.
+MARKER_OPTION = re.compile(
+    r"""pytest\b[^\n]*?\s-m\s+(?:"(?P<double>[^"]*)"|'(?P<single>[^']*)'|(?P<bare>\S+))"""
+)
+MARKER_GROUPS = ("double", "single", "bare")
 # Code D of #81. The projection must build a whole tree with this module on the
 # path, so a socket call is an immediate failure rather than a slow timeout.
 PROBE_MODULE = "sitecustomize.py"
@@ -278,6 +294,49 @@ def gate_hook_ids(tree: Path) -> frozenset[str]:
         if repository.get("repo") == LOCAL_REPOSITORY
         for hook in cast("list[dict[str, object]]", repository["hooks"])
     )
+
+
+def marker_selections(workflow: Path) -> tuple[str, ...]:
+    """Every pytest marker expression that the jobs of one workflow file run.
+
+    The reading is textual, because the property under test is what a runner
+    executes and a runner reads the same text. A comment that names a marker is
+    not a job that runs one, so the scan starts at a `pytest` command.
+    """
+    text = workflow.read_text(encoding="utf-8")
+    found: list[str] = []
+    for match in MARKER_OPTION.finditer(text):
+        for name in MARKER_GROUPS:
+            expression = match.group(name)
+            if expression is not None:
+                found.append(str(expression))
+                break
+    return tuple(found)
+
+
+def collects_nothing(tree: Path, expression: str) -> bool:
+    """Whether one marker expression selects no test at all inside *tree*.
+
+    pytest answers exit code 5 for an empty selection, and GitHub Actions reads
+    that as a failed job. That is the defect this measurement exists for, so the
+    code is read and no output is parsed.
+    """
+    outcome = run(
+        (
+            "uv",
+            "run",
+            "pytest",
+            "-c",
+            PYTEST_CONFIG,
+            "--rootdir=.",
+            "--collect-only",
+            "-q",
+            "-m",
+            expression,
+        ),
+        tree,
+    )
+    return outcome.code == NOTHING_COLLECTED
 
 
 def pack_owned(rel: str, pkg: str) -> bool:

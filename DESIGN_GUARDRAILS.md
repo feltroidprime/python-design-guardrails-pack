@@ -18,7 +18,8 @@ Capabilities, and the owner adds the first one.
 | Keep routine quality checks consistent | One gate: twelve local hooks in `pack/configs/prek.toml` — `lockfile`, `format`, `lint`, `types`, `dependencies`, `architecture`, `docs`, `proof`, `symbolic`, `import-contracts`, `tests`, `manifest`. `just check` and CI both run `prek run --all-files -c pack/configs/prek.toml`, so a local run and a CI run cannot disagree. `prek.toml` pins Python hooks to 3.14 so their parser matches the repository language contract. |
 | Keep every declared dependency used, and every used dependency declared | The `dependencies` hook runs `deptry` over `src` and `pack/scripts`. |
 | Keep comments free of scheduled manual upkeep | Ruff's `TD` and `FIX` families. They replace the hand-written upkeep-comment rule and its edit-time hook, so a maintained tool carries the rule instead of pack code. The two command-registration rules also go: the router derives the command surface, so no catalog registration remains to guard. |
-| Make a stale record of the Pack-owned Surface fail early | The `manifest` hook recomputes the sha256 of every pack-owned file and compares it with `pack/manifest.json`. A Pack Update reads that record to find local drift, so a stale record would hide a changed file. The hook moves that discovery from update time to commit time. |
+| Make a stale record of the Pack-owned Surface fail early | The `manifest` hook recomputes the sha256 of every pack-owned file and compares it with `pack/manifest.json`. A Pack Update reads that record to find local drift, so a stale record would hide a changed file. The hook moves that discovery from update time to commit time. It compares the `root` and `package` lists only, for the reason stated below. |
+| Give a new project a CI workflow that it can pass | `.github/workflows/quality.yml` is one of the four starting files that the projection overlays, so a projected workflow holds the `quality` job only. The job for the acceptance suite stays in the pack, with the suite it runs. Assertion `REM-7` runs every marker selection of the projected workflow against the projected tree and fails on any that collects nothing. |
 | Keep one project file that both projects can carry | The build backend is `uv_build`, and inclusion is by presence, so `pyproject.toml` holds no include table and no file list. The projection payload is one archive of the last commit, staged inside the package at build time. The gate drops that archive, and `.gitignore` keeps it out of every commit. `pack/tests/test_packaging.py` states the four facts. |
 | Prove the whole claim from outside the tree | The acceptance suite carries the 53 assertions of #81. It is marked `acceptance`, the `tests` hook excludes the marker, and a separate CI job runs it. Every assertion runs from an installed console script, because a source checkout hides a packaging defect. Terminal Projection deletes the suite, so no project receives it. |
 | Keep the architecture neutral across representative application shapes | The suite builds a pure-library, a stateful-workflow, a CLI, an external-integration and a multi-capability shape from its own fixtures, and runs the one gate over each. |
@@ -163,6 +164,36 @@ directory of the same capability.
 
 Each exemption carries a revisit date. Terminal Projection deletes the
 capability, so neither the catalog nor the suite reaches a user's project.
+
+## One narrowed guardrail: the `manifest` hook and the four shims
+
+`pack/manifest.json` holds three hash lists. The `manifest` hook compares two of
+them, `root` and `package`. It does not compare `shims`, and this section is the
+rationale that the change protocol requires.
+
+The two compared lists state the Pack-owned Surface, which is what a stale
+record hides from a Pack Update. The third list states something else: the
+as-shipped bytes of the four user-owned entry points, which an update reads to
+tell a customised shim from an untouched one, and never writes. That record is
+history, not a claim about the current tree.
+
+Two ordinary events make the current bytes of a shim differ from that record,
+and neither one is drift.
+
+- The `justfile` carries one comment that asks its owner to add recipes below
+  the import. The first recipe they add would fail the gate.
+- Terminal Projection overlays `.github/workflows/quality.yml` with one of the
+  starting files, and `pack/manifest.json` is projected verbatim. Every new
+  project would be red on the day it is born.
+
+The alternative was to keep the comparison and stop overlaying the workflow.
+That leaves the defect of #118 in place: the acceptance job survives in a
+project that holds no acceptance test, and exit code 5 fails it forever.
+
+Nothing replaces the comparison, because the `shims` list was never evidence
+about the current tree. The pack-owned comparison is unchanged, `verify` still
+reads the `shims` list and still fails a manifest that omits it, and assertion
+`UPD-13` still proves that an update reports a customised shim and writes none.
 
 ## One pack-owned ignore rule: `pack/.gitignore`
 

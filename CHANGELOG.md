@@ -62,6 +62,21 @@ records the pack version that its last update carried.
   `rust-just` distribution. The `tests` hook runs `just` against a fixture tree,
   and a Linux runner carries no such command, so both CI jobs were red. A pack
   update carries the fix to a project that already exists.
+- Give a new project a quality workflow that holds the `quality` job only. The
+  projection now overlays `.github/workflows/quality.yml` with one of the
+  starting files, so the job for the acceptance suite stays in the pack with
+  the suite it runs. In a project that job collected no
+  test in a project, pytest answered exit code 5, and every new project was red
+  on its first push. Assertion `REM-7` reads the projected workflow and fails
+  on any job that runs a marker the deletion empties. The `just` pin now has
+  one required location rather than two, because the second sits in the job
+  that a project no longer carries.
+- Narrow the `manifest` hook to the pack-owned bytes it is named for. The
+  `shims` list of `pack/manifest.json` records what the pack shipped, and a
+  shim is user-owned: a project starts with an overlaid workflow, and a
+  justfile invites its owner to add recipes. The hook no longer reads either as
+  drift. A Pack Update still reports a customised shim and still never writes
+  one.
 
 The unreleased entries that this section replaces described the tree that the
 refactor deleted. The released versions below are unchanged history.

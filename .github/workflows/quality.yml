@@ -21,8 +21,10 @@ jobs:
   # The acceptance suite of #81 runs from the installed console script of a
   # freshly built wheel, so it is a separate job. The gate above runs
   # `-m "not acceptance"` and never reaches it (rule H3 of #85 section 5).
-  # A Terminal Project carries neither the suite nor this job: projection
-  # deletes the capability that holds them, and it replaces this file whole.
+  # A Terminal Project carries neither the suite nor this job. Projection
+  # deletes the capability that holds the suite, and step 3 of the projection
+  # overlays this file with the starting copy that capability carries, which
+  # holds the `quality` job only. Assertion `REM-7` reads the projected file.
   acceptance:
     runs-on: ubuntu-latest
     steps:

@@ -51,7 +51,7 @@ def init(
     """Create one new repository from this pack.
 
     The projection copies the pack tree, swaps the two identity tokens, overlays
-    the three starting files, and deletes this capability. It then runs
+    the starting files, and deletes this capability. It then runs
     `git init`, `just setup`, the first commit, and `prek install`.
 
     The destination must not exist; the projection creates it. Every refusal
