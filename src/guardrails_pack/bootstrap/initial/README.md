@@ -43,8 +43,8 @@ of `api.py`. Nothing else records the capability, and a directory that
 
 `pack/` and every `_`-prefixed name under `src/guardrails_pack/` are pack-owned.
 An update of the pack replaces those whole files, and it never writes anything
-else. Everything else is yours, including `pyproject.toml`, `composition.py`,
-`cli.py` and `tests/`.
+else. Everything else is yours: `pyproject.toml`, `composition.py`, `cli.py`,
+and every test you write.
 
 Four files at the root are thin entry points into `pack/`: `justfile`,
 `pyrightconfig.json`, `.python-version` and `.github/workflows/quality.yml`. An

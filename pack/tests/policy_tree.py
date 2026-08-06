@@ -20,7 +20,7 @@ def write_policy_tree(root: Path, package: str = FIXTURE_PACKAGE) -> Path:
     under `src/`. Every test tree therefore states its package exactly once.
     """
     (root / POLICY_RELATIVE).parent.mkdir(parents=True, exist_ok=True)
-    (root / POLICY_RELATIVE).write_text(
+    _ = (root / POLICY_RELATIVE).write_text(
         (REPOSITORY_ROOT / PACK_DIRECTORY / "architecture.toml").read_text(encoding="utf-8"),
         encoding="utf-8",
     )

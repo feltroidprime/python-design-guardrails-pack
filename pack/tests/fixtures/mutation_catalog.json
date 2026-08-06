@@ -46,15 +46,15 @@
       "id": "oracle-always-true",
       "mutation": "an oracle returns True",
       "mechanism": "proof_gate",
-      "evidence": "pack/tests/test_proof_guard.py::test_property_without_falsifying_canary_is_rejected",
-      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_proof_guard.py::test_property_without_falsifying_canary_is_rejected"
+      "evidence": "pack/tests/test_proof_guard_evidence.py::test_property_without_falsifying_canary_is_rejected",
+      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_proof_guard_evidence.py::test_property_without_falsifying_canary_is_rejected"
     },
     {
       "id": "pure-target-without-crosshair",
       "mutation": "a pure target is removed from CrossHair coverage",
       "mechanism": "proof_gate",
-      "evidence": "pack/tests/test_proof_guard.py::test_pure_contracted_function_requires_crosshair_evidence",
-      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_proof_guard.py::test_pure_contracted_function_requires_crosshair_evidence"
+      "evidence": "pack/tests/test_proof_guard_evidence.py::test_pure_contracted_function_requires_crosshair_evidence",
+      "command": "uv run pytest -c pack/configs/pytest.ini --rootdir=. -q pack/tests/test_proof_guard_evidence.py::test_pure_contracted_function_requires_crosshair_evidence"
     }
   ]
 }

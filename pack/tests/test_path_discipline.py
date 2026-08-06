@@ -27,7 +27,7 @@ def policy(tmp_path: Path) -> Policy:
 def run_check(policy: Policy, relative: str, source: str) -> list[str]:
     path = policy.root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(source, encoding="utf-8")
+    _ = path.write_text(source, encoding="utf-8")
     return [item.code for item in check_files((path,), policy)]
 
 
@@ -45,9 +45,10 @@ def test_arch019_fires_on_str_or_path_union(policy: Policy) -> None:
     codes = run_check(
         policy,
         "src/pkg/adapters/outbound/exporter.py",
-        "from pathlib import Path\n"
-        "def export(output_dir: str | Path) -> None:\n"
-        "    print(output_dir)\n",
+        """from pathlib import Path
+def export(output_dir: str | Path) -> None:
+    print(output_dir)
+""",
     )
     assert codes == ["ARCH019"]
 
@@ -76,9 +77,10 @@ def test_arch019_checks_mapping_keys_but_not_mapping_values(policy: Policy) -> N
     silent = run_check(
         policy,
         "src/pkg/adapters/outbound/writer.py",
-        "from pathlib import Path\n"
-        "def write_files(files: dict[Path, str]) -> None:\n"
-        "    print(files)\n",
+        """from pathlib import Path
+def write_files(files: dict[Path, str]) -> None:
+    print(files)
+""",
     )
     fires = run_check(
         policy,
@@ -110,13 +112,14 @@ def test_path_typed_declarations_stay_silent(policy: Policy) -> None:
     codes = run_check(
         policy,
         "src/pkg/adapters/outbound/exporter.py",
-        "from dataclasses import dataclass\n"
-        "from pathlib import Path\n"
-        "@dataclass\n"
-        "class Export:\n"
-        "    output_dir: Path\n"
-        "def export(config_file: Path) -> Path:\n"
-        "    return config_file\n",
+        """from dataclasses import dataclass
+from pathlib import Path
+@dataclass
+class Export:
+    output_dir: Path
+def export(config_file: Path) -> Path:
+    return config_file
+""",
     )
     assert codes == []
 
@@ -126,9 +129,10 @@ def test_token_matching_never_matches_substrings(policy: Policy) -> None:
     codes = run_check(
         policy,
         "src/pkg/adapters/inbound/rendering.py",
-        "def render(profile: str, file_format: str) -> None:\n"
-        "    dirty: str = profile + file_format\n"
-        "    print(dirty)\n",
+        """def render(profile: str, file_format: str) -> None:
+    dirty: str = profile + file_format
+    print(dirty)
+""",
     )
     assert codes == []
 
@@ -147,9 +151,10 @@ def test_inline_exception_marker_suppresses_a_finding(policy: Policy) -> None:
     codes = run_check(
         policy,
         "src/pkg/adapters/outbound/exporter.py",
-        "def export(\n"
-        f"    config_file: str,  # {EXCEPTION_MARKER}0099\n"
-        ") -> None:\n"
-        "    print(config_file)\n",
+        f"""def export(
+    config_file: str,  # {EXCEPTION_MARKER}0099
+) -> None:
+    print(config_file)
+""",
     )
     assert codes == []

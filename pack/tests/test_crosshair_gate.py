@@ -5,8 +5,9 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from typing import cast
 
-from tests.test_proof_guard import POLICY_TOML, PROOF_TOML
+from tests.proof_tree import POLICY_TOML, PROOF_TOML
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACK_SCRIPTS = REPO_ROOT / "pack" / "scripts"
@@ -36,7 +37,7 @@ def crosshair_project(tmp_path: Path, manifest: str) -> Path:
     scripts = root / "pack" / "scripts"
     scripts.mkdir(parents=True)
     (root / "src" / "demo").mkdir(parents=True)
-    (scripts / "__init__.py").write_text("", encoding="utf-8")
+    _ = (scripts / "__init__.py").write_text("", encoding="utf-8")
     for name in (
         "architecture_policy.py",
         "crosshair_gate.py",
@@ -45,14 +46,14 @@ def crosshair_project(tmp_path: Path, manifest: str) -> Path:
         "proof_catalog_model.py",
         "proof_catalog_schema.py",
     ):
-        (scripts / name).write_text(
+        _ = (scripts / name).write_text(
             (PACK_SCRIPTS / name).read_text(encoding="utf-8"),
             encoding="utf-8",
         )
     proof_root = root / "pack" / "proof"
     proof_root.mkdir()
-    (proof_root / "policy.toml").write_text(POLICY_TOML, encoding="utf-8")
-    (proof_root / "foundation.toml").write_text(manifest, encoding="utf-8")
+    _ = (proof_root / "policy.toml").write_text(POLICY_TOML, encoding="utf-8")
+    _ = (proof_root / "foundation.toml").write_text(manifest, encoding="utf-8")
     return root
 
 
@@ -115,37 +116,37 @@ if "symbolic_canary" in arguments[-1] and os.environ.get("CROSSHAIR_REFUTE_CANAR
     sys.exit(1)
 """
 
-FAST_BUDGET_ARGUMENTS = [
+FAST_BUDGET_ARGUMENTS = (
     "check",
     "--report_all",
     "--analysis_kind=icontract",
     "--max_uninteresting_iterations=4",
     "--per_path_timeout=0.25",
     "--per_condition_timeout=1.5",
-]
-CI_BUDGET_ARGUMENTS = [
+)
+CI_BUDGET_ARGUMENTS = (
     "check",
     "--report_all",
     "--analysis_kind=icontract",
     "--max_uninteresting_iterations=12",
     "--per_path_timeout=0.75",
     "--per_condition_timeout=4.0",
-]
-CANARY_BUDGET_ARGUMENTS = [
+)
+CANARY_BUDGET_ARGUMENTS = (
     "check",
     "--report_all",
     "--analysis_kind=icontract",
     "--max_uninteresting_iterations=16",
     "--per_path_timeout=1.5",
     "--per_condition_timeout=8.0",
-]
+)
 
 
 def stub_crosshair(root: Path) -> Path:
     crosshair = root / "crosshair"
     crosshair.mkdir()
-    (crosshair / "__init__.py").write_text("", encoding="utf-8")
-    (crosshair / "__main__.py").write_text(FAKE_CROSSHAIR, encoding="utf-8")
+    _ = (crosshair / "__init__.py").write_text("", encoding="utf-8")
+    _ = (crosshair / "__main__.py").write_text(FAKE_CROSSHAIR, encoding="utf-8")
     return root / "crosshair-arguments.json"
 
 
@@ -199,7 +200,7 @@ def test_gate_builds_pythonpath_from_policy_source_roots(tmp_path: Path) -> None
     manifest = PROOF_TOML.replace("demo.domain", "pack.demo")
     root = crosshair_project(tmp_path, manifest)
     policy = root / "pack/proof/policy.toml"
-    policy.write_text(
+    _ = policy.write_text(
         POLICY_TOML.replace('source_roots = ["src", "."]', 'source_roots = ["control", "."]'),
         encoding="utf-8",
     )
@@ -218,7 +219,10 @@ def test_gate_builds_pythonpath_from_policy_source_roots(tmp_path: Path) -> None
     )
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    recorded = json.loads(source_paths.read_text(encoding="utf-8"))
+    recorded = cast(
+        "list[list[str]]",
+        json.loads(source_paths.read_text(encoding="utf-8")),
+    )
     expected = [str(root / "control"), str(root)]
     assert all(paths[:2] == expected for paths in recorded)
 
@@ -244,8 +248,8 @@ def test_reported_counterexample_names_the_owning_property(tmp_path: Path) -> No
     root = crosshair_project(tmp_path, PROOF_TOML)
     crosshair = root / "crosshair"
     crosshair.mkdir()
-    (crosshair / "__init__.py").write_text("", encoding="utf-8")
-    (crosshair / "__main__.py").write_text(
+    _ = (crosshair / "__init__.py").write_text("", encoding="utf-8")
+    _ = (crosshair / "__main__.py").write_text(
         'import sys\n\nprint("decisions.py:1: error: yields false")\nsys.exit(1)\n',
         encoding="utf-8",
     )
