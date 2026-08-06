@@ -72,6 +72,13 @@ def test_prek_floor_is_coherent() -> None:
     )
 
 
+def test_just_pin_is_coherent() -> None:
+    # Two locations, both on the runner: the pack-owned composite action, and the
+    # acceptance job of the user-owned workflow, which does not call that action.
+    # The `tests` hook runs `just` against a fixture tree, so both jobs need it.
+    assert_coherent(occurrences(rf"rust-just=={VERSION}"), 2)
+
+
 def test_ruff_floor_is_coherent() -> None:
     assert_coherent(occurrences(rf"ruff>={VERSION}"), 1)
 
