@@ -61,8 +61,8 @@ CI runs the same command in its `quality` job, so a local run and that job
 cannot disagree. CI also runs one more job, `acceptance`, which runs
 `uv run pytest -c pack/configs/pytest.ini --rootdir=. -m acceptance` from a
 freshly built wheel. The `tests` hook selects `not acceptance and not
-session_e2e`, so `just check` never reaches that suite. If you change a file
-under `src/<package>/bootstrap/`, run the acceptance command by hand.
+session_e2e`, so `just check` never reaches that suite. If you change the
+One-shot Bootstrap capability, run the acceptance command by hand.
 
 The twelve local hooks never rewrite a file. Three upstream hooks do repair a
 file in place: `end-of-file-fixer`, `mixed-line-ending` and

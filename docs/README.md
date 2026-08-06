@@ -53,8 +53,7 @@ code cannot show.
 
 ## Outside this map
 
-`.agents/skills/` holds 43 skill directories, and `skills-lock.json` pins their
-versions. `epics/` holds a `.gitkeep` marker and no other tracked file.
-`pack/configs/prek.toml` excludes `.agents/` from the gate. No row above
-governs these three paths, because they hold skill assets and an empty
+`skills-lock.json` pins the versions of the agent skills that this repository
+installs. `epics/` holds a `.gitkeep` marker and no other tracked file. No row
+above governs these two paths, because they hold a lock file and an empty
 directory marker rather than documentation.

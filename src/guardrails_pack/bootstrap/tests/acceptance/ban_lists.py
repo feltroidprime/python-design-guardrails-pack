@@ -19,9 +19,10 @@ This paragraph is the record of that decision.
 
 Two trees are exempt in both the Root Pack and a Terminal Project, because this
 repository owns neither their words nor their files: `docs/vendored/`, a
-read-only third-party documentation pin, and `.agents/`, which holds externally
-sourced agent skills that `skills-lock.json` pins. The gate itself excludes the
-same two trees. One more exemption applies to the Root Pack only:
+read-only third-party documentation pin, and `.agents/`, which holds agent
+skills from an external source when a checkout installs them. The exemption
+stands whether or not that tree is present. The gate itself excludes the same
+two trees. One more exemption applies to the Root Pack only:
 `CHANGELOG.md`, which records the pack's own history. A Terminal Project takes
 a fresh `CHANGELOG.md` from `initial/`, so it needs no exemption of its own.
 """
