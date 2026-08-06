@@ -21,6 +21,14 @@ The manifest holds three lists, so it carries no identity token (#85 section
 * `shims` — the as-shipped hash of each user-owned entry point, which an update
   reads to tell a customised shim from an untouched one, and never writes.
 
+The check compares `root` and `package` only. A shim is user-owned, so its
+current bytes are never drift: the justfile invites its owner to add recipes,
+and Terminal Projection overlays `.github/workflows/quality.yml` with a copy
+that holds the `quality` job only. Comparing the `shims` list would make the
+gate red on the day a project is born, and red again on the day its owner
+edits the file the pack asked them to own. `verify` still reads that list, so a
+manifest that states fewer than three lists is still an error.
+
 Run `uv run python -m scripts.manifest_guard --write` after you change a
 pack-owned file.
 """
@@ -213,13 +221,15 @@ def differences(recorded: dict[str, str], current: dict[str, str], name: str) ->
 
 
 def verify(root: Path) -> list[str]:
-    """Every disagreement between the manifest and the tree."""
+    """Every disagreement between the manifest and the pack-owned tree."""
     recorded = read(root)
     current = build(root)
+    # Read for its shape and never compared: a shim is user-owned, and the
+    # module docstring states why its bytes are not drift.
+    _ = _section(recorded, "shims")
     return [
         *differences(_section(recorded, "root"), current["root"], "root"),
         *differences(_section(recorded, "package"), current["package"], "package"),
-        *differences(_section(recorded, "shims"), current["shims"], "shims"),
     ]
 
 

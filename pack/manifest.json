@@ -40,7 +40,7 @@
     "pack/scripts/doctor.py": "32bf0ef486d09e437642b4d1572f7d55e89e7bfcfbce912324f6130d1b78620d",
     "pack/scripts/identity.py": "57a6adeab754fc5cd0773a6788b893029de6677a5dc042207aa6a78d8846a26c",
     "pack/scripts/import_contracts.py": "73f8d849c085b219b3c2f940822fc8b29e6d74e6854e958bae8c97b3add34da0",
-    "pack/scripts/manifest_guard.py": "ca0a35e9e8be0a39356c85e4b20de8d877ff0683a1c787438f11c85d84410ecb",
+    "pack/scripts/manifest_guard.py": "b08fe1117b95b94cf4741b56b71b0fca8e2515f1ba6dbbd7e1d68813fe1f86c7",
     "pack/scripts/none_discipline.py": "f5afeaba61fd20e1d7b4b2ef3a2518487bf5a501f8f084e85e8d2c8f41af5aa5",
     "pack/scripts/override_discipline.py": "db6c6d5537f140baec9ef561f2ed63a73d8184539b33260168a344a0e128ccb0",
     "pack/scripts/ownership.py": "d579d889339dbe3199a63e3af3fd543971a845190e8f83cf864c3b3ca498317d",
@@ -91,7 +91,7 @@
     "pack/tests/test_review_discipline.py": "7363718fb4d81bda7ed0cf2ba748450b4472f29572695efeac4aba1919d1bb9e",
     "pack/tests/test_router.py": "bc523b24bb08d4f948a251402a38527af9eaa2279f4f8173d2e317211a74889c",
     "pack/tests/unit/scripts/test_import_contracts.py": "c63c7b2b785fe01a7d3d29d281126d893861c32bacc9ef4a21493be61dd00475",
-    "pack/tests/unit/scripts/test_manifest_guard.py": "423f94437aeb3819b49933eb95b5f460a611d60b529f8347607416331ac2a4a2",
+    "pack/tests/unit/scripts/test_manifest_guard.py": "25146274f5952a968f9ffe31c9ce51ebcd6643b11169cf0726ff2a7a94f32753",
     "pack/tests/unit/scripts/test_ownership.py": "32d8ea4e2001c945b4b20101878b95d565767f5ee06f739f8ea24274d84e1020",
     "pack/verification/conftest.py": "f27774bbdec1f66ec84eb905f3bcc53d738fcdbd9c41d33b564bea6f874b2e3d",
     "pack/verification/harness/assertions.py": "2611a6a48b90f31d339af098bde79a57c49080244f92bec557ac3d2df25e3f7d",
@@ -101,7 +101,7 @@
     "pack/verification/tests/test_proof_policy.py": "403378fe072d082bd29250c152ae8c609d95851aaae9b93f38031a6b6c28b250"
   },
   "shims": {
-    ".github/workflows/quality.yml": "a1a9920ad18ded89eb6cf48ac1a9d7d3bf5373416b1c4165746e224f22a699fb",
+    ".github/workflows/quality.yml": "5d8cb7b7e5ee7197b94b2539524ce290a29b06cfc11dfd86631465cf54e27103",
     ".python-version": "a876e0b10411037a012498b9fe18d9bc1df32ed8b722a13564dc944ddcfd9135",
     "justfile": "5b8f9602f75bbae0664c6050ad118779c5cdb99d981340163a46ea4d8ca4543c",
     "pyrightconfig.json": "b987e361765b2337fbe94027cf29d2a834bfc7a243d98b7d67300583d9889241"

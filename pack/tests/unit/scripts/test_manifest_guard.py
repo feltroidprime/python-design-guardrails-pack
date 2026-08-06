@@ -2,8 +2,9 @@
 
 A Pack Update trusts `pack/manifest.json` to say what the destination was born
 with. A stale manifest therefore hides local drift from the update. These tests
-hold the three hash lists, the two ignored paths, and the failure that one
-hand-edited pack-owned file must produce.
+hold the three hash lists, the two ignored paths, the failure that one
+hand-edited pack-owned file must produce, and the user-owned shim that produces
+no failure at all.
 """
 
 import json
@@ -123,6 +124,18 @@ def test_reverting_the_edit_makes_the_check_pass_again(tmp_path: Path) -> None:
 
     _ = path.write_text("line-length = 80\n", encoding="utf-8")
     _ = path.write_text(original, encoding="utf-8")
+
+    assert verify(tmp_path) == []
+
+
+def test_a_customised_shim_is_not_a_disagreement(tmp_path: Path) -> None:
+    # A shim is user-owned. Its owner is invited to edit it, and Terminal
+    # Projection overlays one of the four with a copy of its own, so the
+    # recorded hash is history rather than a claim about the current tree.
+    make_tree(tmp_path)
+    write(tmp_path)
+
+    _ = (tmp_path / "justfile").write_text("default:\n    @echo mine\n", encoding="utf-8")
 
     assert verify(tmp_path) == []
 

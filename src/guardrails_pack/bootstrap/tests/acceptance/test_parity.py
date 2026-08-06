@@ -119,7 +119,7 @@ def test_par_7_every_starting_file_shadows_a_file(root: Path, term: Project, too
     assert measured.unshadowed == frozenset()
 
 
-def test_par_8_the_three_starting_files_landed_and_differ(
+def test_par_8_every_starting_file_landed_and_differs(
     root: Path, term: Project, toolenv: Pack
 ) -> None:
     """`PAR-8`: an overlay that replaced nothing would be silent without this."""

@@ -4,7 +4,7 @@
 1. copy the Root Pack tree, excluding the staged projection blob
 2. swap the two identity tokens in every file, and rename every path
    component equal to a pack token
-3. overlay the three files of initial/ at their renamed paths
+3. overlay the starting files of initial/ at their renamed paths
 4. delete the capability directory
 ```
 
@@ -142,7 +142,7 @@ def _check_landed(built: Path, landed: dict[str, bytes]) -> None:
             raise refuse(
                 "R9",
                 f"The starting file '{relative}' did not land.",
-                "A new project starts from the three files of the pack.",
+                "A new project starts from the starting files of the pack.",
                 "Report this as a defect of the pack.",
             )
 

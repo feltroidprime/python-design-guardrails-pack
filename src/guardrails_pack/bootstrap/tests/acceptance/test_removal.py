@@ -1,15 +1,22 @@
-"""Group 2 of #81: complete bootstrap removal, `REM-1` to `REM-6`.
+"""Group 2 of #81: complete bootstrap removal, `REM-1` to `REM-7`.
 
 The group certifies that a Terminal Project cannot generate a repository and
 does not remember that it ever could: no directory, no word, no module, no
-command, an empty `CAPABILITIES` tuple, and a Root Pack refused as the
-destination of an update (#85 sections 2.2 and 3.2).
+command, an empty `CAPABILITIES` tuple, a Root Pack refused as the destination
+of an update (#85 sections 2.2 and 3.2), and no CI job left behind by the
+deletion.
 """
 
 from pathlib import Path
 
 from guardrails_pack.bootstrap.tests.acceptance.ban_lists import UNOWNED_TREES, exempt
-from guardrails_pack.bootstrap.tests.acceptance.code import CAPABILITY, grep
+from guardrails_pack.bootstrap.tests.acceptance.code import (
+    CAPABILITY,
+    WORKFLOW,
+    collects_nothing,
+    grep,
+    marker_selections,
+)
 from guardrails_pack.bootstrap.tests.acceptance.conftest import Project
 from guardrails_pack.bootstrap.tests.acceptance.harness import porcelain, run
 from guardrails_pack.bootstrap.tests.acceptance.packs import Pack
@@ -87,3 +94,32 @@ def test_rem_6_a_root_pack_is_refused_as_a_destination(root: Path, toolenv: Pack
     assert refused.code != 0
     assert "U7: " in refused.text
     assert porcelain(root) == before
+
+
+def test_rem_7_no_job_runs_a_marker_that_the_deletion_empties(root: Path, term: Project) -> None:
+    """`REM-7`: a projected job must have something to run.
+
+    Deleting a capability deletes every test it owns, so a CI job that selects a
+    marker of that capability collects nothing. pytest answers exit code 5 and
+    the runner fails the job, which makes a new project red on its first push.
+    The rule is the class and not one marker: no selection of the projected
+    workflow may collect nothing.
+
+    The pack's own workflow is measured against the same project first, so this
+    assertion can never pass because it found nothing to measure. That reading
+    must collect nothing, because the pack runs a job for the suite this
+    capability owns and the project holds no such test.
+    """
+    empties = [
+        expression
+        for expression in marker_selections(root / WORKFLOW)
+        if collects_nothing(term.path, expression)
+    ]
+    survivors = [
+        expression
+        for expression in marker_selections(term.path / WORKFLOW)
+        if collects_nothing(term.path, expression)
+    ]
+
+    assert empties != []
+    assert survivors == []
