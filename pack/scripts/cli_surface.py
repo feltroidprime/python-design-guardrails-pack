@@ -139,7 +139,7 @@ def _missing_docstrings(path: Path, tree: ast.Module) -> list[Violation]:
                 path=path,
                 line=1,
                 code="CLI002",
-                message="The api module states no docstring; the router shows it as group help.",
+                message="The api module states no docstring. The router shows it as group help.",
             )
         )
     violations.extend(
@@ -147,7 +147,7 @@ def _missing_docstrings(path: Path, tree: ast.Module) -> list[Violation]:
             path,
             node,
             "CLI002",
-            f"Public function '{node.name}' states no docstring; the router shows it as help.",
+            f"Public function '{node.name}' states no docstring. The router shows it as help.",
         )
         for node in public_functions(tree)
         if ast.get_docstring(node) is None

@@ -296,9 +296,8 @@ def load_exemption(value: object, index: int) -> ProofExemption:
             f"Exemption '{target}' revisit must be an ISO date (YYYY-MM-DD)"
         ) from error
     if revisit <= datetime.now(UTC).date():
-        raise CatalogError(
-            f"Exemption '{target}' expired on {revisit.isoformat()}; prove or remove the behavior"
-        )
+        expired = f"Exemption '{target}' expired on {revisit.isoformat()}."
+        raise CatalogError(f"{expired} Prove the behavior, or remove it.")
     return ProofExemption(
         target=target,
         reason=text(raw.get("reason"), f"{prefix}.reason"),

@@ -230,7 +230,7 @@ def overlay_release(root: Path, work: Path) -> Pack:
 
     Every other refusal fires against the shipped pack, from a requested identity
     alone. `R9` cannot: the overlay shadows nothing only when the pack itself
-    carries a fourth starting file, so this release adds one.
+    carries one more starting file, so this release adds one.
     """
     tree = extract_commit(root, work / "overlay")
     tokens = pack_tokens(tree)

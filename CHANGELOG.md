@@ -72,6 +72,19 @@ records the pack version that its last update carried.
   on any job that runs a marker the deletion empties. The `just` pin now has
   one required location rather than two, because the second sits in the job
   that a project no longer carries.
+- Give a new project its own `AGENTS.md`, `CONTEXT.md` and `VALIDATION.md`. The
+  projection now overlays seven files rather than four, and ADR-0009 states the
+  rule that decides the list. A project used to inherit a contract that taught
+  the capability layout from the one directory the projection deletes, a
+  vocabulary for machinery it never meets, a validation record from another
+  machine, and the pack's own repository name in the first sentence of its
+  vocabulary. The starting `AGENTS.md` states the gate a project actually runs,
+  the starting `VALIDATION.md` records no run and states the shape of one, and
+  the pack keeps its own three documents.
+- Correct the starting `README.md`, which claimed twelve hooks and named the
+  capability layers in an order that no contract states. No hook of the gate
+  reads a starting file, so both defects reached every project and neither one
+  reached a check.
 - Narrow the `manifest` hook to the pack-owned bytes it is named for. The
   `shims` list of `pack/manifest.json` records what the pack shipped, and a
   shim is user-owned: a project starts with an overlaid workflow, and a

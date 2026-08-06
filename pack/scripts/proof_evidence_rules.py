@@ -225,7 +225,7 @@ def _canary_violations(test: ProofTest, context: TestContext) -> list[Violation]
             "PROOF028",
             (
                 f"Canary '{test.name}' must falsify exactly one declared oracle of "
-                f"'{context.property_id}'; a conjunction over {len(pinned)} oracle(s) stays false "
+                f"'{context.property_id}'. A conjunction over {len(pinned)} oracle(s) stays false "
                 "when one of them degenerates to a constant."
             ),
         )
@@ -259,7 +259,7 @@ def _property_evidence_count_violations(
                 1,
                 "PROOF020",
                 (
-                    f"Property '{property_id}' needs exactly one canonical broad proof; "
+                    f"Property '{property_id}' needs exactly one canonical broad proof. "
                     f"found {proves}."
                 ),
             )

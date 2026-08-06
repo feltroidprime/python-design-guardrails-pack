@@ -10,11 +10,9 @@ A Python 3.14 project with an executable architecture and quality contract. The
 structure, the tool policy and the gate are here from the first commit. The
 product model is your decision.
 
-This repository is the Root Pack. `CONTEXT.md` defines that term, alongside
-Terminal Project and Pack-owned Surface: read it before you name a new thing.
-`pack/tests/test_gate_definition.py` enforces that no tracked pack-owned file
-contains this repository's two identity values, `pyrepo` and
-`guardrails_pack`.
+A Root Pack projected this repository once, and this repository can create no
+other. `CONTEXT.md` defines that term, alongside Terminal Project and
+Pack-owned Surface: read it before you name a new thing.
 
 The tree holds two kinds of file, and one predicate divides them.
 
@@ -24,7 +22,8 @@ The tree holds two kinds of file, and one predicate divides them.
 
 `pack/scripts/ownership.py` holds that predicate, and it is the only ownership
 code in the tree. No file holds a list of ownership roots. ADR-0008 records the
-decision.
+decision. `pack/tests/test_gate_definition.py` proves that no pack-owned file
+names this project, so pack-owned code stays replaceable.
 
 An update of the pack replaces whole pack-owned files, and it writes no
 user-owned file. So a change you make to a pack-owned file is a change to the
@@ -57,14 +56,13 @@ lockfile  format  lint  types  dependencies  architecture
 docs  proof  symbolic  import-contracts  tests  manifest
 ```
 
-CI runs the same command in its `quality` job, so a local run and that job
-cannot disagree. CI also runs one more job, `acceptance`, which runs
-`uv run pytest -c pack/configs/pytest.ini --rootdir=. -m acceptance` from a
-freshly built wheel. The `tests` hook selects `not acceptance and not
-session_e2e`, so `just check` never reaches that suite. If you change
-`src/<package>/bootstrap/`, run the acceptance command by hand. No hook reads
-`src/<package>/bootstrap/initial/`, so a change to a starting file is invisible
-to the gate and visible only to that suite.
+CI runs the same command in the `quality` job of
+`.github/workflows/quality.yml`, and that job is the whole of CI. So a local
+run and CI cannot disagree.
+
+The `tests` hook skips two pytest markers, `acceptance` and `session_e2e`. No
+job of this repository runs them, so a test you mark with either one runs
+nowhere until you add a job for it.
 
 The twelve local hooks never rewrite a file. Three upstream hooks do repair a
 file in place: `end-of-file-fixer`, `mixed-line-ending` and
@@ -204,7 +202,8 @@ When behavior changes, update the documents that state it, in the same change:
   changes.
 - `CHANGELOG.md`: one entry per user-visible change, newest first.
 - `VALIDATION.md`: replace the record when you re-run the gate after a material
-  change. Date it, and state the environment honestly.
+  change. Date it, and state the environment honestly. The file this repository
+  starts with records no run, and it states the shape of one.
 
 The `docs` hook checks every path a document claims, so a rename fails the gate
 until the prose moves too.
@@ -239,25 +238,14 @@ The repository uses the five standard triage labels, including
 The repository uses a single-context domain documentation layout. See
 `docs/agents/domain.md`.
 
-<!-- vendored-docs:begin -->
 ## Vendored documentation
 
-Before writing code against these libraries, read the page named below instead of recalling the
-API from memory. These trees are pinned and read-only. `pack/configs/prek.toml` excludes
-`docs/vendored/` from every hook, so no hook of the gate can repair a local edit there.
+`docs/vendored/` holds pinned, read-only third-party manuals that the Root Pack
+shipped. Before you write code against one of those libraries, read the page
+instead of recalling the API from memory. `docs/vendored/vendored.toml` holds
+the pin, the licence and the page to read for each subject, and
+`docs/README.md` registers the tree. `pack/configs/prek.toml` excludes the tree
+from every hook, so no hook of the gate can repair a local edit there.
 
-| Read | When | Pin |
-|---|---|---|
-| `docs/vendored/arize_phoenix/phoenix/` | before you choose Phoenix capabilities, an environment (local, notebook, container, or cloud), or before you harden a tracing pipeline for production | arize-phoenix-v18.0.0 |
-| `docs/vendored/arize_phoenix/phoenix/get-started/` | before adding Phoenix to an application | arize-phoenix-v18.0.0 |
-| `docs/vendored/arize_phoenix/phoenix/tracing/` | before instrumenting application tracing or annotating spans | arize-phoenix-v18.0.0 |
-| `docs/vendored/arize_phoenix/phoenix/evaluation/` | before implementing Phoenix evaluators or server-side evaluations | arize-phoenix-v18.0.0 |
-| `docs/vendored/arize_phoenix/phoenix/datasets-and-experiments/` | before creating Phoenix datasets or experiment workflows | arize-phoenix-v18.0.0 |
-| `docs/vendored/arize_phoenix/phoenix/prompt-engineering/` | before storing, versioning, or testing prompts with Phoenix | arize-phoenix-v18.0.0 |
-| `docs/vendored/arize_phoenix/phoenix/integrations/` | before wiring Phoenix to a provider, framework, language, or coding agent | arize-phoenix-v18.0.0 |
-| `docs/vendored/arize_phoenix/phoenix/self-hosting/` | before deploying or upgrading a self-hosted Phoenix instance | arize-phoenix-v18.0.0 |
-| `docs/vendored/arize_phoenix/phoenix/settings/` | before configuring Phoenix authentication, access control, providers, secrets, or sandboxes | arize-phoenix-v18.0.0 |
-| `docs/vendored/arize_phoenix/phoenix/cookbook/` | before adapting an end-to-end Phoenix workflow pattern | arize-phoenix-v18.0.0 |
-| `docs/vendored/arize_phoenix/phoenix/use-cases/` | before evaluating a RAG application with Phoenix | arize-phoenix-v18.0.0 |
-| `docs/vendored/arize_phoenix/phoenix/resources/frequently-asked-questions/` | before troubleshooting Phoenix setup or behavior | arize-phoenix-v18.0.0 |
-<!-- vendored-docs:end -->
+Delete the tree and its row in `docs/README.md` in one change when this project
+uses none of those libraries.

@@ -70,7 +70,7 @@ def _mutable_state(path: Path, tree: ast.Module) -> list[Violation]:
                         path,
                         node,
                         "ARCH026",
-                        f"Module variable '{name}' owns mutable state; use an immutable value.",
+                        f"Module variable '{name}' owns mutable state. Use an immutable value.",
                     )
                 )
     return result
@@ -106,7 +106,7 @@ def _duplicate_enums(modules: Modules) -> list[Violation]:
                         path,
                         node,
                         "ARCH027",
-                        f"Model '{node.name}' is duplicated; keep one owner.",
+                        f"Model '{node.name}' is duplicated. Keep one owner.",
                     )
                 )
             seen.add(key)
@@ -166,7 +166,7 @@ def _primitive_aliases(path: Path, tree: ast.Module) -> list[Violation]:
                     path,
                     node,
                     "ARCH029",
-                    f"Domain type '{name}' is bare {primitive}; define a closed variant.",
+                    f"Domain type '{name}' is bare {primitive}. Define a closed variant.",
                 )
             )
     return result

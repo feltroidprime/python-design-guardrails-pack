@@ -121,7 +121,7 @@ def inspect_prek_hooks(root: Path) -> HookInspection:
         return HookInspection(
             configured=True,
             installed=False,
-            detail="git common directory could not be resolved",
+            detail="git did not resolve the common directory",
         )
     common_dir = Path(completed.stdout.strip())
     if not common_dir.is_absolute():

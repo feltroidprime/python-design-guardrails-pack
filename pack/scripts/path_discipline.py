@@ -117,8 +117,8 @@ def check_signature(path: Path, node: ast.FunctionDef | ast.AsyncFunctionDef) ->
                 node,
                 "ARCH019",
                 (
-                    f"Callable '{node.name}' names a path but returns str; return "
-                    "pathlib.Path and serialize with str(path) only inside the final "
+                    f"Callable '{node.name}' names a path but returns str. Return "
+                    "pathlib.Path, and serialize with str(path) only inside the final "
                     "external call."
                 ),
             )
@@ -139,8 +139,8 @@ def check_field(path: Path, node: ast.AnnAssign) -> list[Violation]:
             node,
             "ARCH020",
             (
-                f"Field '{name}' names a filesystem path but admits str; declare it "
-                "as pathlib.Path and convert wire data at the adapter boundary."
+                f"Field '{name}' names a filesystem path but admits str. Declare it "
+                "as pathlib.Path, and convert wire data at the adapter boundary."
             ),
         )
     ]
@@ -184,7 +184,7 @@ def _use_violation(path: Path, node: ast.AST, kind: str, name: str) -> Violation
         path,
         node,
         "ARCH028",
-        f"{kind} '{name}' is str used as a filesystem path; declare pathlib.Path.",
+        f"{kind} '{name}' is str used as a filesystem path. Declare pathlib.Path.",
     )
 
 

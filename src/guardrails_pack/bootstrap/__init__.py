@@ -6,7 +6,9 @@ no command of it, and it can never create another repository.
 
 The capability is checked like every other capability. It holds `api.py`,
 `domain/`, `application/`, `adapters/inbound/`, `adapters/outbound/`,
-`proof.toml` and `tests/`. It also holds `initial/`, the four files a new
-project starts with. The fourth is the quality workflow, which holds no job
-for the suite this directory carries.
+`proof.toml` and `tests/`. It also holds `initial/`, the seven files a new
+project starts with. One of them is the quality workflow, which holds no job
+for the suite this directory carries. Three more are `AGENTS.md`, `CONTEXT.md`
+and `VALIDATION.md`, because a project cannot act on the pack's version of any
+of them. ADR-0009 states the rule.
 """

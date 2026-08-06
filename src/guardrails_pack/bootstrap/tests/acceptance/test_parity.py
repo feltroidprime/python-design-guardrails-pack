@@ -131,7 +131,7 @@ def test_par_8_every_starting_file_landed_and_differs(
 def test_par_9_every_path_component_of_a_pack_token_is_renamed(
     term: Project, toolenv: Pack
 ) -> None:
-    """`PAR-9`: correction `C3`, which the prototype hit on its first run."""
+    """`PAR-9`: a path component equal to a pack token, which a content swap leaves."""
     found = run(
         (
             "find",

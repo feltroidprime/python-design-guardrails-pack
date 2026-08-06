@@ -40,7 +40,7 @@ def discover_package(root: Path) -> str:
     candidates = _visible_names(source_root)
     if len(candidates) != 1:
         raise DiscoveryError(
-            f"{SOURCE_DIRECTORY}/ must hold exactly one package; found {list(candidates)}."
+            f"{SOURCE_DIRECTORY}/ must hold exactly one package. Found {list(candidates)}."
         )
     return candidates[0]
 

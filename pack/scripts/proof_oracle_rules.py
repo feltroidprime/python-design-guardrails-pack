@@ -188,7 +188,7 @@ def _oracle_shape_violation(
             "PROOF023",
             (
                 f"Oracle '{oracle_name}' must be a total synchronous predicate over "
-                f"explicit inputs; it {'; '.join(defects)}."
+                f"explicit inputs. It {'; '.join(defects)}."
             ),
         )
     ]
@@ -208,8 +208,8 @@ def _oracle_import_violation(
             oracle.line,
             "PROOF024",
             (
-                f"Oracle '{oracle_name}' imports implementation modules ({', '.join(imports)}); "
-                "specifications must compare explicit facts without importing production behavior."
+                f"Oracle '{oracle_name}' imports implementation modules ({', '.join(imports)}). "
+                "A specification compares explicit facts, and it imports no production behavior."
             ),
         )
     ]

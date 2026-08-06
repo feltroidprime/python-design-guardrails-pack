@@ -54,9 +54,10 @@ own code afterward, that is the intended signal.
 ## What a new project owns
 
 The projection copies every tracked file of this repository into the new
-project, then deletes `src/<package>/bootstrap/` and overlays four files with
+project, then deletes `src/<package>/bootstrap/` and overlays seven files with
 a starting version. A file you add to this repository reaches every project
-the pack starts, unless you also add it to that overlay.
+the pack starts, unless you also add it to that overlay. ADR-0009 states which
+files belong in it.
 
 The tree below labels the files whose ownership differs from the rest of the
 tree:

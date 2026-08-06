@@ -216,35 +216,35 @@ def test_arch026_rejects_mutable_module_state(policy: Policy) -> None:
     assert violations == [
         (
             "ARCH026",
-            "Module variable 'PENDING' owns mutable state; use an immutable value.",
+            "Module variable 'PENDING' owns mutable state. Use an immutable value.",
         ),
         (
             "ARCH026",
-            "Module variable 'LOOKUP' owns mutable state; use an immutable value.",
+            "Module variable 'LOOKUP' owns mutable state. Use an immutable value.",
         ),
         (
             "ARCH026",
-            "Module variable 'SEEN' owns mutable state; use an immutable value.",
+            "Module variable 'SEEN' owns mutable state. Use an immutable value.",
         ),
         (
             "ARCH026",
-            "Module variable 'QUEUE' owns mutable state; use an immutable value.",
+            "Module variable 'QUEUE' owns mutable state. Use an immutable value.",
         ),
         (
             "ARCH026",
-            "Module variable 'INDEX' owns mutable state; use an immutable value.",
+            "Module variable 'INDEX' owns mutable state. Use an immutable value.",
         ),
         (
             "ARCH026",
-            "Module variable 'FLAGS' owns mutable state; use an immutable value.",
+            "Module variable 'FLAGS' owns mutable state. Use an immutable value.",
         ),
         (
             "ARCH026",
-            "Module variable 'CONDITIONAL' owns mutable state; use an immutable value.",
+            "Module variable 'CONDITIONAL' owns mutable state. Use an immutable value.",
         ),
         (
             "ARCH026",
-            "Module variable '__all__' owns mutable state; use an immutable value.",
+            "Module variable '__all__' owns mutable state. Use an immutable value.",
         ),
     ]
 
@@ -266,7 +266,7 @@ def test_arch027_rejects_duplicate_in_repository_models(policy: Policy) -> None:
         (
             "src/pkg/second.py",
             "ARCH027",
-            "Model 'DeliveryState' is duplicated; keep one owner.",
+            "Model 'DeliveryState' is duplicated. Keep one owner.",
         )
     ]
 
@@ -286,11 +286,11 @@ def test_arch028_rejects_untokenized_str_values_used_as_paths(policy: Policy) ->
     assert violations == [
         (
             "ARCH028",
-            "Parameter 'relative' is str used as a filesystem path; declare pathlib.Path.",
+            "Parameter 'relative' is str used as a filesystem path. Declare pathlib.Path.",
         ),
         (
             "ARCH028",
-            "Field 'evidence' is str used as a filesystem path; declare pathlib.Path.",
+            "Field 'evidence' is str used as a filesystem path. Declare pathlib.Path.",
         ),
     ]
 
@@ -352,11 +352,11 @@ def test_arch029_rejects_used_domain_aliases_to_bare_primitives(policy: Policy) 
     assert violations == [
         (
             "ARCH029",
-            "Domain type 'ApiBindHost' is bare str; define a closed variant.",
+            "Domain type 'ApiBindHost' is bare str. Define a closed variant.",
         ),
         (
             "ARCH029",
-            "Domain type 'LegacyBindHost' is bare str; define a closed variant.",
+            "Domain type 'LegacyBindHost' is bare str. Define a closed variant.",
         ),
     ]
 

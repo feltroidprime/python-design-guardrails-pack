@@ -20,10 +20,11 @@ _Avoid_: Recursive generation, self-replication
 
 **Terminal Projection**:
 The Root Pack with the One-shot Bootstrap capability removed, its two identity
-tokens substituted throughout, and four files overlaid with a starting
-version. `README.md`, `CHANGELOG.md`, `.github/workflows/quality.yml`, and the
-composition root are the four overlaid files. Every other file is identical to
-the root apart from the two identity tokens.
+tokens substituted throughout, and seven files overlaid with a starting
+version. `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`,
+`VALIDATION.md`, `.github/workflows/quality.yml`, and the composition root are
+the seven overlaid files. Every other file is identical to the root apart from
+the two identity tokens. ADR-0009 states the rule that decides that list.
 _Avoid_: Template rendering, template directory, repository recursion
 
 **Terminal Project**:

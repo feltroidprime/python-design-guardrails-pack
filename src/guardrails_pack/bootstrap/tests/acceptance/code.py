@@ -130,7 +130,7 @@ def pack_tokens(root: Path) -> Tokens:
 
 
 def renamed(relative: str, swaps: tuple[tuple[str, str], ...]) -> str:
-    """Rename every path component that equals a pack token (correction C3)."""
+    """Rename every path component that equals a pack token, not file content alone."""
     table = dict(swaps)
     return SEPARATOR.join(table.get(part, part) for part in relative.split(SEPARATOR))
 
