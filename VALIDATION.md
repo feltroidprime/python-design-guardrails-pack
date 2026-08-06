@@ -54,9 +54,11 @@ The gate reported **twelve of twelve hooks green**:
 | `dependencies` `architecture` `docs` `proof` | passed |
 | `symbolic` `import-contracts` `tests` `manifest` | passed |
 
-The acceptance suite reported **84 passed, 0 failed** over its 84 assertions.
-The suite held 83 before this change, and `REM-7` is the new one. Group `LEG`
-passed whole, so `LEG-5` holds on the Root Pack and on a Terminal Project.
+The acceptance suite reported **84 passed, 0 failed**. The suite defines 54
+distinct assertion identifiers, and pytest collected 84 parametrized tests
+from them. The suite held 83 tests before this change, and `REM-7` is the new
+identifier that added the 84th. Group `LEG` passed whole, so `LEG-5` holds on
+the Root Pack and on a Terminal Project.
 
 The first run of the suite reported `1 failed, 83 passed`. `LEG-5` found the
 gate of a Terminal Project red on `test_just_pin_is_coherent`, which is the
@@ -85,9 +87,11 @@ overlaid workflow and carries the record of the pack.
   an update never writes a shim, so the report is the only effect.
 - `REM-7` reads a `-m` option of a `pytest` command. A job that selects a marker
   by another spelling is outside the scan.
-- The pre-commit and pre-push hooks cannot verify a commit that touches a
-  projected file. Both commits of this change used `--no-verify`, and the gate
-  ran separately over the committed tree.
+- If a commit touches a projected file, the pre-commit and pre-push hooks
+  cannot check it. Only then is `--no-verify` legal, and a full gate run over
+  the committed tree must follow it. Both commits of this change touched a
+  projected file, used `--no-verify`, and were followed by a separate gate run
+  over the committed tree.
 - `uv` can serve a cached wheel at the same version. If a shipped file disagrees
   with the checkout, clear the cache for this project before you call it a
   defect.

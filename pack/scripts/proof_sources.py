@@ -1,4 +1,8 @@
-"""Discover public core behaviors, contracts, and executable oracles."""
+"""Discover public core behaviors, contracts, and executable oracles.
+
+This is machinery for `proof_target_rules.py` and `proof_oracle_rules.py`.
+It emits no PROOF code.
+"""
 
 import ast
 from dataclasses import dataclass
@@ -93,8 +97,8 @@ def behavior_files(policy: ProofPolicy) -> tuple[Path, ...]:
 
     A behavior root is one core layer of one discovered capability, so a
     capability that is missing that layer contributes nothing here. The layer
-    itself is a rule of the `import-linter` contracts, and the proof guard does
-    not repeat it (rules L1 and L2 of #85 section 4.3).
+    itself is a rule of the `import-linter` contracts, and the proof guard
+    does not repeat it.
     """
     files: set[Path] = set()
     for module in policy.behavior_roots:

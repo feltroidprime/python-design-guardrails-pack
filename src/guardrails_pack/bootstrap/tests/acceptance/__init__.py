@@ -1,6 +1,6 @@
-"""The 53 acceptance assertions of #81, run from the installed console script.
+"""The 53 acceptance assertions, run from the installed console script.
 
-Three harness rules govern every module here (#85 section 5).
+Three harness rules govern every module here.
 
 * `H1` — every projection and every update runs from the console script of a
   throwaway tool installation of a freshly built wheel. A source checkout passes

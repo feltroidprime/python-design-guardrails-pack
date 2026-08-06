@@ -1,9 +1,9 @@
 """What one Pack Update does to a real tree, and what it never does to one.
 
-Each case below states one measured property of #82 as it is recorded in #85,
-and each one prepares one assertion of the `UPD` group of #81. The acceptance
-suite runs the same properties from the installed console script, against the
-whole tree; these cases run them against a small tree, in one process.
+Each case below states one measured property, and each one prepares one
+assertion of the `UPD` group. The acceptance suite runs the same properties
+from the installed console script, against the whole tree. These cases run
+them against a small tree, in one process.
 
 Every case drives a committed git checkout and reads `git status --porcelain`,
 because that is the boundary the promise is stated at: an update writes

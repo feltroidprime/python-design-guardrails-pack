@@ -1,8 +1,21 @@
-"""Static guardrails for the agent-native command-line boundary.
+"""ARCH021, ARCH022, and ARCH023: the one command-line seam of the package.
 
-The command seam is pack-owned, and it is `_foundation/`. `_foundation/router.py`
-is the one module that may reach an argument parser, and the one module that may
-end the process. A capability never selects an exit code (#85 section 4.4).
+`_foundation/` is the pack-owned command seam. `_foundation/router.py` is
+the only module that reaches an argument parser, and the only module that
+ends the process. A capability never selects an exit code. It returns a
+value or raises, and the router turns that into the exit code.
+
+- `ARCH021` fires on a prompt call (`input`, `prompt`, `confirm`) inside
+  `_foundation/`. Fix: delete the prompt. An unattended command path must
+  never block on stdin.
+- `ARCH022` fires on an uncontrolled process exit (`exit`, `quit`,
+  `sys.exit`, `os._exit`) or on a raised `SystemExit`, outside
+  `_foundation/router.py`. Fix: return a value or raise a domain exception
+  instead, and let the router choose the exit code.
+- `ARCH023` fires on an import of a CLI framework (`argparse`, `click`,
+  `docopt`, `fire`, `typer`) outside `_foundation/router.py`. Fix: delete
+  the import. A capability exposes its `api.py`, and only the router parses
+  arguments.
 """
 
 import ast
@@ -99,7 +112,7 @@ def _raise_violations(path: Path, node: ast.Raise, policy: Policy) -> list[Viola
 
 
 def check_cli_discipline(path: Path, tree: ast.Module, policy: Policy) -> list[Violation]:
-    """Reject automation drift in production source modules."""
+    """Check production source modules for forbidden automation drift."""
     if not is_under(path, policy.source_root):
         return []
     violations: list[Violation] = []

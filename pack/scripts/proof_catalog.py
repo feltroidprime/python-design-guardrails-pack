@@ -7,10 +7,12 @@ root, never from the pack root.
 Catalog discovery is structural, so the policy holds no catalog root and no
 ownership zone. Two locations carry a catalog:
 
-* every `*.toml` below `pack/proof/`, this policy apart;
-* the `proof.toml` of each capability, which rule L1 of #85 requires.
+* every `*.toml` below `pack/proof/`, this policy apart.
+* the `proof.toml` of each capability. AGENTS.md requires one per capability.
 
-A capability with no `proof.toml` is a defect, and the loader reports it.
+A capability with no `proof.toml` is a violation, and the loader reports it
+by raising `CatalogError`. This module emits no `PROOF` code itself.
+`proof_guard.py` turns any `CatalogError` it raises into `PROOF000`.
 """
 
 from pathlib import Path
@@ -102,7 +104,7 @@ def _pack_catalogs(proof_root: Path) -> tuple[Path, ...]:
 def _capability_catalogs(
     root: Path, package: str, capabilities: tuple[str, ...]
 ) -> tuple[Path, ...]:
-    """The `proof.toml` of each capability, which rule L1 of #85 requires."""
+    """The `proof.toml` of each capability. AGENTS.md requires one per capability."""
     package_root = root / SOURCE_DIRECTORY / package
     catalogs: list[Path] = []
     missing: list[str] = []

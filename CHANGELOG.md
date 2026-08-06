@@ -50,8 +50,9 @@ records the pack version that its last update carried.
   families, and delete its edit-time hook.
 - Add `pack/manifest.json` and a `manifest` hook, so a stale record of the
   pack-owned bytes fails at commit time rather than at update time.
-- Add the acceptance suite: 53 assertions in six groups, marked `acceptance`,
-  each run from an installed console script.
+- Add the acceptance suite in six groups: capability layout, legacy absence,
+  parity, removal, update rules, and terminal identity. Every assertion is
+  marked `acceptance` and runs from an installed console script.
 - Rewrite every document against the vocabulary of `CONTEXT.md`, restore
   ADR-0002 and ADR-0004 as superseded records, and add ADR-0008.
 - Close the type and architecture backlog that the collapse exposed in nine
@@ -65,9 +66,9 @@ records the pack version that its last update carried.
 - Give a new project a quality workflow that holds the `quality` job only. The
   projection now overlays `.github/workflows/quality.yml` with one of the
   starting files, so the job for the acceptance suite stays in the pack with
-  the suite it runs. In a project that job collected no
-  test in a project, pytest answered exit code 5, and every new project was red
-  on its first push. Assertion `REM-7` reads the projected workflow and fails
+  the suite it runs. In a project, that job collected no test, pytest answered
+  exit code 5, and every new project was red on its first push. Assertion
+  `REM-7` reads the projected workflow and fails
   on any job that runs a marker the deletion empties. The `just` pin now has
   one required location rather than two, because the second sits in the job
   that a project no longer carries.
@@ -79,7 +80,9 @@ records the pack version that its last update carried.
   one.
 
 The unreleased entries that this section replaces described the tree that the
-refactor deleted. The released versions below are unchanged history.
+refactor deleted. The released versions below, `v0.2.0` and `v0.1.0`, describe
+the Copier template that this repository replaced. A project cannot adopt an
+entry from those two versions.
 
 ## [v0.2.0] - 2026-07-17
 

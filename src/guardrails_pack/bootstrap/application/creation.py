@@ -9,15 +9,17 @@ The order is the order of #85 section 3.3.
 4. build the whole project in a temporary directory
 5. run R7 to R9
 6. move the tree into place as one operation
-7. git init, just setup, and the first commit
+7. git init, the first commit, and just setup
 8. prek install, which records the pack-owned config path in the git hook
 9. with --github, gh repo create and push
 ```
 
 Steps 1 to 6 never touch the network, and a failure in any of them leaves the
-destination absent. Step 9 is the one network step, and it is opt-in. No boolean
-flag defaults to `True` (clause A3 of #85), so `init` is testable offline and a
-new repository stays private until its owner says otherwise.
+destination absent. Step 7 commits the tree before it runs `just setup`.
+`just setup` runs the gate, and the gate reads the tracked tree. Step 9 is the
+one network step, and it is opt-in. No boolean flag defaults to `True` (clause
+A3 of #85), so `init` is testable offline and a new repository stays private
+until its owner says otherwise.
 
 Step 2 sits between two groups of refusals rather than before all of them, and
 that placement is the whole point. Reading the projection source can fail: an

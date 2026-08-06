@@ -1,16 +1,14 @@
-"""Group 6 of #81: a Terminal Project cannot generate another repository.
+"""A Terminal Project cannot generate another repository.
 
-`TER-1` to `TER-7` certify a clean project file, a clean wheel, a clean virtual
-environment, the two payload rules, and both projection sources (#85 sections
-2.2 and 3.3). Four of them killed a real packaging candidate rather than a
-hypothetical one (#80).
+`TER-1` to `TER-7` state a clean project file, a clean wheel, a clean virtual
+environment, the two payload rules, and both projection sources.
 
-`TER-6` and the gate half of conflict `C15` pull against each other: the gate
-must ignore the staged payload, so the gate definition has to state it, and
-`pack/` reaches a Terminal Project byte for byte. Ticket I10 settles it with a
-name-blind rule. The gate and the manifest script ignore every archive directly
-under a source package, and neither one holds the file name. A name-blind rule
-also covers every archive an interrupted build can leave, not one spelling.
+`TER-6` and the gate pull against each other: the gate must ignore the staged
+payload, so the gate definition has to state it, and `pack/` reaches a Terminal
+Project byte for byte. The gate and the manifest script ignore every archive
+directly under a source package, and neither one holds the file name. A
+name-blind rule also covers every archive an interrupted build can leave, not
+one spelling.
 """
 
 from pathlib import Path

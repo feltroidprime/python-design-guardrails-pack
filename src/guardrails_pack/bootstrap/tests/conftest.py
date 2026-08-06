@@ -4,8 +4,8 @@ The tests build a pack of nine files rather than the real tree. The nine files
 carry every shape the projection has to answer: both identity tokens in file
 content, both path components that equal a token, the three starting files, and
 the capability directory itself. A small tree makes each assertion readable and
-each run fast, and the whole real tree is what the acceptance suite of #81
-measures from the installed console script.
+each run fast, and the whole real tree is what the acceptance suite measures
+from the installed console script.
 
 `fake_pack` writes that tree. `Recorder` is a `CommandRunner` that records the
 commands instead of running them, so an ordering test never starts a process.
@@ -13,9 +13,8 @@ commands instead of running them, so an ordering test never starts a process.
 The update fixtures below write two more trees: one release of a pack, and one
 project born from a release. Both write their own `pack/manifest.json` from the
 same mappings they wrote the files from, so a fixture record never comes from
-the code the update tests measure. Every pack-owned file here is name-blind, the
-way invariant `O1` of #85 states it, so the record of the pack is the record of
-the project.
+the code the update tests measure. Every pack-owned file here is name-blind, so
+the record of the pack is the record of the project.
 """
 
 from collections.abc import Mapping, Sequence
@@ -66,7 +65,7 @@ PACK_TREE: Mapping[str, str] = MappingProxyType(
 
 
 def write_tree(root: Path, contents: Mapping[str, str]) -> Path:
-    """Write one whole tree from a map of relative locations to text."""
+    """Write one whole tree from a map of relative paths to text."""
     for relative, text in contents.items():
         target = root / relative
         target.parent.mkdir(parents=True, exist_ok=True)

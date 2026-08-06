@@ -1,6 +1,6 @@
 """Build a pack, install it as a tool, and synthesise the previous release.
 
-Rule `H1` of #81 admits one seam only: the console script of a throwaway tool
+Rule `H1` admits one seam only: the console script of a throwaway tool
 installation of a freshly built wheel. Every function here exists to reach that
 seam, and none of them states an assertion.
 
@@ -64,7 +64,7 @@ REPLACEMENT_LINE = "# The previous release of this policy.\n"
 # The one policy the previous release loosens: it excludes one file name from
 # every Ruff rule, and the current release checks it. Assertion `UPD-12` writes
 # a user file of that name, so an update carries real policy onto real user
-# code. Loosening a global setting instead would reformat the pack itself.
+# code. Loosening a global setting instead reformats the pack itself.
 POLICY_FILE = "pack/configs/ruff.toml"
 POLICY_EXCLUSIONS = 'extend-exclude = ["../../.agents"]'
 LOOSE_EXCLUSIONS = 'extend-exclude = ["../../.agents", "wide_probe.py"]'
@@ -72,7 +72,7 @@ POLICY_PROBE = "wide_probe.py"
 RETIRED_POLICY = "# A policy file that the next release deletes.\n"
 MANIFEST_PATH = "pack/manifest.json"
 # The user-owned path that the record of `claiming_release` names. It exists in
-# every project, and no update may ever write it.
+# every project, and every update must leave it untouched.
 CLAIMED_PATH = "README.md"
 
 

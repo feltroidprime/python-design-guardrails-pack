@@ -1,8 +1,28 @@
-"""Repository-specific AST fitness functions.
+"""ARCH001 through ARCH015: the structural checks over one module.
 
-The guard checks properties generic linters cannot express: domain purity,
-immutable domain messages, dumping-ground modules, explicit exceptions, and
-size ceilings. It deliberately does not pretend to prove subjective quality.
+The `ARCH-EXCEPTION: ADR-NNNN` marker suppresses none of the codes below.
+The range it covers starts at `ARCH016`. To clear one of these codes, change
+the code, or change `pack/architecture.toml` with a written rationale. This
+module holds no line limit and no name list of its own. `pack/architecture.toml`
+is the one source of truth for every number and every set this table names.
+
+| Code | Fires on | Fix |
+|---|---|---|
+| `ARCH001` | a module name from the forbidden-stem list | rename the module (the list is `conventions.forbidden_module_stems`) |
+| `ARCH002` | a module over the line limit | split the module (the limit is `limits.max_module_lines`, or `max_test_module_lines` in a test tree) |
+| `ARCH003` | a function over the line limit | split the function (the limit is `limits.max_function_lines`) |
+| `ARCH004` | an `async def` inside the domain layer | make the function synchronous, because domain code must not await |
+| `ARCH005` | a class over the line limit | split the class (the limit is `limits.max_class_lines`) |
+| `ARCH006` | a class in an immutable domain module that is not a `@dataclass` | decorate it `@dataclass(frozen=True, slots=True, kw_only=True)` |
+| `ARCH007` | an immutable-module dataclass missing `frozen`, `slots`, or `kw_only` | pass all three as `True` |
+| `ARCH008` | a blanket `type` ignore comment | replace it with a narrow `pyright: ignore` plus an `ARCH-EXCEPTION: ADR-NNNN` marker |
+| `ARCH009` | a `pyright: ignore` with no exception marker | add `ARCH-EXCEPTION: ADR-NNNN` on the same line |
+| `ARCH010` | a `noqa` with no exception marker | add `ARCH-EXCEPTION: ADR-NNNN` on the same line |
+| `ARCH011` | a domain import of a forbidden root | inject the capability through a `Protocol` port instead (the list is `domain.forbidden_import_roots`) |
+| `ARCH012` | a domain call to a nondeterministic or I/O-performing name | pass the clock, the random source, or the I/O result in as a parameter (the list is `domain.forbidden_call_suffixes`) |
+| `ARCH013` | `from __future__ import annotations` | delete the import, because Python 3.14 gives deferred annotations natively |
+| `ARCH014` | an `__init__.py` under a test package | delete it, because test packages are namespace packages (PEP 420) |
+| `ARCH015` | an empty `__init__.py` outside a test package | state the package's public surface and its ownership zone in a docstring |
 """
 
 import ast
@@ -129,7 +149,7 @@ def check_init_file(path: Path, text: str, policy: Policy) -> list[Violation]:
 
     Test packages are namespace packages (PEP 420), so __init__.py is banned
     there outright. Elsewhere an __init__.py must state its package's public
-    surface or ownership; an empty marker file is noise.
+    surface or ownership. An empty marker file is noise.
     """
     if path.name != "__init__.py":
         return []
@@ -139,7 +159,7 @@ def check_init_file(path: Path, text: str, policy: Policy) -> list[Violation]:
                 path=path,
                 line=1,
                 code="ARCH014",
-                message="Test packages are namespace packages; delete this __init__.py.",
+                message="Test packages are namespace packages. Delete this __init__.py.",
             )
         ]
     if not text.strip():
@@ -149,7 +169,7 @@ def check_init_file(path: Path, text: str, policy: Policy) -> list[Violation]:
                 line=1,
                 code="ARCH015",
                 message=(
-                    "Empty __init__.py is forbidden; state the package surface "
+                    "Empty __init__.py is forbidden. State the package surface "
                     "or ownership in a docstring."
                 ),
             )
@@ -176,7 +196,7 @@ def check_module_shape(path: Path, line_count: int, policy: Policy) -> list[Viol
                 path=path,
                 line=1,
                 code="ARCH002",
-                message=f"Module has {line_count} lines; maximum is {maximum}.",
+                message=f"Module has {line_count} lines. The maximum is {maximum}.",
             )
         )
     return violations
@@ -198,8 +218,8 @@ def check_function(
                 node,
                 "ARCH003",
                 (
-                    f"Function '{node.name}' has {length} lines; "
-                    f"maximum is {policy.max_function_lines}."
+                    f"Function '{node.name}' has {length} lines. "
+                    f"The maximum is {policy.max_function_lines}."
                 ),
             )
         )
@@ -223,7 +243,7 @@ def check_class(
                 path,
                 node,
                 "ARCH005",
-                f"Class '{node.name}' has {length} lines; maximum is {policy.max_class_lines}.",
+                f"Class '{node.name}' has {length} lines. The maximum is {policy.max_class_lines}.",
             )
         )
     if not immutable_domain_module:
@@ -270,8 +290,8 @@ def check_import(
                 node,
                 "ARCH011",
                 (
-                    f"{ambient_effect_scope} must not import '{root}'; "
-                    "inject the capability through a port."
+                    f"{ambient_effect_scope} must not import '{root}'. "
+                    "Inject the capability through a port."
                 ),
             )
             for root in sorted(forbidden_roots)
@@ -343,7 +363,7 @@ def check_tree(path: Path, tree: ast.AST, policy: Policy) -> list[Violation]:
 
 
 def check_source(path: Path, text: str, tree: ast.Module, policy: Policy) -> list[Violation]:
-    """Run every general fitness function on one already-parsed module.
+    """Run every general check of this module on one already-parsed module.
 
     The guard owns reading and parsing (and reports ARCH000 for unparsable
     files), so every rule family checks the same text and tree.

@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""Create a changelog-backed template release tag."""
+"""Tag a release after four refusals pass, then stop.
+
+Run this script to create one annotated PEP 440 tag from `CHANGELOG.md`. It
+writes the tag to the local repository only, and it pushes nothing. When
+you want to publish the release, push the tag yourself.
+
+When any of these four conditions holds, it refuses to tag.
+
+- The version argument is not exactly one tag in the form `vX.Y.Z`.
+- `CHANGELOG.md` carries no `## [vX.Y.Z]` entry for that version.
+- The working tree is not clean.
+- The tag already exists.
+"""
 
 import os
 from pathlib import Path
@@ -76,10 +88,10 @@ def main(arguments: list[str] | None = None) -> int:
     if existing.returncode == 0:
         return fail(f"tag {version} already exists")
 
-    tagged = git("tag", "--annotate", version, "--message", f"Template release {version}")
+    tagged = git("tag", "--annotate", version, "--message", f"Release {version}")
     if tagged.returncode != 0:
         return fail(tagged.stderr.strip() or "git tag failed")
-    print(f"Created template release tag {version}.")
+    print(f"Created release tag {version}.")
     return 0
 
 

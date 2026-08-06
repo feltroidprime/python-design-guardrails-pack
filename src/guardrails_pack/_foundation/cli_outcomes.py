@@ -5,7 +5,7 @@ the machine envelope. `FIXED_OUTCOMES` binds each code to its exit code, its
 retryability and its fixed hint.
 
 The table is fixed, and a capability never selects an exit code. The router maps
-a raised stdlib exception to one entry of this table (#85 section 3.1).
+a raised stdlib exception to one entry of this table.
 
 Two codes answer a failure that no capability raises. `permanent_rejection` is
 the envelope of a `ValueError` or a `LookupError`. `composition-invalid` is the
@@ -38,7 +38,7 @@ __all__ = [
 
 
 class ExitCode(IntEnum):
-    """Stable process classifications; the exact meaning stays in the outcome code."""
+    """Stable process classifications. The exact meaning stays in the outcome code."""
 
     SUCCESS = 0
     SYNTAX = 2

@@ -4,8 +4,7 @@ A Pack Update writes whole files across two zones of a live repository, so it
 cannot build the result beside the destination the way a projection does. It
 snapshots every path before it touches that path, and it restores every snapshot
 on any failure. A crashed update therefore leaves the tree byte-identical and
-`git status --porcelain` empty, and the retry succeeds (assertion `UPD-4` of
-#81).
+`git status --porcelain` empty, and the retry succeeds.
 
 The snapshot holds the bytes and the permission bits of a file that existed, or
 nothing for a path that did not exist. A restore rewrites the first shape and

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fast, non-interactive pre-launch checks for this repository."""
+"""Fast, non-interactive checks to run before other work in this repository."""
 
 from dataclasses import dataclass
 import os

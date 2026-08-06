@@ -2,12 +2,12 @@
 
 The pack-owned surface carries no identity token, so a script reads the import
 package name from the filesystem instead of a configuration file. A capability
-is one directory directly under that package (rule L1 of #85), so the capability
-list is a `listdir` as well.
+is one directory directly under that package, so the capability list is a
+`listdir` as well.
 
 Both answers come from directory names only. A capability whose layers are
 absent or empty is still a capability, because the gate must be able to report
-that defect rather than hide it.
+that violation rather than hide it.
 """
 
 from pathlib import Path

@@ -132,7 +132,7 @@ def test_loader_discovers_every_catalog_below_the_proof_root(tmp_path: Path) -> 
 
 
 def test_loader_rejects_a_capability_without_a_proof_catalog(tmp_path: Path) -> None:
-    """Rule L1 of #85 gives every capability one `proof.toml`."""
+    """AGENTS.md gives every capability one `proof.toml`."""
     root = proof_project(tmp_path)
     (root / "src/demo/feature/proof.toml").unlink()
 

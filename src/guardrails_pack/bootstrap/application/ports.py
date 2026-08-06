@@ -1,10 +1,10 @@
 """The two ports of the capability: the projection payload and one command.
 
 A port is a `Protocol`, so this layer names no adapter and the composition in
-`api.py` supplies the implementation. Both ports raise `OSError` on failure. The
-router maps `OSError` to the retryable `dependency_unavailable` envelope and to
-exit code 4 (#85 section 3.1), which is the truth for a missing `git`, a missing
-`just`, or a command that ends non-zero.
+`api.py` supplies the implementation. Both ports raise `OSError` on failure, for
+a missing `git`, a missing `just`, or a command that ends non-zero.
+`_foundation.cli_outcomes` states the exit code and the envelope that failure
+maps to.
 """
 
 from collections.abc import Sequence

@@ -2,15 +2,15 @@
 
 **Pack-owned** is the `pack/` directory at the repository root, plus
 `_`-prefixed names and `py.typed` inside `src/<pkg>/`. **User-owned** is
-everything else (#85 section 4.2). A Pack Update evaluates this predicate per
-path, over the write plan before any file is touched, and it never compares a
-path against the manifest's path list. A file that the new version dropped is
+everything else. A Pack Update evaluates this predicate once per path, over
+the whole write plan, before it touches any file. It never compares a path
+against the manifest's path list. A file that the new version dropped is
 absent from that list, and the update must still delete it.
 
-`pack/scripts/ownership.py` states the same rule for the gate. Rule `L4` of the
-capability contract forbids an import of pack code, so the rule stands twice, in
-two zones, in two shapes. Two independent statements of one rule catch a defect
-in either one.
+`pack/scripts/ownership.py` states the same rule for the gate. The capability
+contract forbids an import of pack code, so the rule stands twice, in two
+zones, in two shapes. Two independent statements of one rule catch a defect in
+either one.
 
 The predicate is total. It answers every repository-relative POSIX path and
 raises nothing.
@@ -46,8 +46,7 @@ SCANNED_SUFFIXES = (".pyc", ".pyo")
 # The staged projection payload is one archive under `src/`. It belongs to no
 # release and an interrupted build can leave it behind. `pack/scripts/
 # manifest_guard.py` states the same rule for the gate. Both name the shape and
-# never the file name, so a Terminal Project can carry the rule and still obey
-# assertion `TER-6` of #81.
+# never the file name, so a Terminal Project carries the rule unchanged.
 SCANNED_SOURCE_SUFFIX = ".tar"
 
 

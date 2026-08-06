@@ -1,6 +1,6 @@
 """The release step: stage the payload, build the wheel, delete the payload.
 
-Three commands, in this order (clause A4 and conflict C12 of #85):
+Three commands, in this order:
 
 ```
 git archive HEAD -o src/<pkg>/_pack.tar
@@ -9,8 +9,8 @@ rm src/<pkg>/_pack.tar
 ```
 
 The step belongs to this capability and never to a `just` recipe. A recipe in
-`pack/justfile` reaches every Terminal Project, and assertion TER-6 of #81
-forbids a pack-only instruction there. The root `justfile` therefore stays
+`pack/justfile` reaches every Terminal Project, and a Terminal Project must
+carry no pack-only instruction. The root `justfile` therefore stays
 byte-identical downstream, and the step disappears with the capability.
 
 The archive holds `HEAD`, so a release must commit first. Uncommitted work is

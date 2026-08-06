@@ -290,7 +290,10 @@ def _canary_coverage_violations(
             "PROOF021",
             (
                 f"Oracle '{oracle}' of property '{property_spec.property_id}' needs exactly one "
-                f"falsifying canary; found {pinned[oracle]}."
+                f"falsifying canary. Found {pinned[oracle]}. A canary counts only when it meets "
+                "four conditions. It is marked @pytest.mark.falsifies for this property. It "
+                "calls the assert_falsifies helper, not assert_rejected. It invokes at least "
+                "one of the property's declared oracles. It invokes no more than one of them."
             ),
         )
         for oracle in property_spec.oracles

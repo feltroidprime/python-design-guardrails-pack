@@ -1,13 +1,13 @@
 """The six `import-linter` contracts, on a tree with two example capabilities.
 
-The clean tree is one package with two capabilities in the layout of rule L1 of
-#85: `api.py`, `domain/`, `application/`, `adapters/inbound/`,
+The clean tree is one package with two capabilities in the layout AGENTS.md
+requires: `api.py`, `domain/`, `application/`, `adapters/inbound/`,
 `adapters/outbound/`, `proof.toml` and `tests/`.
 
-Each defect is the clean tree with one injected fault. The five faults are the
-five of group 5 of #81, `FSC-1` to `FSC-5`. Each one must break a contract, so
-the six contracts together carry the rules that the deleted capability validator
-carried.
+Each defect is the clean tree with one injected fault. The five faults are
+the five ways a capability can break the layout rule. Each one must break a
+contract, so the six contracts together carry the rules that the deleted
+capability validator carried.
 """
 
 from collections.abc import Callable

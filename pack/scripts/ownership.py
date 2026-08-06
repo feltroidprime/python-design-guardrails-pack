@@ -1,13 +1,16 @@
-"""The one ownership predicate of the Root Pack.
+"""The one ownership predicate of this tree.
 
 **Pack-owned** is the `pack/` directory at the repository root, plus
 `_`-prefixed names and `py.typed` inside `src/<pkg>/`. **User-owned** is
 everything else. Two zones, one predicate, no path list.
 
+A pack update replaces every pack-owned file whole. An edit inside `pack/`,
+or inside a `_`-prefixed name under `src/<pkg>/`, is lost at the next
+update. Keep a local change outside those paths, or it does not survive.
+
 The predicate is total. It answers every repository-relative POSIX path and
-raises nothing, so a caller classifies a path without a catalog and without a
-declaration. Init and update evaluate it per path, over the write plan and over
-`git status --porcelain`.
+raises nothing, so a caller classifies a path without a catalog and without
+a declaration.
 """
 
 import icontract

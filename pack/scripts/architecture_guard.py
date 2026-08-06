@@ -1,7 +1,26 @@
 #!/usr/bin/env python3
-"""Run architecture checks over one shared parse per module.
+"""Run every architecture guard over one shared parse per module.
 
-ADR-backed ``ARCH-EXCEPTION`` suppression is applied centrally.
+The `ARCH-EXCEPTION: ADR-NNNN` marker suppresses only `ARCH016` through
+`ARCH030`. For `ARCH000` through `ARCH015` the marker does nothing, because
+those codes are structural. To clear one of them, change the code, or change
+`pack/architecture.toml` with a written rationale (see the change protocol of
+AGENTS.md).
+
+The marker also does nothing for `CLI001` through `CLI004`, for every `DOC`
+code, and for every `PROOF` code. The marker text only ever matches the
+literal codes `ARCH016` through `ARCH030`.
+
+| Code range | Owning module | Marker-suppressible |
+|---|---|---|
+| `ARCH000` | this module | no |
+| `ARCH001`-`ARCH015` | `architecture_rules.py` | no |
+| `ARCH016`-`ARCH018` | `none_discipline.py` | yes |
+| `ARCH019`, `ARCH020`, `ARCH028` | `path_discipline.py` | yes |
+| `ARCH021`-`ARCH023` | `cli_discipline.py` | yes |
+| `ARCH026`, `ARCH027`, `ARCH029` | `review_discipline.py` | yes |
+| `ARCH030` | `override_discipline.py` | yes |
+| `CLI001`-`CLI004` | `cli_surface.py` | no, not an ARCH code |
 """
 
 import ast

@@ -1,4 +1,4 @@
-"""The capability as the router renders it: two subcommands, and one envelope.
+"""The capability as the router renders it: three subcommands, and one envelope.
 
 The router derives the command line from `api.py`, so this capability writes no
 command-line code. These cases state what the derivation must give: the three
@@ -7,8 +7,8 @@ a refusal that reaches the caller as the permanent-rejection envelope with exit
 code 3 rather than as a traceback.
 
 Every case runs the console script of this project in its own process. A
-capability imports no pack code (rule L4 of #85), and the console script is the
-seam the acceptance suite of #81 uses as well.
+capability imports no pack code, and the console script is the seam the
+acceptance suite uses as well.
 """
 
 import json

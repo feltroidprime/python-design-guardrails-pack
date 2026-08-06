@@ -1,4 +1,15 @@
-"""Review-harvest checks."""
+"""ARCH026, ARCH027, and ARCH029: module state, duplicate models, bare primitives.
+
+- `ARCH026` fires on a mutable module-level variable: a `dict`, `list`, or
+  `set`, literal or constructed. Fix: hold the value in an immutable type,
+  such as a `tuple` or a `frozenset`. A `list`-built `__all__` is exempt.
+- `ARCH027` fires when two `Enum` classes in the tree share a name and the
+  same member values. Fix: delete one class, and let every importer use the
+  other.
+- `ARCH029` fires on a local CamelCase alias of `float`, `int`, or `str` that
+  a function signature or a dataclass field actually uses. Fix: define a
+  closed variant of the primitive instead of aliasing it.
+"""
 
 import ast
 from typing import TYPE_CHECKING

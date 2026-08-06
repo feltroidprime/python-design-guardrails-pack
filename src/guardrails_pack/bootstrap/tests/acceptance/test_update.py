@@ -1,4 +1,4 @@
-"""Group 4 of #81, first half: safe whole-file updates, `UPD-1` to `UPD-7`.
+"""Safe whole-file updates, `UPD-1` to `UPD-7`.
 
 `OLD` is a Terminal Project of the previous release, and the current wheel
 carries one real `ADD`, one real `REPLACE` and one real `DELETE` on the

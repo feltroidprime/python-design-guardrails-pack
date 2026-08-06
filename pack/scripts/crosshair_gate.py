@@ -206,8 +206,11 @@ def _report_failure(outcome: TargetOutcome) -> None:
         print(
             (
                 "The symbolic canary was not refuted, so CrossHair proved nothing about "
-                "the real targets in this run. Restore symbolic constructibility of the "
-                "domain types before trusting any result above."
+                "the real targets in this run. The usual cause is a domain type CrossHair "
+                "cannot build on its own, often a strict __post_init__ check or a "
+                "constructor CrossHair cannot drive. Simplify that construction path, "
+                "then run `just prove-deep` for a wider search before you trust any "
+                "result above."
             ),
             file=sys.stderr,
         )

@@ -1,8 +1,9 @@
-"""Independent predicate for the Pack-owned Surface.
+"""Independent predicate for the pack-owned surface.
 
-This module states the ownership rule a second time, in a different shape. The
-implementation splits a path into segments; this oracle matches text prefixes.
-Two independent statements of one rule catch a defect in either one.
+This module states the ownership rule a second time, in a different shape.
+The implementation splits a path into segments. This oracle matches text
+prefixes. Two independent statements of one rule catch a defect in either
+one.
 """
 
 

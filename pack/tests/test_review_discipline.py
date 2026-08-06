@@ -380,7 +380,7 @@ def test_arch030_rejects_unmarked_in_repository_overrides(policy: Policy) -> Non
         (
             "src/pkg/writer.py",
             "ARCH030",
-            "Method 'FileEvidenceWriter.write' overrides a base; add @override.",
+            "Method 'FileEvidenceWriter.write' overrides a base. Add @typing.override.",
         )
     ]
 

@@ -4,9 +4,9 @@ A git hook exports `GIT_DIR` and `GIT_INDEX_FILE`. Without this scrub, a `git
 add` inside a new project writes to the calling repository's index, so every
 command here runs with those variables removed.
 
-Each program is resolved on `PATH` first, and the resolved location is what
-runs. A failure of either kind raises `OSError`, which the router turns into the
-retryable `dependency_unavailable` envelope and exit code 4.
+Each program is resolved on `PATH` first, and the resolved path is what runs. A
+failure of either kind raises `OSError`. `_foundation.cli_outcomes` states the
+exit code and the envelope that failure maps to.
 """
 
 from collections.abc import Sequence

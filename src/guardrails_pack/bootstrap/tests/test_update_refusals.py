@@ -1,15 +1,15 @@
 """The eight refusals of a Pack Update, and the one promise each one ends with.
 
-`U1` to `U8` of #85 section 4.2 are one rule each, and `U4` is one rule with two
-cases: the destination is not a git repository, or its worktree is dirty
-(conflict C17 of #85). Each case below provokes one rule against a real tree,
-and each one measures the same three facts: the message names the rule, it ends
-with the promise, and the tree did not change.
+`U1` to `U8` are one rule each, and `U4` is one rule with two cases: the
+destination is not a git repository, or its worktree is dirty. Each case below
+provokes one rule against a real tree, and each one states the same three
+facts: the message names the rule, it ends with the promise, and the tree did
+not change.
 
-An equal version is not a refusal. `test_update.py` measures that one, because
-it is a run that succeeds.
+An equal version is not a refusal. `test_update.py` states that one, because it
+is a run that succeeds.
 
-These cases prepare assertion `UPD-8` of #81, and the `U7` case prepares `REM-6`.
+These cases prepare assertion `UPD-8` of the acceptance suite.
 """
 
 from collections.abc import Mapping

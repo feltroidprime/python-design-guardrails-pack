@@ -1,9 +1,9 @@
-"""Group 1 of #81: root-to-terminal parity, `PAR-1` to `PAR-11`.
+"""Group 1: root-to-terminal parity, `PAR-1` to `PAR-11`.
 
-The group certifies invariants `P1` to `P5`, refusals `R1` to `R9`, the two path
-renames, and the offline rule (#85 sections 3.5 and 4.1). Every projection here
-runs from the installed console script, and the whole group reads `TERM` before
-any assertion of another group writes into it.
+The group states invariants `P1` to `P5`, refusals `R1` to `R9`, the two path
+renames, and the offline rule. Every projection here runs from the installed
+console script, and the whole group reads `TERM` before any assertion of
+another group writes into it.
 """
 
 from collections.abc import Callable

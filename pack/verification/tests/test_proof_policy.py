@@ -1,3 +1,12 @@
+"""Check that this repository's own `pack/proof/policy.toml` derives correctly.
+
+These tests load the real policy of this tree, not a fixture tree, and check
+three facts: the source and test roots it declares, that it names no package
+of its own, and that it derives each behavior root from the discovered
+capabilities and package name. `pytest.mark.proof` keeps them inside the
+`just prove` loop.
+"""
+
 from pathlib import Path
 
 import pytest

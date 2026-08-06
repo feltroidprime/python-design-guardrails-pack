@@ -1,4 +1,4 @@
-"""Run commands, copy trees, and read the gate, for every assertion of #81.
+"""Run commands, copy trees, and read the gate, for every assertion of the acceptance suite.
 
 Nothing here states an assertion. This module gives each test module the same
 five services: one process runner, the git readings, a way to duplicate a tree

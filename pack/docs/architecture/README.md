@@ -20,14 +20,8 @@ project.
 
 ## Ownership
 
-Two surfaces, and one predicate states both. Pack-owned is the `pack/`
-directory, plus `_`-prefixed names and `py.typed` inside the package.
-User-owned is everything else. `pack/scripts/ownership.py` holds the predicate,
-and no file holds a list of ownership roots. ADR-0008 records the decision.
-
-An update of the pack replaces whole pack-owned files, and it writes no
-user-owned file. Four user-owned entry points at the root are thin shims into
-`pack/`. An update reports a suggested change to each one and never writes it.
+`pack/scripts/ownership.py` holds the ownership predicate, and `AGENTS.md`
+states it. ADR-0008 records the decision.
 
 ## Stable seams
 

@@ -1,4 +1,4 @@
-"""ARCH030 for direct local/imported bases; ambiguous or dynamic bases skip."""
+"""ARCH030 for direct local/imported bases. An ambiguous or dynamic base is skipped."""
 
 import ast
 from typing import TYPE_CHECKING
@@ -74,7 +74,7 @@ def check_override_discipline(modules: Modules) -> list[Violation]:
                 path,
                 method,
                 "ARCH030",
-                f"Method '{node.name}.{method.name}' overrides a base; add @override.",
+                f"Method '{node.name}.{method.name}' overrides a base. Add @typing.override.",
             )
             for method in node.body
             if isinstance(method, (ast.AsyncFunctionDef, ast.FunctionDef))

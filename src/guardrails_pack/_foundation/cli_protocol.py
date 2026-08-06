@@ -4,9 +4,9 @@ One success document goes to stdout. One error envelope goes to stderr. A
 continuation token is opaque, and it is bound to the query selection that made
 it, so a token from one query cannot page another.
 
-The envelope shape is fixed. A failure detail is written as supplied, because
-the outcome table of `cli_outcomes` no longer declares a per-outcome key
-allowlist (#85 section 6, ticket I5).
+The envelope shape is fixed. `write_failure` writes every detail the caller
+supplies, because `cli_outcomes` declares no per-outcome key allowlist. A
+caller must never put a secret or a local path in a detail value.
 """
 
 import base64

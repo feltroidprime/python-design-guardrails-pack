@@ -1,4 +1,4 @@
-"""Group 5 of #81: valid filesystem-native capabilities, `FSC-1` to `FSC-10`.
+"""Valid filesystem-native capabilities, `FSC-1` to `FSC-10`.
 
 Each deleted rule of the retired capability validator is reproved here through
 one `import-linter` contract on a `DEFECT` tree, and each `DEFECT` tree is a copy

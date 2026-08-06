@@ -1,8 +1,8 @@
 """The one error of the capability, and the shape of every refusal message.
 
-A refusal is a permanent rejection of the request, so it is a `ValueError`. The
-router maps `ValueError` to the permanent-rejection envelope and to exit code 3
-(#85 section 3.1), which is why this capability never selects an exit code.
+A refusal is a permanent rejection of the request, so it is a `ValueError`.
+`_foundation.cli_outcomes` states the whole map from an exception to its exit
+code. This capability never selects one of its own.
 
 Every refusal message has the same four parts, in this order: the rule that
 fired, what is wrong, why the rule exists, and what to do instead. It ends with

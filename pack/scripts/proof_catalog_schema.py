@@ -1,4 +1,8 @@
-"""TOML schema parsing for a policy and its independent property catalogs."""
+"""TOML schema parsing for a policy and its independent property catalogs.
+
+This is machinery for `proof_catalog.py`. It emits no PROOF code. A
+malformed policy or catalog raises `CatalogError` instead.
+"""
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime

@@ -3,8 +3,9 @@
 The repository's own gate proves the rules pass on clean code; these tests
 prove each rule fires on planted violations and stays silent on legitimate
 idioms.
-They go through architecture_guard.check_file so the composition under test
-is the shipped one: single parse, all rule families, central marker handling.
+They go through architecture_guard.check_files so the composition under
+test is the shipped one: single parse, all rule families, central marker
+handling.
 """
 
 from pathlib import Path

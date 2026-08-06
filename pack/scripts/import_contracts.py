@@ -5,9 +5,9 @@
 discovers two values, injects them into the template, and calls `lint-imports`
 on the result:
 
-* the import package name, which is the one directory under `src/`;
+* the import package name, which is the one directory under `src/`.
 * the capability list, which is every directory directly under the package that
-  does not start with `_` or `.` (rule L1 of #85).
+  does not start with `_` or `.`.
 
 `import-linter` reads the package name from its config file and gives no
 command-line flag for it, so the injection keeps the pack-owned template free of
@@ -129,7 +129,7 @@ def main(argv: list[str]) -> int:
             return 2
         return run(root)
     except (DiscoveryError, OSError) as error:
-        print(f"Import contracts could not run: {error}", file=sys.stderr)
+        print(f"Import contracts did not run: {error}", file=sys.stderr)
         return 2
 
 

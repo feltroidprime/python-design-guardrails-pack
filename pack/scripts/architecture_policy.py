@@ -1,4 +1,4 @@
-"""Load and validate the deterministic architecture policy (architecture.toml).
+"""Load and check the deterministic architecture policy (architecture.toml).
 
 Two roots exist and they are not the same. The repository root holds `src/`,
 `tests/` and `docs/`. The pack root is `pack/` below it, and it holds the
@@ -6,8 +6,8 @@ policy, the guard scripts, the proof surface and the pack's own tests.
 
 The policy declares no package name. Identity lives in `pyproject.toml`, so the
 package is derived: `src/` holds exactly one directory, and that directory is
-the package. A pack-owned file that named the package could not be
-byte-identical in every project (invariant O1 of #85).
+the package. A pack-owned file that named the package cannot be
+byte-identical in every project.
 """
 
 from dataclasses import dataclass
@@ -84,7 +84,7 @@ def derive_package(source_root: Path) -> str:
     if len(candidates) != 1:
         found = ", ".join(candidates) or "nothing"
         raise PolicyError(
-            f"{source_root.as_posix()} must hold exactly one package directory; found {found}"
+            f"{source_root.as_posix()} must hold exactly one package directory. Found {found}"
         )
     return candidates[0]
 
